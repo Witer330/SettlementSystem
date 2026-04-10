@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { employeeController } from '../controllers/employee.controller';
+import { employeeController, getNextCode } from '../controllers/employee.controller';
 import { authenticate } from '../middleware/auth.middleware';
 
 const router = Router();
@@ -8,6 +8,7 @@ const router = Router();
 router.use(authenticate);
 
 // 员工管理路由
+router.get('/next-code', getNextCode);
 router.get('/', employeeController.getList);
 router.get('/:id', employeeController.getDetail);
 router.post('/', employeeController.create);

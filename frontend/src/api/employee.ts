@@ -5,7 +5,8 @@ export interface Employee {
   name: string;
   code: string;
   departmentId?: number | null;
-  jobType: string;
+  jobType?: string;
+  jobTypeId?: number | null;
   payType: string; // hourly(时薪) / piece(计件)
   hourlyRate: number;
   pieceRate: number; // 默认计件单价
@@ -13,6 +14,11 @@ export interface Employee {
   createdAt: string;
   updatedAt: string;
   department?: {
+    id: number;
+    name: string;
+    code: string;
+  };
+  jobTypeRef?: {
     id: number;
     name: string;
     code: string;
@@ -36,6 +42,12 @@ export interface EmployeeListResponse {
 }
 
 export const employeeApi = {
+  // 获取下一个员工工号
+  async getNextCode(): Promise<string> {
+    const result = await api.get<{ code: number; message: string; data: string }>('/employees/next-code');
+    return result.data;
+  },
+
   // 获取员工列表
   async getList(params?: EmployeeListParams): Promise<EmployeeListResponse> {
     return await api.get<EmployeeListResponse>('/employees', { params });

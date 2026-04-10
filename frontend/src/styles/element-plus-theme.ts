@@ -3,9 +3,7 @@
    Based on Figma Design System
    ============================================================ */
 
-import type { App } from 'vue'
-
-export const setupElementPlusTheme = (app: App) => {
+export const setupElementPlusTheme = () => {
   // Element Plus will use CSS variables from design-system.css
   // This file can be extended for dynamic theme switching if needed
 

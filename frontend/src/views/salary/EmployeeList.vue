@@ -12,14 +12,14 @@
     </div>
 
     <!-- Search Bar -->
-    <el-card class="search-card" shadow="never">
-      <el-form :model="searchForm" inline>
+    <el-card class="search-card">
+      <el-form :model="searchForm" inline size="small">
         <el-form-item label="关键词">
           <el-input
             v-model="searchForm.keyword"
             placeholder="员工姓名或工号"
             clearable
-            style="width: 200px"
+            style="width: 180px"
           />
         </el-form-item>
         <el-form-item label="状态">
@@ -27,7 +27,7 @@
             v-model="searchForm.status"
             placeholder="全部状态"
             clearable
-            style="width: 120px"
+            style="width: 100px"
           >
             <el-option label="启用" value="active" />
             <el-option label="禁用" value="inactive" />
@@ -43,62 +43,62 @@
     </el-card>
 
     <!-- Data Table -->
-    <el-card class="table-card" shadow="never">
+    <el-card class="table-card">
       <el-table
         v-loading="loading"
         :data="employeeList"
         stripe
         style="width: 100%"
+        :cell-style="{ padding: '12px' }"
       >
-        <el-table-column prop="code" label="工号" width="120" />
-        <el-table-column prop="name" label="姓名" width="120" />
-        <el-table-column label="部门" width="150">
+        <el-table-column prop="code" label="工号" width="100" align="left" show-overflow-tooltip />
+        <el-table-column prop="name" label="姓名" width="100" align="left" show-overflow-tooltip />
+        <el-table-column label="部门" min-width="150" align="left" show-overflow-tooltip>
           <template #default="{ row }">
             {{ row.department?.name || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="jobType" label="工种" width="120" />
-        <el-table-column label="计费方式" width="100">
+        <el-table-column label="工种" min-width="150" align="left" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.jobTypeRef?.name || row.jobType || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="计费方式" width="100" align="center" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tag :type="row.payType === 'piece' ? 'primary' : 'success'" size="small">
               {{ row.payType === 'piece' ? '计件' : '时薪' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="时薪" width="100">
+        <el-table-column label="时薪" width="120" align="right" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.payType === 'piece'">-</span>
             <span v-else>¥{{ row.hourlyRate.toFixed(2) }}</span>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="80">
+        <el-table-column label="状态" width="90" align="center" show-overflow-tooltip>
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'danger'" size="small">
+            <el-tag
+              :type="row.status === 'active' ? 'success' : 'info'"
+              effect="dark"
+              size="small"
+            >
               {{ row.status === 'active' ? '启用' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="创建时间" width="180">
+        <el-table-column label="创建时间" width="180" align="left" show-overflow-tooltip>
           <template #default="{ row }">
             {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="150" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button
-              link
-              type="primary"
-              :icon="Edit"
-              @click="handleEdit(row)"
-            >
+            <el-button link type="primary" @click="handleEdit(row)">
               编辑
             </el-button>
-            <el-button
-              link
-              type="danger"
-              :icon="Delete"
-              @click="handleDelete(row)"
-            >
+            <el-divider direction="vertical" />
+            <el-button link type="danger" @click="handleDelete(row)">
               删除
             </el-button>
           </template>
@@ -133,7 +133,7 @@
         label-width="100px"
       >
         <el-form-item label="工号" prop="code">
-          <el-input v-model="formData.code" placeholder="请输入工号" />
+          <el-input v-model="formData.code" placeholder="自动生成" disabled />
         </el-form-item>
         <el-form-item label="姓名" prop="name">
           <el-input v-model="formData.name" placeholder="请输入姓名" />
@@ -153,8 +153,20 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="工种" prop="jobType">
-          <el-input v-model="formData.jobType" placeholder="请输入工种" />
+        <el-form-item label="工种" prop="jobTypeId">
+          <el-select
+            v-model="formData.jobTypeId"
+            placeholder="请选择工种"
+            clearable
+            style="width: 100%"
+          >
+            <el-option
+              v-for="jt in jobTypeList"
+              :key="jt.id"
+              :label="jt.name"
+              :value="jt.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="计费方式" prop="payType">
           <el-radio-group v-model="formData.payType" @change="handlePayTypeChange">
@@ -189,9 +201,10 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue';
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus';
-import { Plus, Search, Refresh, Edit, Delete } from '@element-plus/icons-vue';
+import { Plus, Search, Refresh } from '@element-plus/icons-vue';
 import { employeeApi, type Employee } from '../../api/employee';
 import { departmentApi, type Department } from '../../api/department';
+import { jobTypeApi, type JobType } from '../../api/jobType';
 
 // Data
 const loading = ref(false);
@@ -218,12 +231,15 @@ const formData = reactive({
   code: '',
   name: '',
   departmentId: null as number | null,
+  jobTypeId: null as number | null,
   jobType: '',
   payType: 'hourly' as 'hourly' | 'piece',
   hourlyRate: 0,
   pieceRate: 0,
   status: 'active'
 });
+
+const jobTypeList = ref<JobType[]>([]);
 
 // 计费方式变更处理
 const handlePayTypeChange = (value: 'hourly' | 'piece') => {
@@ -239,7 +255,7 @@ const handlePayTypeChange = (value: 'hourly' | 'piece') => {
 const formRules: FormRules = {
   code: [{ required: true, message: '请输入工号', trigger: 'blur' }],
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
-  jobType: [{ required: true, message: '请输入工种', trigger: 'blur' }]
+  jobTypeId: [{ required: true, message: '请选择工种', trigger: 'change' }]
 };
 
 // Methods
@@ -249,6 +265,15 @@ const loadDepartmentList = async () => {
     departmentList.value = departments.filter(d => d.status === 'active');
   } catch (error: any) {
     ElMessage.error(error.message || '加载部门列表失败');
+  }
+};
+
+const loadJobTypeList = async () => {
+  try {
+    const jobTypes = await jobTypeApi.getList();
+    jobTypeList.value = jobTypes.filter(jt => jt.status === 'active');
+  } catch (error: any) {
+    ElMessage.error(error.message || '加载工种列表失败');
   }
 };
 
@@ -293,21 +318,27 @@ const handleSizeChange = (size: number) => {
   loadEmployeeList();
 };
 
-const handleCreate = () => {
-  dialogMode.value = 'create';
-  dialogTitle.value = '新增员工';
-  Object.assign(formData, {
-    id: 0,
-    code: '',
-    name: '',
-    departmentId: null,
-    jobType: '',
-    payType: 'hourly',
-    hourlyRate: 0,
-    pieceRate: 0,
-    status: 'active'
-  });
-  dialogVisible.value = true;
+const handleCreate = async () => {
+  try {
+    dialogMode.value = 'create';
+    dialogTitle.value = '新增员工';
+    const nextCode = await employeeApi.getNextCode();
+    Object.assign(formData, {
+      id: 0,
+      code: nextCode,
+      name: '',
+      departmentId: null,
+      jobTypeId: null,
+      jobType: '',
+      payType: 'hourly',
+      hourlyRate: 0,
+      pieceRate: 0,
+      status: 'active'
+    });
+    dialogVisible.value = true;
+  } catch (error: any) {
+    ElMessage.error(error.message || '获取员工工号失败');
+  }
 };
 
 const handleEdit = (row: Employee) => {
@@ -318,6 +349,7 @@ const handleEdit = (row: Employee) => {
     code: row.code,
     name: row.name,
     departmentId: row.departmentId || null,
+    jobTypeId: row.jobTypeId || null,
     jobType: row.jobType,
     payType: row.payType || 'hourly',
     hourlyRate: row.hourlyRate,
@@ -383,20 +415,27 @@ const formatDate = (date: string) => {
 // Lifecycle
 onMounted(() => {
   loadDepartmentList();
+  loadJobTypeList();
   loadEmployeeList();
 });
 </script>
 
 <style scoped>
 .employee-list {
-  padding: var(--spacing-6);
+  padding: var(--space-6);
+  background: #f5f7fa;
+  min-height: calc(100vh - 120px);
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--spacing-6);
+  margin-bottom: var(--space-4);
+  padding: var(--space-4);
+  background: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 .header-content {
@@ -405,29 +444,51 @@ onMounted(() => {
 
 .page-title {
   margin: 0;
-  font-size: var(--font-size-h1);
-  font-weight: var(--font-weight-700);
-  color: var(--color-text-primary);
-  margin-bottom: var(--spacing-2);
+  font-size: 20px;
+  font-weight: 600;
+  color: #1f2937;
 }
 
 .page-description {
   margin: 0;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-secondary);
+  font-size: var(--font-size-small);
+  color: #64748b;
+  margin-top: var(--space-1);
 }
 
 .search-card {
-  margin-bottom: var(--spacing-6);
+  margin-bottom: var(--space-4);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.search-card :deep(.el-card__body) {
+  padding: var(--space-4);
 }
 
 .table-card {
-  margin-bottom: var(--spacing-6);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+}
+
+.table-card :deep(.el-card__body) {
+  padding: 0;
+}
+
+.table-card :deep(.el-table) {
+  border-radius: 0;
+}
+
+/* 防止表格单元格内容换行 */
+.table-card :deep(.el-table__cell) {
+  white-space: nowrap !important;
 }
 
 .pagination {
   display: flex;
   justify-content: flex-end;
-  margin-top: var(--spacing-6);
+  margin-top: var(--space-4);
+  padding: var(--space-4);
 }
 </style>

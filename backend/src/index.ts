@@ -37,6 +37,7 @@ import coefficientRoutes from './routes/coefficient.routes';
 import dailyPieceRoutes from './routes/dailyPiece.routes';
 import productRoutes from './routes/product.routes';
 import departmentRoutes from './routes/department.routes';
+import jobTypeRoutes from './routes/jobType.routes';
 
 app.use('/api/v1/auth', authRoutes);
 app.use('/api/v1/employees', employeeRoutes);
@@ -46,6 +47,7 @@ app.use('/api/v1/coefficients', coefficientRoutes);
 app.use('/api/v1/daily-records', dailyPieceRoutes);
 app.use('/api/v1/products', productRoutes);
 app.use('/api/v1/departments', departmentRoutes);
+app.use('/api/v1/job-types', jobTypeRoutes);
 
 // Root endpoint
 app.get('/', (req, res) => {

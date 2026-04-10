@@ -33,6 +33,17 @@ model Department {
   employees Employee[]
 }
 
+model JobType {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  code      String   @unique
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  employees Employee[]
+}
+
 // ============ 工资核算 ============
 
 model Employee {
@@ -40,7 +51,8 @@ model Employee {
   name         String
   code         String   @unique
   departmentId Int?
-  jobType      String
+  jobType      String?
+  jobTypeId    Int?
   payType      String   @default("hourly")  // hourly(时薪) / piece(计件)
   hourlyRate   Float    @default(0)
   pieceRate    Float    @default(0)  // 默认计件单价
@@ -49,6 +61,7 @@ model Employee {
   updatedAt    DateTime @updatedAt
 
   department      Department?           @relation(fields: [departmentId], references: [id])
+  jobTypeRef      JobType?              @relation(fields: [jobTypeId], references: [id])
   processRates    ProcessRate[]
   productionRecords ProductionRecord[]
   salaryBills     SalaryBill[]

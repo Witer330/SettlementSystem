@@ -4,6 +4,45 @@ import { AuthRequest } from '../middleware/auth.middleware';
 
 const prisma = new PrismaClient();
 
+// 获取下一个员工工号
+export const getNextCode = async (req: Request, res: Response) => {
+  try {
+    // 查找最大工号
+    const lastEmployee = await prisma.employee.findFirst({
+      where: {
+        code: {
+          startsWith: 'EMP'
+        }
+      },
+      orderBy: {
+        code: 'desc'
+      },
+      select: {
+        code: true
+      }
+    });
+
+    let nextCode = 'EMP001';
+    if (lastEmployee) {
+      const lastNum = parseInt(lastEmployee.code.replace('EMP', ''));
+      const nextNum = lastNum + 1;
+      nextCode = `EMP${String(nextNum).padStart(3, '0')}`;
+    }
+
+    res.json({
+      code: 0,
+      message: '获取成功',
+      data: nextCode
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取下一个员工工号失败',
+      data: null
+    });
+  }
+};
+
 export const employeeController = {
   // 获取员工列表
   async getList(req: Request, res: Response) {
@@ -36,7 +75,8 @@ export const employeeController = {
           skip,
           take,
           include: {
-            department: true
+            department: true,
+            jobTypeRef: true
           },
           orderBy: {
             createdAt: 'desc'
@@ -74,6 +114,7 @@ export const employeeController = {
         where: { id: Number(id) },
         include: {
           department: true,
+          jobTypeRef: true,
           processRates: {
             include: {
               process: true
@@ -107,9 +148,9 @@ export const employeeController = {
   // 创建员工
   async create(req: AuthRequest, res: Response) {
     try {
-      const { name, code, departmentId, jobType, payType, hourlyRate, status = 'active' } = req.body;
+      const { name, code, departmentId, jobTypeId, payType, hourlyRate, status = 'active' } = req.body;
 
-      if (!name || !code || !jobType) {
+      if (!name || !code) {
         return res.status(400).json({
           code: 400,
           message: '缺少必填字段',
@@ -135,13 +176,14 @@ export const employeeController = {
           name,
           code,
           departmentId: departmentId ? Number(departmentId) : null,
-          jobType,
+          jobTypeId: jobTypeId ? Number(jobTypeId) : null,
           payType: payType || 'hourly',
           hourlyRate: hourlyRate || 0,
           status
         },
         include: {
-          department: true
+          department: true,
+          jobTypeRef: true
         }
       });
 
@@ -163,7 +205,7 @@ export const employeeController = {
   async update(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
-      const { name, code, departmentId, jobType, payType, hourlyRate, status } = req.body;
+      const { name, code, departmentId, jobTypeId, payType, hourlyRate, status } = req.body;
 
       const employee = await prisma.employee.update({
         where: { id: Number(id) },
@@ -171,13 +213,14 @@ export const employeeController = {
           ...(name !== undefined && { name }),
           ...(code !== undefined && { code }),
           ...(departmentId !== undefined && { departmentId: departmentId ? Number(departmentId) : null }),
-          ...(jobType !== undefined && { jobType }),
+          ...(jobTypeId !== undefined && { jobTypeId: jobTypeId ? Number(jobTypeId) : null }),
           ...(payType !== undefined && { payType }),
           ...(hourlyRate !== undefined && { hourlyRate }),
           ...(status !== undefined && { status })
         },
         include: {
-          department: true
+          department: true,
+          jobTypeRef: true
         }
       });
 
