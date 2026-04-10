@@ -39,13 +39,18 @@
         <el-card class="setting-card" shadow="never">
           <div class="card-headerbar">
             <h3 class="section-title">工种列表</h3>
-            <el-button type="primary" :icon="Plus" @click="handleCreateJobType">
-              新增工种
-            </el-button>
+            <div class="header-actions">
+              <el-checkbox v-model="includeDeletedJobTypes" @change="loadJobTypeList">
+                显示已删除工种
+              </el-checkbox>
+              <el-button type="primary" :icon="Plus" @click="handleCreateJobType">
+                新增工种
+              </el-button>
+            </div>
           </div>
           <el-table v-loading="jobTypeLoading" :data="jobTypeList" stripe style="width: 100%">
             <el-table-column prop="code" label="编码" width="120" />
-            <el-table-column prop="name" label="名称" width="150" />
+            <el-table-column prop="name" label="名称" width="="150" />
             <el-table-column label="员工数量" width="100">
               <template #default="{ row }">
                 {{ row.employees?.length || 0 }}
@@ -53,8 +58,8 @@
             </el-table-column>
             <el-table-column label="状态" width="80">
               <template #default="{ row }">
-                <el-tag :type="row.status === 'active' ? 'success' : 'danger'" size="small">
-                  {{ row.status === 'active' ? '启用' : '禁用' }}
+                <el-tag :type="row.status === 'active' ? 'success' : row.status === 'deleted' ? 'danger' : 'info'" size="small">
+                  {{ row.status === 'active' ? '启用' : row.status === 'deleted' ? '已删除' : '禁用' }}
                 </el-tag>
               </template>
             </el-table-column>
@@ -179,6 +184,7 @@ const backupLoading = ref(false);
 // 工种管理
 const jobTypeLoading = ref(false);
 const jobTypeList = ref<JobType[]>([]);
+const includeDeletedJobTypes = ref(false);
 const jobTypeDialogVisible = ref(false);
 const jobTypeDialogTitle = ref('新增工种');
 const jobTypeDialogMode = ref<'create' | 'edit'>('create');
@@ -285,7 +291,7 @@ const formatDate = (date: string) => {
 const loadJobTypeList = async () => {
   try {
     jobTypeLoading.value = true;
-    const jobTypes = await jobTypeApi.getList();
+    const jobTypes = await jobTypeApi.getList(includeDeletedJobTypes.value);
     jobTypeList.value = jobTypes;
   } catch (error: any) {
     ElMessage.error(error.message || '加载工种列表失败');

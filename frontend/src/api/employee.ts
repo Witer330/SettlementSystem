@@ -31,6 +31,7 @@ export interface EmployeeListParams {
   keyword?: string;
   status?: string;
   departmentId?: number;
+  includeDeleted?: boolean;
 }
 
 export interface EmployeeListResponse {

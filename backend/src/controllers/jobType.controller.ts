@@ -45,7 +45,16 @@ export const getNextCode = async (req: Request, res: Response) => {
 // 获取工种列表
 export const getJobTypes = async (req: Request, res: Response) => {
   try {
+    const { includeDeleted } = req.query;
+
+    const where: any = {};
+    // 默认不显示已删除的工种
+    if (includeDeleted !== 'true') {
+      where.status = 'active';
+    }
+
     const jobTypes = await prisma.jobType.findMany({
+      where,
       include: {
         employees: {
           where: { status: 'active' }
@@ -202,17 +211,14 @@ export const updateJobType = async (req: Request, res: Response) => {
   }
 };
 
-// 删除工种
+// 删除工种（软删除）
 export const deleteJobType = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    // 检查工种下是否有员工
+    // 检查工种是否存在
     const jobType = await prisma.jobType.findUnique({
-      where: { id: parseInt(id as string) },
-      include: {
-        employees: true
-      }
+      where: { id: parseInt(id as string) }
     });
 
     if (!jobType) {
@@ -223,16 +229,10 @@ export const deleteJobType = async (req: Request, res: Response) => {
       });
     }
 
-    if (jobType.employees && jobType.employees.length > 0) {
-      return res.status(400).json({
-        code: 400,
-        message: '工种下存在员工，无法删除',
-        data: null
-      });
-    }
-
-    await prisma.jobType.delete({
-      where: { id: parseInt(id as string) }
+    // 软删除：将状态改为 deleted
+    await prisma.jobType.update({
+      where: { id: parseInt(id as string) },
+      data: { status: 'deleted' }
     });
 
     res.json({

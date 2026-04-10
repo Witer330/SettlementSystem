@@ -18,8 +18,10 @@ export const jobTypeApi = {
   },
 
   // 获取工种列表
-  async getList(): Promise<JobType[]> {
-    return await api.get<JobType[]>('/job-types');
+  async getList(includeDeleted?: boolean): Promise<JobType[]> {
+    return await api.get<JobType[]>('/job-types', {
+      params: { includeDeleted }
+    });
   },
 
   // 获取工种详情

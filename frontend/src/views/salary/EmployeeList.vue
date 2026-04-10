@@ -31,7 +31,13 @@
           >
             <el-option label="启用" value="active" />
             <el-option label="禁用" value="inactive" />
+            <el-option label="离职" value="deleted" />
           </el-select>
+        </el-form-item>
+        <el-form-item>
+          <el-checkbox v-model="searchForm.includeDeleted" @change="handleSearch">
+            显示离职员工
+          </el-checkbox>
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :icon="Search" @click="handleSearch">
@@ -79,11 +85,11 @@
         <el-table-column label="状态" width="90" align="center" show-overflow-tooltip>
           <template #default="{ row }">
             <el-tag
-              :type="row.status === 'active' ? 'success' : 'info'"
+              :type="row.status === 'active' ? 'success' : row.status === 'deleted' ? 'danger' : 'info'"
               effect="dark"
               size="small"
             >
-              {{ row.status === 'active' ? '启用' : '禁用' }}
+              {{ row.status === 'active' ? '启用' : row.status === 'deleted' ? '离职' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -217,7 +223,8 @@ const formRef = ref<FormInstance>();
 
 const searchForm = reactive({
   keyword: '',
-  status: ''
+  status: '',
+  includeDeleted: false
 });
 
 const pagination = reactive({
@@ -284,7 +291,8 @@ const loadEmployeeList = async () => {
       page: pagination.page,
       pageSize: pagination.pageSize,
       keyword: searchForm.keyword || undefined,
-      status: searchForm.status || undefined
+      status: searchForm.status || undefined,
+      includeDeleted: searchForm.includeDeleted
     });
     employeeList.value = response.list;
     pagination.total = response.total;
@@ -303,6 +311,7 @@ const handleSearch = () => {
 const handleReset = () => {
   searchForm.keyword = '';
   searchForm.status = '';
+  searchForm.includeDeleted = false;
   pagination.page = 1;
   loadEmployeeList();
 };

@@ -47,7 +47,7 @@ export const employeeController = {
   // 获取员工列表
   async getList(req: Request, res: Response) {
     try {
-      const { page = 1, pageSize = 10, keyword, status, departmentId } = req.query;
+      const { page = 1, pageSize = 10, keyword, status, departmentId, includeDeleted = 'false' } = req.query;
 
       const skip = (Number(page) - 1) * Number(pageSize);
       const take = Number(pageSize);
@@ -61,7 +61,10 @@ export const employeeController = {
         ];
       }
 
-      if (status) {
+      // 默认不显示离职员工，除非明确要求
+      if (includeDeleted !== 'true') {
+        where.status = 'active';
+      } else if (status) {
         where.status = status;
       }
 
@@ -238,13 +241,29 @@ export const employeeController = {
     }
   },
 
-  // 删除员工
+  // 删除员工（软删除）
   async delete(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params;
+      const employeeId = Number(id);
 
-      await prisma.employee.delete({
-        where: { id: Number(id) }
+      // 检查员工是否存在
+      const employee = await prisma.employee.findUnique({
+        where: { id: employeeId }
+      });
+
+      if (!employee) {
+        return res.status(404).json({
+          code: 404,
+          message: '员工不存在',
+          data: null
+        });
+      }
+
+      // 软删除：将状态改为 deleted
+      await prisma.employee.update({
+        where: { id: employeeId },
+        data: { status: 'deleted' }
       });
 
       res.json({
