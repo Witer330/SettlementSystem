@@ -22,11 +22,14 @@
               <el-icon><Money /></el-icon>
               <span>工资核算</span>
             </template>
-            <el-menu-item index="/salary/employees">员工管理</el-menu-item>
-            <el-menu-item index="/salary/products">产品管理</el-menu-item>
-            <el-menu-item index="/salary/processes">工序管理</el-menu-item>
-            <el-menu-item index="/salary/production-records">生产报工</el-menu-item>
-            <el-menu-item index="/salary/salary-calculation">工资计算</el-menu-item>
+            <el-menu-item index="/dashboard/salary/employees">员工管理</el-menu-item>
+            <el-menu-item index="/dashboard/salary/products">产品管理</el-menu-item>
+            <el-menu-item index="/dashboard/salary/processes">工序管理</el-menu-item>
+            <el-menu-item index="/dashboard/salary/production-records">生产报工</el-menu-item>
+            <el-menu-item index="/dashboard/salary/salary-calculation">工资计算</el-menu-item>
+            <el-menu-item index="/dashboard/salary/specs">产品规格</el-menu-item>
+            <el-menu-item index="/dashboard/salary/coefficients">规格系数</el-menu-item>
+            <el-menu-item index="/dashboard/salary/daily-records">计件录入</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="inventory">
@@ -34,12 +37,12 @@
               <el-icon><Box /></el-icon>
               <span>进销存</span>
             </template>
-            <el-menu-item index="/inventory/suppliers">供应商管理</el-menu-item>
-            <el-menu-item index="/inventory/customers">客户管理</el-menu-item>
-            <el-menu-item index="/inventory/materials">物料管理</el-menu-item>
-            <el-menu-item index="/inventory/purchase-orders">采购管理</el-menu-item>
-            <el-menu-item index="/inventory/sales-orders">销售管理</el-menu-item>
-            <el-menu-item index="/inventory/inventory-query">库存查询</el-menu-item>
+            <el-menu-item index="/dashboard/inventory/suppliers">供应商管理</el-menu-item>
+            <el-menu-item index="/dashboard/inventory/customers">客户管理</el-menu-item>
+            <el-menu-item index="/dashboard/inventory/materials">物料管理</el-menu-item>
+            <el-menu-item index="/dashboard/inventory/purchase-orders">采购管理</el-menu-item>
+            <el-menu-item index="/dashboard/inventory/sales-orders">销售管理</el-menu-item>
+            <el-menu-item index="/dashboard/inventory/inventory-query">库存查询</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="system">
@@ -47,9 +50,9 @@
               <el-icon><Setting /></el-icon>
               <span>系统设置</span>
             </template>
-            <el-menu-item index="/system/users">用户管理</el-menu-item>
-            <el-menu-item index="/system/departments">部门管理</el-menu-item>
-            <el-menu-item index="/system/settings">系统设置</el-menu-item>
+            <el-menu-item index="/dashboard/system/users">用户管理</el-menu-item>
+            <el-menu-item index="/dashboard/system/departments">部门管理</el-menu-item>
+            <el-menu-item index="/dashboard/system/settings">系统设置</el-menu-item>
           </el-sub-menu>
         </el-menu>
       </el-aside>
@@ -67,7 +70,15 @@
 
           <div class="header-right">
             <div class="user-info">
-              <span class="text-body">管理员</span>
+              <span class="text-body">{{ userName }}</span>
+              <el-button
+                link
+                type="primary"
+                :icon="Lock"
+                @click="showPasswordDialog = true"
+              >
+                修改密码
+              </el-button>
             </div>
             <el-button
               type="primary"
@@ -84,48 +95,174 @@
         </el-main>
       </el-container>
     </el-container>
+
+    <!-- 修改密码对话框 -->
+    <el-dialog
+      v-model="showPasswordDialog"
+      title="修改密码"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <el-form
+        ref="passwordFormRef"
+        :model="passwordForm"
+        :rules="passwordRules"
+        label-width="100px"
+      >
+        <el-form-item label="旧密码" prop="oldPassword">
+          <el-input
+            v-model="passwordForm.oldPassword"
+            type="password"
+            placeholder="请输入旧密码"
+            show-password
+          />
+        </el-form-item>
+        <el-form-item label="新密码" prop="newPassword">
+          <el-input
+            v-model="passwordForm.newPassword"
+            type="password"
+            placeholder="请输入新密码"
+            show-password
+          />
+        </el-form-item>
+        <el-form-item label="确认密码" prop="confirmPassword">
+          <el-input
+            v-model="passwordForm.confirmPassword"
+            type="password"
+            placeholder="请再次输入新密码"
+            show-password
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showPasswordDialog = false">取消</el-button>
+        <el-button type="primary" :loading="passwordLoading" @click="handleChangePassword">
+          确定
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
-import { House, Money, Box, Setting, Fold, Expand } from '@element-plus/icons-vue'
+import { ref, computed, reactive } from 'vue'
+import { House, Money, Box, Setting, Fold, Expand, Lock } from '@element-plus/icons-vue'
 import { useRouter, useRoute } from 'vue-router'
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { authApi, tokenManager } from '../api/auth'
 
 const router = useRouter()
 const route = useRoute()
 
 const isCollapsed = ref(false)
 const sidebarWidth = computed(() => isCollapsed.value ? '64px' : '240px')
-const activeMenu = computed(() => route.path.path || route.path)
+const activeMenu = computed(() => route.path)
+const userName = computed(() => tokenManager.getUser()?.name || '管理员')
+
+// 修改密码对话框
+const showPasswordDialog = ref(false)
+const passwordFormRef = ref<FormInstance>()
+const passwordLoading = ref(false)
+
+const passwordForm = reactive({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+
+const passwordRules: FormRules = {
+  oldPassword: [
+    { required: true, message: '请输入旧密码', trigger: 'blur' }
+  ],
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, message: '密码长度至少6位', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请再次输入新密码', trigger: 'blur' },
+    {
+      validator: (_rule, value, callback) => {
+        if (value !== passwordForm.newPassword) {
+          callback(new Error('两次输入的密码不一致'))
+        } else {
+          callback()
+        }
+      },
+      trigger: 'blur'
+    }
+  ]
+}
 
 const currentPageTitle = computed(() => {
   const titles: Record<string, string> = {
     '/dashboard': '首页',
-    '/salary/employees': '员工管理',
-    '/salary/products': '产品管理',
-    '/salary/processes': '工序管理',
-    '/salary/production-records': '生产报工',
-    '/salary/salary-calculation': '工资计算',
-    '/inventory/suppliers': '供应商管理',
-    '/inventory/customers': '客户管理',
-    '/inventory/materials': '物料管理',
-    '/inventory/purchase-orders': '采购管理',
-    '/inventory/sales-orders': '销售管理',
-    '/inventory/inventory-query': '库存查询',
-    '/system/users': '用户管理',
-    '/system/departments': '部门管理',
-    '/system/settings': '系统设置'
+    '/dashboard/salary/employees': '员工管理',
+    '/dashboard/salary/products': '产品管理',
+    '/dashboard/salary/processes': '工序管理',
+    '/dashboard/salary/production-records': '生产报工',
+    '/dashboard/salary/salary-calculation': '工资计算',
+    '/dashboard/salary/specs': '产品规格',
+    '/dashboard/salary/coefficients': '规格系数',
+    '/dashboard/salary/daily-records': '计件录入',
+    '/dashboard/inventory/suppliers': '供应商管理',
+    '/dashboard/inventory/customers': '客户管理',
+    '/dashboard/inventory/materials': '物料管理',
+    '/dashboard/inventory/purchase-orders': '采购管理',
+    '/dashboard/inventory/sales-orders': '销售管理',
+    '/dashboard/inventory/inventory-query': '库存查询',
+    '/dashboard/system/users': '用户管理',
+    '/dashboard/system/departments': '部门管理',
+    '/dashboard/system/settings': '系统设置'
   }
   return titles[route.path] || '首页'
 })
 
 const toggleSidebar = () => {
-  isCollapsed.value = !isCollapsed.value
+  isCollapsed.value = !isCollapsed.value;
 }
 
-const handleLogout = () => {
-  router.push('/login')
+const handleChangePassword = async () => {
+  if (!passwordFormRef.value) return;
+
+  try {
+    await passwordFormRef.value.validate();
+    passwordLoading.value = true;
+
+    await authApi.changePassword({
+      oldPassword: passwordForm.oldPassword,
+      newPassword: passwordForm.newPassword
+    });
+
+    ElMessage.success('密码修改成功');
+    showPasswordDialog.value = false;
+
+    // 重置表单
+    Object.assign(passwordForm, {
+      oldPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+  } catch (error: any) {
+    if (error !== false) {
+      ElMessage.error(error.message || '修改密码失败');
+    }
+  } finally {
+    passwordLoading.value = false;
+  }
+}
+
+const handleLogout = async () => {
+  try {
+    await authApi.logout();
+    tokenManager.clear();
+    ElMessage.success('已退出登录');
+    router.push('/login');
+  } catch (error: any) {
+    console.error('登出失败', error);
+    // 即使 API 调用失败，也清除本地数据
+    tokenManager.clear();
+    router.push('/login');
+  }
 }
 </script>
 

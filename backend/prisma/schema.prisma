@@ -41,15 +41,19 @@ model Employee {
   code         String   @unique
   departmentId Int?
   jobType      String
+  payType      String   @default("hourly")  // hourly(时薪) / piece(计件)
   hourlyRate   Float    @default(0)
+  pieceRate    Float    @default(0)  // 默认计件单价
   status       String   @default("active")
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  department      Department?      @relation(fields: [departmentId], references: [id])
+  department      Department?           @relation(fields: [departmentId], references: [id])
   processRates    ProcessRate[]
   productionRecords ProductionRecord[]
   salaryBills     SalaryBill[]
+  workLogs        WorkLog[]
+  dailyRecords    DailyPieceRecord[]
 }
 
 model Product {
@@ -66,6 +70,7 @@ model Product {
   bomItems          BillOfMaterial[]
   productProcesses  ProductProcess[]
   productionRecords ProductionRecord[]
+  specs             ProductSpec[]
 }
 
 model BillOfMaterial {
@@ -134,20 +139,50 @@ model ProductionRecord {
   process  Process  @relation(fields: [processId], references: [id])
 }
 
-model SalaryCalculation {
+// 工时记录 - 用于时薪员工
+model WorkLog {
   id        Int      @id @default(autoincrement())
   employeeId Int
-  period    String
-  amount    Float
-  details   String?
+  date      DateTime
+  hours     Float
+  remark    String?
   createdAt DateTime @default(now())
+
+  employee Employee @relation(fields: [employeeId], references: [id])
+}
+
+model SalaryBillDetail {
+  id          Int      @id @default(autoincrement())
+  billId      Int
+  type        String   // hourly / piece
+  date        DateTime
+  productId   Int?
+  processId   Int?
+  quantity    Float
+  unitPrice   Float
+  amount      Float
+  remark      String?
+  createdAt   DateTime @default(now())
+
+  bill        SalaryBill @relation(fields: [billId], references: [id])
 }
 
 model SalaryBill {
   id          Int      @id @default(autoincrement())
   employeeId  Int
-  period      String
+  period      String   // 结算周期，如 "2024-04"
+
+  // 时薪部分
+  hourlyHours Float    @default(0)  // 总工时
+  hourlyAmount Float   @default(0)  // 时薪金额
+
+  // 计件部分
+  pieceAmount Float    @default(0)  // 计件金额
+  pieceCount  Int      @default(0)  // 总件数
+
+  // 合计
   totalAmount Float
+
   status      String   @default("pending")
   approvedBy  Int?
   approvedAt  DateTime?
@@ -155,7 +190,17 @@ model SalaryBill {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  employee Employee @relation(fields: [employeeId], references: [id])
+  employee Employee        @relation(fields: [employeeId], references: [id])
+  details  SalaryBillDetail[]
+}
+
+model SalaryCalculation {
+  id        Int      @id @default(autoincrement())
+  employeeId Int
+  period    String
+  amount    Float
+  details   String?
+  createdAt DateTime @default(now())
 }
 
 // ============ 进销存 ============
@@ -184,7 +229,7 @@ model Customer {
   creditLimit Float    @default(0)
   status      String   @default("active")
   createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  updatedAt DateTime @updatedAt
 
   salesOrders SalesOrder[]
 }
@@ -283,6 +328,90 @@ model InventoryLog {
   createdAt     DateTime @default(now())
 
   material Material @relation(fields: [materialId], references: [id])
+}
+
+// ============ 产品规格计件系统 ============
+
+// 产品规格表
+model ProductSpec {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  name      String   // 规格名称，如 "Φ100×20-A3"
+  code      String   @unique // 规格编码
+
+  // 规格参数（JSON格式存储，String类型存储）
+  dimensions String   @default("{}")  // {"diameter": 100, "length": 20}
+  material   String   @default("{}")  // {"type": "steel", "thickness": 2}
+  craft      String   @default("{}")  // {"surface": "galvanized", "precision": "H7"}
+  difficulty String   @default("medium") // easy/medium/hard
+
+  // 定价相关
+  basePrice Float    @default(0) // 基础价格
+
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  product     Product         @relation(fields: [productId], references: [id])
+  specPrice   SpecPrice?
+  dailyRecords DailyPieceRecordItem[]
+}
+
+// 规格系数配置表
+model SpecCoefficient {
+  id        Int      @id @default(autoincrement())
+  type      String   // dimension/material/craft/difficulty
+  code      String   // 系数代码，如 "diameter_gt_100"
+  name      String   // 系数名称，如 "直径>100mm"
+  value     Float    // 系数值，如 0.15
+  priority  Int      @default(0) // 优先级
+
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 规格价目表
+model SpecPrice {
+  id          Int      @id @default(autoincrement())
+  specId      Int      @unique
+  unitPrice   Float    // 最终计算单价
+  effectiveAt DateTime @default(now()) // 生效时间
+  remark      String?
+
+  createdAt   DateTime @default(now())
+
+  spec ProductSpec @relation(fields: [specId], references: [id])
+}
+
+// 每日计件记录表
+model DailyPieceRecord {
+  id         Int      @id @default(autoincrement())
+  employeeId Int
+  date       DateTime // 日期
+  totalAmount Float   @default(0) // 当日总金额
+  remark     String?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  employee Employee                @relation(fields: [employeeId], references: [id])
+  items    DailyPieceRecordItem[]
+}
+
+// 每日计件明细表
+model DailyPieceRecordItem {
+  id     Int      @id @default(autoincrement())
+  recordId Int
+  specId Int
+  quantity Int     // 数量
+  unitPrice Float  // 记录时的单价
+  amount   Float   // 金额
+
+  createdAt DateTime @default(now())
+
+  record DailyPieceRecord @relation(fields: [recordId], references: [id])
+  spec   ProductSpec       @relation(fields: [specId], references: [id])
 }
 
 // ============ 系统设置 ============

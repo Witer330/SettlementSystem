@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import type { RouteRecordRaw } from 'vue-router'
+import { tokenManager } from '../api/auth'
 
-const routes = [
+const routes: RouteRecordRaw[] = [
   {
     path: '/',
     name: 'Home',
@@ -50,6 +52,21 @@ const routes = [
             path: 'salary-calculation',
             name: 'SalaryCalculation',
             component: () => import('@/views/salary/SalaryCalculation.vue')
+          },
+          {
+            path: 'specs',
+            name: 'ProductSpecList',
+            component: () => import('@/views/spec/ProductSpecList.vue')
+          },
+          {
+            path: 'coefficients',
+            name: 'CoefficientList',
+            component: () => import('@/views/spec/CoefficientList.vue')
+          },
+          {
+            path: 'daily-records',
+            name: 'DailyPieceRecord',
+            component: () => import('@/views/spec/DailyPieceRecord.vue')
           }
         ]
       },
@@ -119,6 +136,22 @@ const routes = [
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+// Navigation guards
+router.beforeEach((to, _from, next) => {
+  const token = tokenManager.getToken()
+  const requiresAuth = to.path !== '/login'
+
+  if (requiresAuth && !token) {
+    // 需要认证但没有 token，跳转到登录页
+    next('/login')
+  } else if (to.path === '/login' && token) {
+    // 已登录用户访问登录页，跳转到首页
+    next('/dashboard')
+  } else {
+    next()
+  }
 })
 
 export default router

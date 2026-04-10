@@ -62,6 +62,7 @@
 import { ref, reactive } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
+import { authApi, tokenManager } from '../api/auth'
 
 const router = useRouter()
 const formRef = ref<FormInstance>()
@@ -84,17 +85,23 @@ const rules: FormRules = {
 
 const handleLogin = async () => {
   try {
-    await formRef.value?.validate()
+    await await formRef.value?.validate()
     loading.value = true
 
-    // TODO: 调用登录 API
-    // 模拟登录延迟
-    await new Promise(resolve => setTimeout(resolve, 1000))
+    const response = await authApi.login({
+      username: loginForm.username,
+      password: loginForm.password
+    })
+
+    // 保存 token 和用户信息
+    tokenManager.setToken(response.token)
+    tokenManager.setUser(response.user)
 
     ElMessage.success('登录成功')
     router.push('/dashboard')
-  } catch (error) {
-    console.error('表单验证失败', error)
+  } catch (error: any) {
+    console.error('登录失败', error)
+    ElMessage.error(error.message || '登录失败')
   } finally {
     loading.value = false
   }
