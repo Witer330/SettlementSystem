@@ -50,7 +50,7 @@
           </div>
           <el-table v-loading="jobTypeLoading" :data="jobTypeList" stripe style="width: 100%">
             <el-table-column prop="code" label="编码" width="120" />
-            <el-table-column prop="name" label="名称" width="="150" />
+            <el-table-column prop="name" label="名称" width="150" />
             <el-table-column label="员工数量" width="100">
               <template #default="{ row }">
                 {{ row.employees?.length || 0 }}

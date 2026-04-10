@@ -6,7 +6,16 @@ const prisma = new PrismaClient();
 // 获取部门列表
 export const getDepartments = async (req: Request, res: Response) => {
   try {
+    const { includeDeleted } = req.query;
+
+    const where: any = {};
+    // 默认不显示已删除的部门
+    if (includeDeleted !== 'true') {
+      where.status = 'active';
+    }
+
     const departments = await prisma.department.findMany({
+      where,
       include: {
         employees: {
           where: { status: 'active' }
@@ -140,16 +149,18 @@ export const updateDepartment = async (req: Request, res: Response) => {
   }
 };
 
-// 删除部门
+// 删除部门（软删除）
 export const deleteDepartment = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    // 检查部门下是否有员工
+    // 检查部门下是否有 active 状态的员工
     const department = await prisma.department.findUnique({
       where: { id: parseInt(id as string) },
       include: {
-        employees: true
+        employees: {
+          where: { status: 'active' }
+        }
       }
     });
 
@@ -164,13 +175,15 @@ export const deleteDepartment = async (req: Request, res: Response) => {
     if (department.employees && department.employees.length > 0) {
       return res.status(400).json({
         code: 400,
-        message: '部门下存在员工，无法删除',
+        message: '部门下存在在职员工，无法删除',
         data: null
       });
     }
 
-    await prisma.department.delete({
-      where: { id: parseInt(id as string) }
+    // 软删除：将状态改为 deleted
+    await prisma.department.update({
+      where: { id: parseInt(id as string) },
+      data: { status: 'deleted' }
     });
 
     res.json({

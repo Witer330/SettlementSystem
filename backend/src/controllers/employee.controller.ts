@@ -153,7 +153,7 @@ export const employeeController = {
     try {
       const { name, code, departmentId, jobTypeId, payType, hourlyRate, status = 'active' } = req.body;
 
-      if (!name || !code) {
+      if (!name) {
         return res.status(400).json({
           code: 400,
           message: '缺少必填字段',
@@ -161,9 +161,34 @@ export const employeeController = {
         });
       }
 
+      // 如果没有工号，自动生成
+      let employeeCode = code;
+      if (!employeeCode) {
+        const lastEmployee = await prisma.employee.findFirst({
+          where: {
+            code: {
+              startsWith: 'EMP'
+            }
+          },
+          orderBy: {
+            code: 'desc'
+          },
+          select: {
+            code: true
+          }
+        });
+
+        employeeCode = 'EMP001';
+        if (lastEmployee) {
+          const lastNum = parseInt(lastEmployee.code.replace('EMP', ''));
+          const nextNum = lastNum + 1;
+          employeeCode = `EMP${String(nextNum).padStart(3, '0')}`;
+        }
+      }
+
       // 检查工号是否重复
       const existing = await prisma.employee.findUnique({
-        where: { code }
+        where: { code: employeeCode }
       });
 
       if (existing) {
@@ -177,7 +202,7 @@ export const employeeController = {
       const employee = await prisma.employee.create({
         data: {
           name,
-          code,
+          code: employeeCode,
           departmentId: departmentId ? Number(departmentId) : null,
           jobTypeId: jobTypeId ? Number(jobTypeId) : null,
           payType: payType || 'hourly',

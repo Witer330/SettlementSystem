@@ -26,8 +26,10 @@ export interface Employee {
 
 export const departmentApi = {
   // 获取部门列表
-  async getList(): Promise<Department[]> {
-    return await api.get<Department[]>('/departments');
+  async getList(includeDeleted?: boolean): Promise<Department[]> {
+    return await api.get<Department[]>('/departments', {
+      params: { includeDeleted }
+    });
   },
 
   // 获取部门详情

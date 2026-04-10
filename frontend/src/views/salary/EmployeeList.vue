@@ -260,7 +260,6 @@ const handlePayTypeChange = (value: 'hourly' | 'piece') => {
 };
 
 const formRules: FormRules = {
-  code: [{ required: true, message: '请输入工号', trigger: 'blur' }],
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
   jobTypeId: [{ required: true, message: '请选择工种', trigger: 'change' }]
 };

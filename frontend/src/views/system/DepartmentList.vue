@@ -13,6 +13,13 @@
 
     <!-- Data Table -->
     <el-card class="table-card" shadow="never">
+      <template #header>
+        <div class="table-header">
+          <el-checkbox v-model="includeDeleted" @change="loadDepartmentList">
+            显示已删除部门
+          </el-checkbox>
+        </div>
+      </template>
       <el-table
         v-loading="loading"
         :data="departmentList"
@@ -28,8 +35,8 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'danger'" size="small">
-              {{ row.status === 'active' ? '启用' : '禁用' }}
+            <el-tag :type="row.status === 'active' ? 'success' : row.status === 'deleted' ? 'danger' : 'info'" size="small">
+              {{ row.status === 'active' ? '启用' : row.status === 'deleted' ? '已删除' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -99,6 +106,7 @@ import { departmentApi, type Department } from '../../api/department';
 
 const loading = ref(false);
 const departmentList = ref<Department[]>([]);
+const includeDeleted = ref(false);
 const dialogVisible = ref(false);
 const dialogTitle = ref('新增部门');
 const dialogMode = ref<'create' | 'edit'>('create');
@@ -120,7 +128,7 @@ const formRules: FormRules = {
 const loadDepartmentList = async () => {
   try {
     loading.value = true;
-    departmentList.value = await departmentApi.getList();
+    departmentList.value = await departmentApi.getList(includeDeleted.value);
   } catch (error: any) {
     ElMessage.error(error.message || '加载部门列表失败');
   } finally {
@@ -253,5 +261,10 @@ onMounted(() => {
 
 .table-card {
   margin-bottom: var(--spacing-6);
+}
+
+.table-header {
+  display: flex;
+  align-items: center;
 }
 </style>
