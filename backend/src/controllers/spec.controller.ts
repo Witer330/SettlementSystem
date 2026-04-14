@@ -56,7 +56,12 @@ export const getProductSpecs = async (req: Request, res: Response) => {
     const { productId, status } = req.query;
     const where: any = {};
     if (productId) where.productId = parseInt(productId as string);
-    if (status) where.status = status;
+    if (status) {
+      where.status = status;
+    } else {
+      // 默认不返回已删除的记录
+      where.status = { not: 'deleted' };
+    }
 
     const specs = await prisma.productSpec.findMany({
       where,
@@ -162,13 +167,28 @@ export const updateProductSpec = async (req: Request, res: Response) => {
   }
 };
 
-// 删除产品规格
+// 删除产品规格（软删除）
 export const deleteProductSpec = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    await prisma.productSpec.delete({
+    // 检查规格是否存在
+    const spec = await prisma.productSpec.findUnique({
       where: { id: parseInt(id as string) }
+    });
+
+    if (!spec) {
+      return res.status(404).json({
+        code: 404,
+        message: '规格不存在',
+        data: null
+      });
+    }
+
+    // 软删除：将状态改为 deleted
+    await prisma.productSpec.update({
+      where: { id: parseInt(id as string) },
+      data: { status: 'deleted' }
     });
 
     res.json({

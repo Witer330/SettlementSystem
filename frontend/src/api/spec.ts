@@ -28,18 +28,6 @@ export interface ProductSpec {
   unitPrice?: number; // Computed from specPrice
 }
 
-export interface SpecCoefficient {
-  id: number;
-  type: string;
-  code: string;
-  name: string;
-  value: number;
-  priority: number;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
 export interface SpecPrice {
   id: number;
   specId: number;
@@ -97,46 +85,5 @@ export const specApi = {
   // 重新计算单价
   async recalculatePrice(id: number): Promise<{ unitPrice: number }> {
     return await api.post<{ unitPrice: number }>(`/specs/${id}/recalculate`, {});
-  }
-};
-
-export const coefficientApi = {
-  // 创建规格系数
-  async createCoefficient(data: {
-    type: string;
-    code: string;
-    name: string;
-    value: number;
-    priority?: number;
-  }): Promise<SpecCoefficient> {
-    return await api.post<SpecCoefficient>('/coefficients', data);
-  },
-
-  // 获取规格系数列表
-  async getCoefficients(params?: {
-    type?: string;
-    status?: string;
-  }): Promise<SpecCoefficient[]> {
-    return await api.get<SpecCoefficient[]>('/coefficients', { params });
-  },
-
-  // 更新规格系数
-  async updateCoefficient(id: number, data: {
-    name?: string;
-    value?: number;
-    priority?: number;
-    status?: string;
-  }): Promise<SpecCoefficient> {
-    return await api.put<SpecCoefficient>(`/coefficients/${id}`, data);
-  },
-
-  // 删除规格系数
-  async deleteCoefficient(id: number): Promise<void> {
-    await api.delete(`/coefficients/${id}`);
-  },
-
-  // 初始化默认系数
-  async initDefaultCoefficients(): Promise<{ count: number }> {
-    return await api.post<{ count: number }>('/coefficients/init', {});
   }
 };

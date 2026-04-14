@@ -28,6 +28,7 @@
           <el-select v-model="searchForm.status" placeholder="全部状态" clearable style="width: 120px">
             <el-option label="启用" value="active" />
             <el-option label="禁用" value="inactive" />
+            <el-option label="已删除" value="deleted" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -76,8 +77,11 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'danger'" size="small">
-              {{ row.status === 'active' ? '启用' : '禁用' }}
+            <el-tag
+              :type="row.status === 'active' ? 'success' : row.status === 'deleted' ? 'danger' : 'info'"
+              size="small"
+            >
+              {{ row.status === 'active' ? '启用' : row.status === 'deleted' ? '已删除' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>

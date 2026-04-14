@@ -26,47 +26,34 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'salary',
         name: 'Salary',
-        redirect: '/dashboard/salary/employees',
+        redirect: '/dashboard/salary/salary-calculation',
         children: [
-          {
-            path: 'employees',
-            name: 'EmployeeList',
-            component: () => import('@/views/salary/EmployeeList.vue')
-          },
-          {
-            path: 'products',
-            name: 'ProductList',
-            component: () => import('@/views/salary/ProductList.vue')
-          },
-          {
-            path: 'processes',
-            name: 'ProcessList',
-            component: () => import('@/views/salary/ProcessList.vue')
-          },
-          {
-            path: 'production-records',
-            name: 'ProductionRecord',
-            component: () => import('@/views/salary/ProductionRecord.vue')
-          },
           {
             path: 'salary-calculation',
             name: 'SalaryCalculation',
             component: () => import('@/views/salary/SalaryCalculation.vue')
           },
           {
-            path: 'specs',
-            name: 'ProductSpecList',
-            component: () => import('@/views/spec/ProductSpecList.vue')
-          },
-          {
-            path: 'coefficients',
-            name: 'CoefficientList',
-            component: () => import('@/views/spec/CoefficientList.vue')
-          },
-          {
             path: 'daily-records',
             name: 'DailyPieceRecord',
             component: () => import('@/views/spec/DailyPieceRecord.vue')
+          }
+        ]
+      },
+      {
+        path: 'basic-info',
+        name: 'BasicInfo',
+        redirect: '/dashboard/basic-info/products',
+        children: [
+          {
+            path: 'products',
+            name: 'ProductList',
+            component: () => import('@/views/salary/ProductList.vue')
+          },
+          {
+            path: 'specs',
+            name: 'ProductSpecList',
+            component: () => import('@/views/spec/ProductSpecList.vue')
           }
         ]
       },
@@ -116,6 +103,16 @@ const routes: RouteRecordRaw[] = [
             path: 'users',
             name: 'UserManagement',
             component: () => import('@/views/system/UserManagement.vue')
+          },
+          {
+            path: 'job-types',
+            name: 'JobTypeList',
+            component: () => import('@/views/system/JobTypeList.vue')
+          },
+          {
+            path: 'employees',
+            name: 'EmployeeList',
+            component: () => import('@/views/salary/EmployeeList.vue')
           },
           {
             path: 'departments',

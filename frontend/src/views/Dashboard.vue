@@ -6,52 +6,63 @@
           <h1 class="logo">结算系统</h1>
         </div>
 
-        <el-menu
-          :default-active="activeMenu"
-          :collapse="isCollapsed"
-          class="sidebar-menu"
-          router
-        >
+        <el-menu :default-active="activeMenu" :collapse="isCollapsed" class="sidebar-menu" router>
           <el-menu-item index="/dashboard">
-            <el-icon><House /></el-icon>
+            <el-icon>
+              <House />
+            </el-icon>
             <template #title>首页</template>
           </el-menu-item>
 
-          <el-sub-menu index="salary">
-            <template #title>
-              <el-icon><Money /></el-icon>
-              <span>工资核算</span>
-            </template>
-            <el-menu-item index="/dashboard/salary/employees">员工管理</el-menu-item>
-            <el-menu-item index="/dashboard/salary/products">产品管理</el-menu-item>
-            <el-menu-item index="/dashboard/salary/processes">工序管理</el-menu-item>
-            <el-menu-item index="/dashboard/salary/production-records">生产报工</el-menu-item>
-            <el-menu-item index="/dashboard/salary/salary-calculation">工资计算</el-menu-item>
-            <el-menu-item index="/dashboard/salary/specs">产品规格</el-menu-item>
-            <el-menu-item index="/dashboard/salary/coefficients">规格系数</el-menu-item>
-            <el-menu-item index="/dashboard/salary/daily-records">计件录入</el-menu-item>
-          </el-sub-menu>
-
+          
           <el-sub-menu index="inventory">
             <template #title>
-              <el-icon><Box /></el-icon>
+              <el-icon>
+                <Box />
+              </el-icon>
               <span>进销存</span>
             </template>
-            <el-menu-item index="/dashboard/inventory/suppliers">供应商管理</el-menu-item>
-            <el-menu-item index="/dashboard/inventory/customers">客户管理</el-menu-item>
+
             <el-menu-item index="/dashboard/inventory/materials">物料管理</el-menu-item>
             <el-menu-item index="/dashboard/inventory/purchase-orders">采购管理</el-menu-item>
             <el-menu-item index="/dashboard/inventory/sales-orders">销售管理</el-menu-item>
             <el-menu-item index="/dashboard/inventory/inventory-query">库存查询</el-menu-item>
           </el-sub-menu>
+          <el-sub-menu index="salary">
+            <template #title>
+              <el-icon>
+                <Money />
+              </el-icon>
+              <span>工资核算</span>
+            </template>
+            <el-menu-item index="/dashboard/salary/daily-records">计件录入录入</el-menu-item>
+            <el-menu-item index="/dashboard/salary/salary-calculation">工资计算</el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="basic-info">
+            <template #title>
+              <el-icon>
+                <Briefcase />
+              </el-icon>
+              <span>基础信息</span>
+            </template>
+            <el-menu-item index="/dashboard/inventory/suppliers">供应商管理</el-menu-item>
+            <el-menu-item index="/dashboard/inventory/customers">客户管理</el-menu-item>
+            <el-menu-item index="/dashboard/basic-info/products">产品管理</el-menu-item>
+            <el-menu-item index="/dashboard/basic-info/specs">产品规格</el-menu-item>
+          </el-sub-menu>
 
           <el-sub-menu index="system">
             <template #title>
-              <el-icon><Setting /></el-icon>
+              <el-icon>
+                <Setting />
+              </el-icon>
               <span>系统设置</span>
             </template>
-            <el-menu-item index="/dashboard/system/users">用户管理</el-menu-item>
+            <el-menu-item index="/dashboard/system/employees">员工管理</el-menu-item>
+            <el-menu-item index="/dashboard/system/job-types">工种管理</el-menu-item>
             <el-menu-item index="/dashboard/system/departments">部门管理</el-menu-item>
+            <el-menu-item index="/dashboard/system/users">用户管理</el-menu-item>
             <el-menu-item index="/dashboard/system/settings">系统设置</el-menu-item>
           </el-sub-menu>
         </el-menu>
@@ -60,31 +71,18 @@
       <el-container class="dashboard-main">
         <el-header class="dashboard-header">
           <div class="header-left">
-            <el-button
-              :icon="isCollapsed ? Expand : Fold"
-              class="collapse-btn"
-              @click="toggleSidebar"
-            />
+            <el-button :icon="isCollapsed ? Expand : Fold" class="collapse-btn" @click="toggleSidebar" />
             <h2 class="page-title">{{ currentPageTitle }}</h2>
           </div>
 
           <div class="header-right">
             <div class="user-info">
               <span class="text-body">{{ userName }}</span>
-              <el-button
-                link
-                type="primary"
-                :icon="Lock"
-                @click="showPasswordDialog = true"
-              >
+              <el-button link type="primary" :icon="Lock" @click="showPasswordDialog = true">
                 修改密码
               </el-button>
             </div>
-            <el-button
-              type="primary"
-              class="logout-btn"
-              @click="handleLogout"
-            >
+            <el-button type="primary" class="logout-btn" @click="handleLogout">
               退出
             </el-button>
           </div>
@@ -97,41 +95,16 @@
     </el-container>
 
     <!-- 修改密码对话框 -->
-    <el-dialog
-      v-model="showPasswordDialog"
-      title="修改密码"
-      width="500px"
-      :close-on-click-modal="false"
-    >
-      <el-form
-        ref="passwordFormRef"
-        :model="passwordForm"
-        :rules="passwordRules"
-        label-width="100px"
-      >
+    <el-dialog v-model="showPasswordDialog" title="修改密码" width="500px" :close-on-click-modal="false">
+      <el-form ref="passwordFormRef" :model="passwordForm" :rules="passwordRules" label-width="100px">
         <el-form-item label="旧密码" prop="oldPassword">
-          <el-input
-            v-model="passwordForm.oldPassword"
-            type="password"
-            placeholder="请输入旧密码"
-            show-password
-          />
+          <el-input v-model="passwordForm.oldPassword" type="password" placeholder="请输入旧密码" show-password />
         </el-form-item>
         <el-form-item label="新密码" prop="newPassword">
-          <el-input
-            v-model="passwordForm.newPassword"
-            type="password"
-            placeholder="请输入新密码"
-            show-password
-          />
+          <el-input v-model="passwordForm.newPassword" type="password" placeholder="请输入新密码" show-password />
         </el-form-item>
         <el-form-item label="确认密码" prop="confirmPassword">
-          <el-input
-            v-model="passwordForm.confirmPassword"
-            type="password"
-            placeholder="请再次输入新密码"
-            show-password
-          />
+          <el-input v-model="passwordForm.confirmPassword" type="password" placeholder="请再次输入新密码" show-password />
         </el-form-item>
       </el-form>
       <template #footer>
@@ -146,7 +119,7 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
-import { House, Money, Box, Setting, Fold, Expand, Lock } from '@element-plus/icons-vue'
+import { House, Money, Box, Setting, Fold, Expand, Lock, Briefcase } from '@element-plus/icons-vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { authApi, tokenManager } from '../api/auth'
@@ -196,13 +169,7 @@ const passwordRules: FormRules = {
 const currentPageTitle = computed(() => {
   const titles: Record<string, string> = {
     '/dashboard': '首页',
-    '/dashboard/salary/employees': '员工管理',
-    '/dashboard/salary/products': '产品管理',
-    '/dashboard/salary/processes': '工序管理',
-    '/dashboard/salary/production-records': '生产报工',
     '/dashboard/salary/salary-calculation': '工资计算',
-    '/dashboard/salary/specs': '产品规格',
-    '/dashboard/salary/coefficients': '规格系数',
     '/dashboard/salary/daily-records': '计件录入',
     '/dashboard/inventory/suppliers': '供应商管理',
     '/dashboard/inventory/customers': '客户管理',
@@ -210,7 +177,11 @@ const currentPageTitle = computed(() => {
     '/dashboard/inventory/purchase-orders': '采购管理',
     '/dashboard/inventory/sales-orders': '销售管理',
     '/dashboard/inventory/inventory-query': '库存查询',
+    '/dashboard/basic-info/products': '产品管理',
+    '/dashboard/basic-info/specs': '产品规格',
     '/dashboard/system/users': '用户管理',
+    '/dashboard/system/job-types': '工种管理',
+    '/dashboard/system/employees': '员工管理',
     '/dashboard/system/departments': '部门管理',
     '/dashboard/system/settings': '系统设置'
   }
