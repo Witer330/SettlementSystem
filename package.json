@@ -1,0 +1,35 @@
+{
+  "name": "settlementsystem",
+  "version": "1.0.0",
+  "description": "小型工贸企业结算系统 - 工资核算 + 进销存一体化管理",
+  "main": "index.js",
+  "type": "module",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "build": "cd backend && npm run build && cd ../frontend && npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Wtier330/SettlementSystem.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Wtier330/SettlementSystem/issues"
+  },
+  "homepage": "https://github.com/Wtier330/SettlementSystem#readme",
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.3.0",
+    "eslint-plugin-vue": "^10.9.0",
+    "prettier": "^3.8.3",
+    "typescript-eslint": "^8.59.2"
+  }
+}

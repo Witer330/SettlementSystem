@@ -16,6 +16,6 @@ app.use(router)
 app.use(ElementPlus)
 
 // Setup Element Plus theme
-setupElementPlusTheme(app)
+setupElementPlusTheme()
 
 app.mount('#app')

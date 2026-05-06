@@ -1,18 +1,18 @@
-import { Router } from 'express';
-import { employeeController, getNextCode } from '../controllers/employee.controller';
-import { authenticate } from '../middleware/auth.middleware';
+import { Router } from 'express'
+import { employeeController, getNextCode } from '../controllers/employee.controller'
+import { authenticate } from '../middleware/auth.middleware'
 
-const router = Router();
+const router = Router()
 
 // 所有员工路由都需要认证
-router.use(authenticate);
+router.use(authenticate)
 
 // 员工管理路由
-router.get('/next-code', getNextCode);
-router.get('/', employeeController.getList);
-router.get('/:id', employeeController.getDetail);
-router.post('/', employeeController.create);
-router.put('/:id', employeeController.update);
-router.delete('/:id', employeeController.delete);
+router.get('/next-code', getNextCode)
+router.get('/', employeeController.getList)
+router.get('/:id', employeeController.getDetail)
+router.post('/', employeeController.create)
+router.put('/:id', employeeController.update)
+router.delete('/:id', employeeController.delete)
 
-export default router;
+export default router

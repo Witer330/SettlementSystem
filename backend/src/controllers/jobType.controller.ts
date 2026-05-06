@@ -1,7 +1,7 @@
-import { Request, Response } from 'express';
-import { PrismaClient } from '@prisma/client';
+import { Request, Response } from 'express'
+import { PrismaClient } from '@prisma/client'
 
-const prisma = new PrismaClient();
+const prisma = new PrismaClient()
 
 // 获取下一个工种编码
 export const getNextCode = async (req: Request, res: Response) => {
@@ -19,38 +19,38 @@ export const getNextCode = async (req: Request, res: Response) => {
       select: {
         code: true
       }
-    });
+    })
 
-    let nextCode = 'JT001';
+    let nextCode = 'JT001'
     if (lastJobType) {
-      const lastNum = parseInt(lastJobType.code.replace('JT', ''));
-      const nextNum = lastNum + 1;
-      nextCode = `JT${String(nextNum).padStart(3, '0')}`;
+      const lastNum = parseInt(lastJobType.code.replace('JT', ''))
+      const nextNum = lastNum + 1
+      nextCode = `JT${String(nextNum).padStart(3, '0')}`
     }
 
     res.json({
       code: 0,
       message: '获取成功',
       data: nextCode
-    });
+    })
   } catch (error: any) {
     res.status(500).json({
       code: 500,
       message: error.message || '获取下一个工种编码失败',
       data: null
-    });
+    })
   }
-};
+}
 
 // 获取工种列表
 export const getJobTypes = async (req: Request, res: Response) => {
   try {
-    const { includeDeleted } = req.query;
+    const { includeDeleted } = req.query
 
-    const where: any = {};
+    const where: any = {}
     // 默认不显示已删除的工种
     if (includeDeleted !== 'true') {
-      where.status = 'active';
+      where.status = 'active'
     }
 
     const jobTypes = await prisma.jobType.findMany({
@@ -61,60 +61,60 @@ export const getJobTypes = async (req: Request, res: Response) => {
         }
       },
       orderBy: { createdAt: 'desc' }
-    });
+    })
 
     res.json({
       code: 0,
       message: '获取成功',
       data: jobTypes
-    });
+    })
   } catch (error: any) {
     res.status(500).json({
       code: 500,
       message: error.message || '获取工种列表失败',
       data: null
-    });
+    })
   }
-};
+}
 
 // 获取工种详情
 export const getJobType = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params
 
     const jobType = await prisma.jobType.findUnique({
       where: { id: parseInt(id as string) },
       include: {
         employees: true
       }
-    });
+    })
 
     if (!jobType) {
       return res.status(404).json({
         code: 404,
         message: '工种不存在',
         data: null
-      });
+      })
     }
 
     res.json({
       code: 0,
       message: '获取成功',
       data: jobType
-    });
+    })
   } catch (error: any) {
     res.status(500).json({
       code: 500,
       message: error.message || '获取工种详情失败',
       data: null
-    });
+    })
   }
-};
+}
 
 // 创建工种
 export const createJobType = async (req: Request, res: Response) => {
   try {
-    let { name, code } = req.body;
+    let { name, code } = req.body
 
     // 如果 code 为空，自动生成编码
     if (!code) {
@@ -130,28 +130,28 @@ export const createJobType = async (req: Request, res: Response) => {
         select: {
           code: true
         }
-      });
+      })
 
       if (lastJobType) {
-        const lastNum = parseInt(lastJobType.code.replace('JT', ''));
-        const nextNum = lastNum + 1;
-        code = `JT${String(nextNum).padStart(3, '0')}`;
+        const lastNum = parseInt(lastJobType.code.replace('JT', ''))
+        const nextNum = lastNum + 1
+        code = `JT${String(nextNum).padStart(3, '0')}`
       } else {
-        code = 'JT001';
+        code = 'JT001'
       }
     }
 
     // 检查工种编码是否重复
     const existing = await prisma.jobType.findUnique({
       where: { code }
-    });
+    })
 
     if (existing) {
       return res.status(400).json({
         code: 400,
         message: '工种编码已存在',
         data: null
-      });
+      })
     }
 
     const jobType = await prisma.jobType.create({
@@ -163,27 +163,27 @@ export const createJobType = async (req: Request, res: Response) => {
       include: {
         employees: true
       }
-    });
+    })
 
     res.json({
       code: 0,
       message: '创建成功',
       data: jobType
-    });
+    })
   } catch (error: any) {
     res.status(500).json({
       code: 500,
       message: error.message || '创建工种失败',
       data: null
-    });
+    })
   }
-};
+}
 
 // 更新工种
 export const updateJobType = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
-    const { name, code, status } = req.body;
+    const { id } = req.params
+    const { name, code, status } = req.body
 
     const jobType = await prisma.jobType.update({
       where: { id: parseInt(id as string) },
@@ -195,56 +195,56 @@ export const updateJobType = async (req: Request, res: Response) => {
       include: {
         employees: true
       }
-    });
+    })
 
     res.json({
       code: 0,
       message: '更新成功',
       data: jobType
-    });
+    })
   } catch (error: any) {
     res.status(500).json({
       code: 500,
       message: error.message || '更新工种失败',
       data: null
-    });
+    })
   }
-};
+}
 
 // 删除工种（软删除）
 export const deleteJobType = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    const { id } = req.params
 
     // 检查工种是否存在
     const jobType = await prisma.jobType.findUnique({
       where: { id: parseInt(id as string) }
-    });
+    })
 
     if (!jobType) {
       return res.status(404).json({
         code: 404,
         message: '工种不存在',
         data: null
-      });
+      })
     }
 
     // 软删除：将状态改为 deleted
     await prisma.jobType.update({
       where: { id: parseInt(id as string) },
       data: { status: 'deleted' }
-    });
+    })
 
     res.json({
       code: 0,
       message: '删除成功',
       data: null
-    });
+    })
   } catch (error: any) {
     res.status(500).json({
       code: 500,
       message: error.message || '删除工种失败',
       data: null
-    });
+    })
   }
-};
+}

@@ -2,11 +2,6 @@
 node_modules/
 .pnpm-store/
 
-# Lock files
-pnpm-lock.yaml
-yarn.lock
-package-lock.json
-
 # Build output
 dist/
 build/
@@ -17,6 +12,8 @@ build/
 .env
 .env.local
 .env.*.local
+.env.development
+.env.production
 
 # Editor directories and files
 .vscode/*
@@ -54,7 +51,6 @@ coverage/
 # Database and data
 *.db
 *.sqlite
-*.sqlite
 installer/
 data/
 
@@ -67,8 +63,13 @@ data/
 *.tmp
 *.temp
 
+# Certificate and key files
+*.pem
+*.key
+*.cert
+
+# Process files
+*.pid
+
 # Memory
 .claude/
-
-# Claude specific
-.fec8d348-*

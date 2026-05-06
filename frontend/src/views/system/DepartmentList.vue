@@ -6,9 +6,7 @@
         <h1 class="page-title">部门管理</h1>
         <p class="page-description">管理企业组织架构和部门信息</p>
       </div>
-      <el-button type="primary" :icon="Plus" @click="handleCreate">
-        新增部门
-      </el-button>
+      <el-button type="primary" :icon="Plus" @click="handleCreate"> 新增部门 </el-button>
     </div>
 
     <!-- Data Table -->
@@ -20,12 +18,7 @@
           </el-checkbox>
         </div>
       </template>
-      <el-table
-        v-loading="loading"
-        :data="departmentList"
-        stripe
-        style="width: 100%"
-      >
+      <el-table v-loading="loading" :data="departmentList" stripe style="width: 100%">
         <el-table-column prop="code" label="部门编码" width="150" />
         <el-table-column prop="name" label="部门名称" width="200" />
         <el-table-column label="员工数量" width="120">
@@ -35,7 +28,12 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : row.status === 'deleted' ? 'danger' : 'info'" size="small">
+            <el-tag
+              :type="
+                row.status === 'active' ? 'success' : row.status === 'deleted' ? 'danger' : 'info'
+              "
+              size="small"
+            >
               {{ row.status === 'active' ? '启用' : row.status === 'deleted' ? '已删除' : '禁用' }}
             </el-tag>
           </template>
@@ -61,12 +59,7 @@
       width="500px"
       :close-on-click-modal="false"
     >
-      <el-form
-        ref="formRef"
-        :model="formData"
-        :rules="formRules"
-        label-width="100px"
-      >
+      <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
         <el-form-item label="部门编码" prop="code">
           <el-input v-model="formData.code" placeholder="请输入部门编码" />
         </el-form-item>
@@ -99,18 +92,18 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus';
-import { Plus, Edit, Delete } from '@element-plus/icons-vue';
-import { departmentApi, type Department } from '../../api/department';
+import { ref, reactive, onMounted } from 'vue'
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { Plus, Edit, Delete } from '@element-plus/icons-vue'
+import { departmentApi, type Department } from '../../api/department'
 
-const loading = ref(false);
-const departmentList = ref<Department[]>([]);
-const includeDeleted = ref(false);
-const dialogVisible = ref(false);
-const dialogTitle = ref('新增部门');
-const dialogMode = ref<'create' | 'edit'>('create');
-const formRef = ref<FormInstance>();
+const loading = ref(false)
+const departmentList = ref<Department[]>([])
+const includeDeleted = ref(false)
+const dialogVisible = ref(false)
+const dialogTitle = ref('新增部门')
+const dialogMode = ref<'create' | 'edit'>('create')
+const formRef = ref<FormInstance>()
 
 const formData = reactive({
   id: 0,
@@ -118,101 +111,97 @@ const formData = reactive({
   name: '',
   parentId: undefined as number | undefined,
   status: 'active'
-});
+})
 
 const formRules: FormRules = {
   code: [{ required: true, message: '请输入部门编码', trigger: 'blur' }],
   name: [{ required: true, message: '请输入部门名称', trigger: 'blur' }]
-};
+}
 
 const loadDepartmentList = async () => {
   try {
-    loading.value = true;
-    departmentList.value = await departmentApi.getList(includeDeleted.value);
+    loading.value = true
+    departmentList.value = await departmentApi.getList(includeDeleted.value)
   } catch (error: any) {
-    ElMessage.error(error.message || '加载部门列表失败');
+    ElMessage.error(error.message || '加载部门列表失败')
   } finally {
-    loading.value = false;
+    loading.value = false
   }
-};
+}
 
 const handleCreate = () => {
-  dialogMode.value = 'create';
-  dialogTitle.value = '新增部门';
+  dialogMode.value = 'create'
+  dialogTitle.value = '新增部门'
   Object.assign(formData, {
     id: 0,
     code: '',
     name: '',
     parentId: undefined,
     status: 'active'
-  });
-  dialogVisible.value = true;
-};
+  })
+  dialogVisible.value = true
+}
 
 const handleEdit = (row: Department) => {
-  dialogMode.value = 'edit';
-  dialogTitle.value = '编辑部门';
+  dialogMode.value = 'edit'
+  dialogTitle.value = '编辑部门'
   Object.assign(formData, {
     id: row.id,
     code: row.code,
     name: row.name,
     parentId: row.parentId || undefined,
     status: row.status
-  });
-  dialogVisible.value = true;
-};
+  })
+  dialogVisible.value = true
+}
 
 const handleDelete = async (row: Department) => {
   try {
-    await ElMessageBox.confirm(
-      `确定要删除部门"${row.name}"吗？`,
-      '确认删除',
-      {
-        type: 'warning'
-      }
-    );
+    await ElMessageBox.confirm(`确定要删除部门"${row.name}"吗？`, '确认删除', {
+      type: 'warning'
+    })
 
-    await departmentApi.delete(row.id);
-    ElMessage.success('删除成功');
-    loadDepartmentList();
+    await departmentApi.delete(row.id)
+    ElMessage.success('删除成功')
+    loadDepartmentList()
   } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error(error.message || '删除失败');
+      ElMessage.error(error.message || '删除失败')
     }
   }
-};
+}
 
 const handleSubmit = async () => {
-  if (!formRef.value) return;
+  if (!formRef.value) return
 
   try {
-    await formRef.value.validate();
+    await formRef.value.validate()
 
     if (dialogMode.value === 'create') {
       await departmentApi.create({
         code: formData.code,
         name: formData.name,
         parentId: formData.parentId
-      });
-      ElMessage.success('创建成功');
+      })
+      ElMessage.success('创建成功')
     } else {
       await departmentApi.update(formData.id, {
         code: formData.code,
         name: formData.name,
         parentId: formData.parentId,
         status: formData.status
-      });
-      ElMessage.success('更新成功');
+      })
+      ElMessage.success('更新成功')
     }
 
-    dialogVisible.value = false;
-    loadDepartmentList();
+    dialogVisible.value = false
+    loadDepartmentList()
   } catch (error: any) {
     if (error !== false) {
-      ElMessage.error(error.message || '提交失败');
+      ElMessage.error(error.message || '提交失败')
     }
   }
-};
+}
 
 const formatDate = (date: string) => {
   return new Date(date).toLocaleString('zh-CN', {
@@ -221,12 +210,12 @@ const formatDate = (date: string) => {
     day: '2-digit',
     hour: '2-digit',
     minute: '2-digit'
-  });
-};
+  })
+}
 
 onMounted(() => {
-  loadDepartmentList();
-});
+  loadDepartmentList()
+})
 </script>
 
 <style scoped>

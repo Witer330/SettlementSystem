@@ -15,7 +15,7 @@
 </template>
 
 <script setup lang="ts">
-import { Plus } from "@element-plus/icons-vue"
+import { Plus } from '@element-plus/icons-vue'
 </script>
 
 <style scoped>

@@ -83,10 +83,18 @@
 </template>
 
 <script setup lang="ts">
-import { User, Document, Money, Warning, TrendCharts, Top, Edit, Operation, Box, Search } from '@element-plus/icons-vue'
-import { useRouter } from 'vue-router'
-
-const router = useRouter()
+import {
+  User,
+  Document,
+  Money,
+  Warning,
+  TrendCharts,
+  Top,
+  Edit,
+  Operation,
+  Box,
+  Search
+} from '@element-plus/icons-vue'
 </script>
 
 <style scoped>
