@@ -91,6 +91,16 @@ const routes: RouteRecordRaw[] = [
             path: 'inventory-query',
             name: 'InventoryQuery',
             component: () => import('@/views/inventory/InventoryQuery.vue')
+          },
+          {
+            path: 'bom',
+            name: 'BomManage',
+            component: () => import('@/views/inventory/BomManage.vue')
+          },
+          {
+            path: 'material-requirements',
+            name: 'MaterialRequirement',
+            component: () => import('@/views/inventory/MaterialRequirement.vue')
           }
         ]
       },

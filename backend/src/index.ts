@@ -38,6 +38,9 @@ import productRoutes from './routes/product.routes'
 import departmentRoutes from './routes/department.routes'
 import jobTypeRoutes from './routes/jobType.routes'
 import settingRoutes from './routes/setting.routes'
+import materialRoutes from './routes/material.routes'
+import salesOrderRoutes from './routes/salesOrder.routes'
+import bomRoutes from './routes/bom.routes'
 
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/employees', employeeRoutes)
@@ -48,6 +51,9 @@ app.use('/api/v1/products', productRoutes)
 app.use('/api/v1/departments', departmentRoutes)
 app.use('/api/v1/job-types', jobTypeRoutes)
 app.use('/api/v1/settings', settingRoutes)
+app.use('/api/v1/materials', materialRoutes)
+app.use('/api/v1/sales-orders', salesOrderRoutes)
+app.use('/api/v1/bom', bomRoutes)
 
 // Root endpoint
 app.get('/', (req, res) => {

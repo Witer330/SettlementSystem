@@ -84,6 +84,7 @@ model Product {
   productProcesses  ProductProcess[]
   productionRecords ProductionRecord[]
   specs             ProductSpec[]
+  salesItems        SalesItem[]
 }
 
 model BillOfMaterial {
@@ -264,7 +265,6 @@ model Material {
   inventory      Inventory?
   inventoryLogs  InventoryLog[]
   purchaseItems PurchaseItem[]
-  salesItems     SalesItem[]
 }
 
 model PurchaseOrder {
@@ -311,14 +311,14 @@ model SalesOrder {
 model SalesItem {
   id            Int      @id @default(autoincrement())
   orderId       Int
-  materialId    Int
+  productId     Int
   quantity      Float
   price         Float
   shippedQuantity Float    @default(0)
   createdAt     DateTime @default(now())
 
-  order    SalesOrder @relation(fields: [orderId], references: [id])
-  material Material   @relation(fields: [materialId], references: [id])
+  order   SalesOrder @relation(fields: [orderId], references: [id])
+  product Product    @relation(fields: [productId], references: [id])
 }
 
 model Inventory {
