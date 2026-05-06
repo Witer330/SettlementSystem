@@ -1,54 +1,67 @@
 /* ============================================================
    SettlementSystem Design System
-   Based on Figma Design System Inspiration
+   Theme-driven CSS variables with Stripe defaults
    ============================================================ */
 
 :root {
   /* ==========================================
-     Color Palette
+     Theme-Driven Colors (Stripe defaults, overridden by applyTheme())
      ========================================== */
 
-  /* Primary Colors */
-  --color-black: #000000;
+  --color-primary: #533afd;
+  --color-primary-hover: #4330e0;
+  --color-primary-text: #ffffff;
+  --color-black: #061b31;
   --color-white: #ffffff;
-
-  /* Surface & Background */
-  --glass-dark: rgba(0, 0, 0, 0.08);
-  --glass-light: rgba(255, 255, 255, 0.16);
+  --bg-canvas: #f6f8fa;
+  --bg-surface: #ffffff;
+  --bg-elevated: #ffffff;
+  --bg-muted: #f0f2f5;
+  --color-text-primary: #061b31;
+  --color-text-secondary: #425466;
+  --color-text-muted: #8898aa;
+  --border-color: #e3e8ee;
+  --border-color-light: #f0f3f7;
+  --glass-dark: rgba(6, 27, 49, 0.06);
+  --glass-light: rgba(255, 255, 255, 0.64);
 
   /* Functional Colors */
-  --color-success: #00c853;
-  --color-warning: #ffd600;
-  --color-danger: #ff1744;
-  --color-info: #2979ff;
+  --color-success: #0cce6b;
+  --color-warning: #f5a623;
+  --color-danger: #e25950;
+  --color-info: #533afd;
 
   /* ==========================================
      Typography
      ========================================== */
 
-  /* Font Families */
   --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'SF Mono', 'Fira Code', 'Fira Mono', 'Roboto Mono', 'Lucida Console', Monaco, monospace;
 
-  /* Font Weights (simulating Figma's variable font weights) */
+  /* Font Weights */
   --font-weight-320: 320;
   --font-weight-330: 330;
   --font-weight-340: 340;
+  --font-weight-400: 400;
   --font-weight-450: 450;
   --font-weight-480: 480;
   --font-weight-540: 540;
+  --font-weight-550: 550;
+  --font-weight-600: 600;
   --font-weight-700: 700;
 
   /* Font Sizes */
-  --font-size-display: 5.375rem;    /* 86px */
-  --font-size-h1: 4rem;           /* 64px */
-  --font-size-h2: 2.5rem;          /* 40px */
-   --font-size-h3: 1.625rem;       /* 26px */
-  --font-size-h4: 1.5rem;          /* 24px */
-  --font-size-large: 1.25rem;       /* 20px */
-  --font-size-body: 1rem;           /* 16px */
-  --font-size-small: 0.875rem;       /* 14px */
-  --font-size-xs: 0.75rem;          /* 12px */
+  --font-size-display: 5.375rem;
+  --font-size-h1: 4rem;
+  --font-size-h2: 2.5rem;
+  --font-size-h3: 1.625rem;
+  --font-size-h4: 1.5rem;
+  --font-size-large: 1.25rem;
+  --font-size-lg: 1.25rem;
+  --font-size-body: 1rem;
+  --font-size-small: 0.875rem;
+  --font-size-sm: 0.875rem;
+  --font-size-xs: 0.75rem;
 
   /* Line Heights */
   --line-height-tight: 1;
@@ -57,7 +70,7 @@
   --line-body: 1.4;
   --line-relaxed: 1.6;
 
-  /* Letter Spacing (negative for body text) */
+  /* Letter Spacing */
   --letter-display: -1.72px;
   --letter-heading: -0.96px;
   --letter-subheading: -0.26px;
@@ -86,19 +99,20 @@
      Border Radius
      ========================================== */
 
-  --radius-sm: 2px;
+  --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
+  --radius-xl: 12px;
   --radius-pill: 50px;
   --radius-circle: 50%;
 
   /* ==========================================
-     Shadows
+     Shadows (Stripe blue-tinted)
      ========================================== */
 
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-sm: 0 1px 3px 0 rgba(83, 58, 253, 0.04), 0 1px 2px 0 rgba(83, 58, 253, 0.06);
+  --shadow-md: 0 4px 6px -1px rgba(83, 58, 253, 0.06), 0 2px 4px -1px rgba(83, 58, 253, 0.04);
+  --shadow-lg: 0 10px 15px -3px rgba(83, 58, 253, 0.08), 0 4px 6px -2px rgba(83, 58, 253, 0.04);
   --shadow-none: none;
 
   /* ==========================================
@@ -148,11 +162,11 @@ html, body {
 body {
   font-family: var(--font-sans);
   font-size: var(--font-size-body);
-  font-weight: var(--font-weight-330);
+  font-weight: var(--font-body-weight, 400);
   line-height: var(--line-body);
   letter-spacing: var(--letter-body);
-  color: var(--color-black);
-  background-color: var(--color-white);
+  color: var(--color-text-primary);
+  background-color: var(--bg-canvas);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -247,7 +261,7 @@ body {
 }
 
 /* ============================================================
-   Button Styles (following Figma design system)
+   Button Styles
    ============================================================ */
 
 .btn {
@@ -267,25 +281,23 @@ body {
 }
 
 .btn:focus-visible {
-  outline: dashed 2px var(--color-black);
+  outline: dashed 2px var(--color-primary);
   outline-offset: 2px;
 }
 
-/* Black Pill Button */
-.btn-black {
-  background-color: var(--color-black);
-  color: var(--color-white);
+.btn-primary {
+  background-color: var(--color-primary);
+  color: var(--color-primary-text);
   border-radius: var(--radius-pill);
 }
 
-.btn-black:hover {
-  opacity: 0.8;
+.btn-primary:hover {
+  background-color: var(--color-primary-hover);
 }
 
-/* White Pill Button */
 .btn-white {
-  background-color: var(--color-white);
-  color: var(--color-black);
+  background-color: var(--bg-surface);
+  color: var(--color-text-primary);
   border-radius: var(--radius-pill);
 }
 
@@ -293,18 +305,16 @@ body {
   background-color: var(--glass-dark);
 }
 
-/* Glass Dark Button */
 .btn-glass-dark {
   background-color: var(--glass-dark);
-  color: var(--color-black);
+  color: var(--color-text-primary);
   border-radius: var(--radius-circle);
 }
 
 .btn-glass-dark:hover {
-  background-color: rgba(0, 0, 0, 0.16);
+  opacity: 0.8;
 }
 
-/* Glass Light Button */
 .btn-glass-light {
   background-color: var(--glass-light);
   color: var(--color-white);
@@ -312,10 +322,9 @@ body {
 }
 
 .btn-glass-light:hover {
-  background-color: rgba(255, 255, 255, 0.24);
+  opacity: 0.8;
 }
 
-/* Icon Button (Circular) */
 .btn-icon {
   width: 40px;
   height: 40px;
@@ -338,7 +347,7 @@ body {
    ============================================================ */
 
 .card {
-  background-color: var(--color-white);
+  background-color: var(--bg-surface);
   border: none;
   border-radius: var(--radius-lg);
   box-shadow: var(--shadow-sm);
@@ -360,7 +369,7 @@ body {
 }
 
 /* ============================================================
-   Focus States (Dashed Outline - Figma Style)
+   Focus States
    ============================================================ */
 
 .focusable {
@@ -372,7 +381,7 @@ body {
   content: '';
   position: absolute;
   inset: -2px;
-  border: dashed 2px var(--color-black);
+  border: dashed 2px var(--color-primary);
   border-radius: inherit;
   pointer-events: none;
 }
@@ -469,7 +478,7 @@ body {
 }
 
 .el-button:focus-visible {
-  outline: dashed 2px var(--color-black);
+  outline: dashed 2px var(--color-primary) !important;
   outline-offset: 2px;
 }
 
@@ -497,7 +506,7 @@ body {
 
 .el-table th {
   font-weight: var(--font-weight-450);
-  background-color: var(--glass-dark);
+  background-color: var(--bg-muted);
 }
 
 /* ============================================================
@@ -506,8 +515,8 @@ body {
 
 @media (max-width: 560px) {
   :root {
-    --font-size-display: 3rem;      /* 48px */
-    --font-size-h1: 2.5rem;       /* 40px */
+    --font-size-display: 3rem;
+    --font-size-h1: 2.5rem;
   }
 
   .container {
@@ -517,7 +526,7 @@ body {
 
 @media (max-width: 768px) {
   :root {
-    --font-size-display: 4rem;      /* 64px */
+    --font-size-display: 4rem;
   }
 }
 

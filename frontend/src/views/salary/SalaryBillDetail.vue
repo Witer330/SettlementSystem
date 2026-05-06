@@ -104,11 +104,11 @@ const formatDate = (date: string) => {
 
 <style scoped>
 .bill-info {
-  margin-bottom: var(--spacing-4);
+  margin-bottom: var(--space-4);
 }
 
 .detail-title {
-  margin-bottom: var(--spacing-3);
+  margin-bottom: var(--space-3);
   font-size: var(--font-size-h4);
   font-weight: var(--font-weight-450);
 }

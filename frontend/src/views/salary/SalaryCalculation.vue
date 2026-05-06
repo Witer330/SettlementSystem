@@ -279,14 +279,14 @@ const approveCurrentBill = async (bill: SalaryBill) => {
 
 <style scoped>
 .salary-calculation {
-  padding: var(--spacing-6);
+  padding: var(--space-6);
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--spacing-6);
+  margin-bottom: var(--space-6);
 }
 
 .header-content {
@@ -298,7 +298,7 @@ const approveCurrentBill = async (bill: SalaryBill) => {
   font-size: var(--font-size-h1);
   font-weight: var(--font-weight-700);
   color: var(--color-text-primary);
-  margin-bottom: var(--spacing-2);
+  margin-bottom: var(--space-2);
 }
 
 .page-description {
@@ -309,7 +309,7 @@ const approveCurrentBill = async (bill: SalaryBill) => {
 
 .result-card,
 .bills-card {
-  margin-bottom: var(--spacing-6);
+  margin-bottom: var(--space-6);
 }
 
 .result-header,
@@ -317,7 +317,7 @@ const approveCurrentBill = async (bill: SalaryBill) => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--spacing-4);
+  margin-bottom: var(--space-4);
 }
 
 .result-header h2,
@@ -341,6 +341,6 @@ const approveCurrentBill = async (bill: SalaryBill) => {
 .pagination {
   display: flex;
   justify-content: flex-end;
-  margin-top: var(--spacing-4);
+  margin-top: var(--space-4);
 }
 </style>

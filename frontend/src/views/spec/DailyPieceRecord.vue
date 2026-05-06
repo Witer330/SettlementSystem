@@ -240,14 +240,14 @@ onMounted(() => {
 
 <style scoped>
 .daily-piece-record {
-  padding: var(--spacing-6);
+  padding: var(--space-6);
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--spacing-6);
+  margin-bottom: var(--space-6);
 }
 
 .header-content {
@@ -259,7 +259,7 @@ onMounted(() => {
   font-size: var(--font-size-h1);
   font-weight: var(--font-weight-700);
   color: var(--color-text-primary);
-  margin-bottom: var(--spacing-2);
+  margin-bottom: var(--space-2);
 }
 
 .page-description {
@@ -270,18 +270,18 @@ onMounted(() => {
 
 .search-card,
 .table-card {
-  margin-bottom: var(--spacing-6);
+  margin-bottom: var(--space-6);
 }
 
 .detail-list {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-2);
+  gap: var(--space-2);
 }
 
 .detail-item {
   display: flex;
-  gap: var(--spacing-3);
+  gap: var(--space-3);
   font-size: var(--font-size-sm);
 }
 
@@ -308,6 +308,6 @@ onMounted(() => {
 .pagination {
   display: flex;
   justify-content: flex-end;
-  margin-top: var(--spacing-6);
+  margin-top: var(--space-6);
 }
 </style>

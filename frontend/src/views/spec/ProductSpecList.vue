@@ -250,14 +250,14 @@ onMounted(() => {
 
 <style scoped>
 .spec-list {
-  padding: var(--spacing-6);
+  padding: var(--space-6);
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--spacing-6);
+  margin-bottom: var(--space-6);
 }
 
 .header-content {
@@ -269,7 +269,7 @@ onMounted(() => {
   font-size: var(--font-size-h1);
   font-weight: var(--font-weight-700);
   color: var(--color-text-primary);
-  margin-bottom: var(--spacing-2);
+  margin-bottom: var(--space-2);
 }
 
 .page-description {
@@ -280,7 +280,7 @@ onMounted(() => {
 
 .search-card,
 .table-card {
-  margin-bottom: var(--spacing-6);
+  margin-bottom: var(--space-6);
 }
 
 .param-item {

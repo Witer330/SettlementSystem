@@ -51,6 +51,6 @@ defineEmits<{
 
 <style scoped>
 .form-card {
-  margin-bottom: var(--spacing-6);
+  margin-bottom: var(--space-6);
 }
 </style>

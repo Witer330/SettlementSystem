@@ -104,7 +104,7 @@ export const authController = {
 
       res.json({
         code: 0,
-        message: 'success',
+        message: '操作成功',
         data: user
       })
     } catch (error: any) {

@@ -258,7 +258,7 @@ export const salaryController = {
 
       res.json({
         code: 0,
-        message: 'success',
+        message: '操作成功',
         data: {
           list,
           total,
@@ -342,7 +342,7 @@ export const salaryController = {
 
       res.json({
         code: 0,
-        message: 'success',
+        message: '操作成功',
         data: bill
       })
     } catch (error: any) {

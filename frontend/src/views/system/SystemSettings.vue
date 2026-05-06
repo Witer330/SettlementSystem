@@ -10,6 +10,47 @@
 
     <!-- Settings Tabs -->
     <el-tabs v-model="activeTab" class="settings-tabs">
+      <!-- 外观设置 -->
+      <el-tab-pane label="外观设置" name="appearance">
+        <el-card class="setting-card" shadow="never">
+          <h3 class="section-title">主题选择</h3>
+          <p class="section-desc">选择系统的视觉风格，更改将立即生效。</p>
+
+          <div class="theme-grid">
+            <div
+              v-for="theme in availableThemes"
+              :key="theme.id"
+              class="theme-card"
+              :class="{ active: currentThemeId === theme.id }"
+              @click="selectTheme(theme.id)"
+            >
+              <div class="theme-preview">
+                <div class="preview-swatch" :style="{ background: theme.colors.primary }" />
+                <div
+                  class="preview-canvas"
+                  :style="{ background: theme.colors.bgCanvas }"
+                >
+                  <div
+                    class="preview-surface"
+                    :style="{
+                      background: theme.colors.bgSurface,
+                      border: '1px solid ' + theme.colors.border
+                    }"
+                  />
+                </div>
+              </div>
+              <div class="theme-info">
+                <span class="theme-name">{{ theme.name }}</span>
+                <span class="theme-desc">{{ theme.description }}</span>
+              </div>
+              <el-icon v-if="currentThemeId === theme.id" class="theme-check">
+                <Check />
+              </el-icon>
+            </div>
+          </div>
+        </el-card>
+      </el-tab-pane>
+
       <!-- 基础设置 -->
       <el-tab-pane label="基础设置" name="basic">
         <el-card class="setting-card" shadow="never">
@@ -105,11 +146,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Download, Delete } from '@element-plus/icons-vue'
+import { Download, Delete, Check } from '@element-plus/icons-vue'
+import { useThemeStore } from '@/stores/theme'
 
-const activeTab = ref('basic')
+const activeTab = ref('appearance')
+
+// Theme
+const themeStore = useThemeStore()
+const availableThemes = themeStore.availableThemes
+const currentThemeId = computed(() => themeStore.currentThemeId)
+
+const selectTheme = async (themeId: string) => {
+  await themeStore.setTheme(themeId)
+}
 const saving = ref(false)
 const backupLoading = ref(false)
 
@@ -191,14 +242,14 @@ onMounted(() => {
 
 <style scoped>
 .system-settings {
-  padding: var(--spacing-6);
+  padding: var(--space-6);
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--spacing-6);
+  margin-bottom: var(--space-6);
 }
 
 .header-content {
@@ -210,7 +261,7 @@ onMounted(() => {
   font-size: var(--font-size-h1);
   font-weight: var(--font-weight-700);
   color: var(--color-text-primary);
-  margin-bottom: var(--spacing-2);
+  margin-bottom: var(--space-2);
 }
 
 .page-description {
@@ -220,26 +271,102 @@ onMounted(() => {
 }
 
 .settings-tabs {
-  margin-top: var(--spacing-4);
+  margin-top: var(--space-4);
 }
 
 .setting-card {
-  margin-bottom: var(--spacing-6);
+  margin-bottom: var(--space-6);
 }
 
 .section-title {
-  margin: 0 0 var(--spacing-4) 0;
+  margin: 0 0 var(--space-4) 0;
   font-size: var(--font-size-h4);
   font-weight: var(--font-weight-600);
 }
 
 .section-desc {
-  margin: var(--spacing-2) 0 0;
+  margin: var(--space-2) 0 0;
   font-size: var(--font-size-sm);
   color: var(--color-text-secondary);
 }
 
 .backup-section {
-  margin-bottom: var(--spacing-6);
+  margin-bottom: var(--space-6);
+}
+
+/* Theme Grid */
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-6);
+  margin-top: var(--space-6);
+}
+
+.theme-card {
+  position: relative;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.theme-card:hover {
+  border-color: var(--color-primary);
+  box-shadow: var(--shadow-md);
+}
+
+.theme-card.active {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(83, 58, 253, 0.15);
+}
+
+.theme-preview {
+  height: 120px;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-swatch {
+  height: 24px;
+}
+
+.preview-canvas {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+}
+
+.preview-surface {
+  width: 80%;
+  height: 40px;
+  border-radius: var(--radius-md);
+}
+
+.theme-info {
+  padding: var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.theme-name {
+  font-weight: var(--font-weight-600);
+  font-size: var(--font-size-body);
+}
+
+.theme-desc {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.theme-check {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  color: var(--color-primary);
+  font-size: 20px;
 }
 </style>

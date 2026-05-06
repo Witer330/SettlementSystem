@@ -1,0 +1,51 @@
+import type { ThemeConfig } from './types'
+
+export const stripeTheme: ThemeConfig = {
+  id: 'stripe',
+  name: 'Stripe',
+  description: '金融科技风格，白色画布搭配紫色主色调',
+  colors: {
+    primary: '#533afd',
+    primaryHover: '#4330e0',
+    primaryText: '#ffffff',
+    bgCanvas: '#f6f8fa',
+    bgSurface: '#ffffff',
+    bgElevated: '#ffffff',
+    bgMuted: '#f0f2f5',
+    textPrimary: '#061b31',
+    textSecondary: '#425466',
+    textMuted: '#8898aa',
+    border: '#e3e8ee',
+    borderLight: '#f0f3f7',
+    success: '#0cce6b',
+    warning: '#f5a623',
+    danger: '#e25950',
+    info: '#533afd',
+    glassDark: 'rgba(6, 27, 49, 0.06)',
+    glassLight: 'rgba(255, 255, 255, 0.64)',
+  },
+  typography: {
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    headingWeight: 300,
+    bodyWeight: 400,
+    displayWeight: 600,
+    letterSpacing: {
+      display: '-1.72px',
+      heading: '-0.96px',
+      body: '-0.14px',
+    },
+  },
+  radius: {
+    sm: '4px',
+    md: '6px',
+    lg: '8px',
+    xl: '12px',
+    pill: '50px',
+    circle: '50%',
+  },
+  shadows: {
+    sm: '0 1px 3px 0 rgba(83, 58, 253, 0.04), 0 1px 2px 0 rgba(83, 58, 253, 0.06)',
+    md: '0 4px 6px -1px rgba(83, 58, 253, 0.06), 0 2px 4px -1px rgba(83, 58, 253, 0.04)',
+    lg: '0 10px 15px -3px rgba(83, 58, 253, 0.08), 0 4px 6px -2px rgba(83, 58, 253, 0.04)',
+  },
+}

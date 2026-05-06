@@ -97,7 +97,7 @@ export const employeeController = {
 
       res.json({
         code: 0,
-        message: 'success',
+        message: '操作成功',
         data: {
           list: employees,
           total,
@@ -143,7 +143,7 @@ export const employeeController = {
 
       res.json({
         code: 0,
-        message: 'success',
+        message: '操作成功',
         data: employee
       })
     } catch (error: any) {

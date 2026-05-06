@@ -8,7 +8,7 @@
 import { onMounted } from 'vue'
 
 onMounted(() => {
-  console.log('Settlement System Frontend Started')
+  console.log('结算系统前端已启动')
 })
 </script>
 

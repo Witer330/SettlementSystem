@@ -231,14 +231,14 @@ const handleSubmit = async () => {
 .items-container {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-3);
+  gap: var(--space-3);
   width: 100%;
 }
 
 .item-row {
   display: flex;
   align-items: center;
-  gap: var(--spacing-3);
+  gap: var(--space-3);
 }
 
 .item-unit-price {
