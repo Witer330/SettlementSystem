@@ -11,10 +11,10 @@
           <span class="stat-label">员工总数</span>
           <el-icon class="stat-icon"><User /></el-icon>
         </div>
-        <div class="stat-value">128</div>
-        <div class="stat-trend positive">
+        <div class="stat-value">{{ stats.employeeCount }}</div>
+        <div class="stat-trend" :class="stats.employeeTrend >= 0 ? 'positive' : 'negative'">
           <el-icon><TrendCharts /></el-icon>
-          <span>较上月 +5</span>
+          <span>较上月 {{ stats.employeeTrend >= 0 ? '+' : '' }}{{ stats.employeeTrend }}</span>
         </div>
       </div>
 
@@ -23,10 +23,10 @@
           <span class="stat-label">本月报工</span>
           <el-icon class="stat-icon"><Document /></el-icon>
         </div>
-        <div class="stat-value">2,456</div>
-        <div class="stat-trend positive">
+        <div class="stat-value">{{ stats.pieceRecordCount }}</div>
+        <div class="stat-trend" :class="stats.pieceRecordTrend >= 0 ? 'positive' : 'negative'">
           <el-icon><TrendCharts /></el-icon>
-          <span>较上月 +12%</span>
+          <span>较上月 {{ stats.pieceRecordTrend >= 0 ? '+' : '' }}{{ stats.pieceRecordTrend }}%</span>
         </div>
       </div>
 
@@ -35,47 +35,61 @@
           <span class="stat-label">本月工资</span>
           <el-icon class="stat-icon"><Money /></el-icon>
         </div>
-        <div class="stat-value">¥156,780</div>
-        <div class="stat-trend positive">
+        <div class="stat-value">¥{{ formatMoney(stats.currentSalary) }}</div>
+        <div class="stat-trend" :class="stats.currentSalary >= stats.lastSalary ? 'positive' : 'negative'">
           <el-icon><TrendCharts /></el-icon>
-          <span>较上月 +8%</span>
+          <span>较上月 {{ formatSalaryTrend() }}</span>
         </div>
       </div>
 
       <div class="stat-card">
         <div class="stat-header">
           <span class="stat-label">库存预警</span>
-          <el-icon class="stat-icon warning"><Warning /></el-icon>
+          <el-icon class="stat-icon" :class="{ warning: stats.lowStockCount > 0 }"><Warning /></el-icon>
         </div>
-        <div class="stat-value">3</div>
-        <div class="stat-trend negative">
+        <div class="stat-value">{{ stats.lowStockCount }}</div>
+        <div class="stat-trend" :class="stats.lowStockCount > 0 ? 'negative' : 'positive'">
           <el-icon><Top /></el-icon>
-          <span>需要及时处理</span>
+          <span>{{ stats.lowStockCount > 0 ? '需要及时处理' : '库存充足' }}</span>
         </div>
       </div>
     </div>
 
+    <!-- 操作流程 -->
+    <div class="workflow-section">
+      <div class="workflow-header">
+        <h2 class="text-h3">操作流程</h2>
+        <el-button link type="primary" @click="$router.push('/dashboard/system/settings')">
+          自定义流程
+        </el-button>
+      </div>
+      <FlowChart
+        :top-row="topRow"
+        :left-branch="leftBranch"
+        :right-branch="rightBranch"
+        :bottom-row="bottomRow"
+        :statuses="flowStatus"
+      />
+    </div>
+
     <div class="quick-actions">
-      <h2 class="text-h3">快速操作</h2>
+      <div class="quick-actions-header">
+        <h2 class="text-h3">快速操作</h2>
+        <el-button link type="primary" @click="$router.push('/dashboard/system/settings')">
+          自定义入口
+        </el-button>
+      </div>
       <div class="actions-grid">
-        <el-button class="action-card" @click="$router.push('/salary/production-records')">
-          <el-icon class="action-icon"><Edit /></el-icon>
-          <span>生产报工</span>
-        </el-button>
-
-        <el-button class="action-card" @click="$router.push('/salary/salary-calculation')">
-          <el-icon class="action-icon"><Operation /></el-icon>
-          <span>工资计算</span>
-        </el-button>
-
-        <el-button class="action-card" @click="$router.push('/inventory/materials')">
-          <el-icon class="action-icon"><Box /></el-icon>
-          <span>物料管理</span>
-        </el-button>
-
-        <el-button class="action-card" @click="$router.push('/inventory/inventory-query')">
-          <el-icon class="action-icon"><Search /></el-icon>
-          <span>库存查询</span>
+        <el-button
+          v-for="action in quickActions"
+          :key="action.id"
+          class="action-card"
+          @click="router.push(action.link)"
+        >
+          <el-icon class="action-icon">
+            <component :is="iconMap[action.icon] || Setting" />
+          </el-icon>
+          <span>{{ action.title }}</span>
         </el-button>
       </div>
     </div>
@@ -83,18 +97,108 @@
 </template>
 
 <script setup lang="ts">
+import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import {
-  User,
-  Document,
-  Money,
-  Warning,
-  TrendCharts,
-  Top,
-  Edit,
-  Operation,
-  Box,
-  Search
+  User, Document, Money, Warning, TrendCharts, Top,
+  Edit, Box, Search, Setting, ShoppingCart, DataAnalysis, List,
+  Download, Upload
 } from '@element-plus/icons-vue'
+import { workflowApi, type QuickAction, type FlowStepStatus } from '@/api/workflow'
+import { api } from '@/api/request'
+import { FlowChart, type FlowRowNode, type FlowNodeData } from '@/components/flow-chart'
+
+const router = useRouter()
+const quickActions = ref<QuickAction[]>([])
+const flowStatus = ref<Record<string, FlowStepStatus>>({})
+
+const iconMap: Record<string, any> = {
+  User, Document, Money, Warning, TrendCharts, Top, Edit, Box, Search,
+  Setting, ShoppingCart, DataAnalysis, List, Download, Upload
+}
+
+// ── 流程节点定义 ──
+const flowNodes: FlowNodeData[] = [
+  { id: 'salesOrder', title: '销售下单', link: '/dashboard/inventory/sales-orders', statusKey: 'salesOrders' },
+  { id: 'bom', title: 'BOM展开', link: '/dashboard/inventory/bom', statusKey: 'bom' },
+  { id: 'materialReq', title: '物料需求', link: '/dashboard/inventory/material-requirements', statusKey: 'salesOrders' },
+  { id: 'stockCompare', title: '库存对比', link: '/dashboard/inventory/inventory-query', statusKey: 'inventory' },
+  { id: 'purchaseSuggest', title: '采购建议', link: '/dashboard/inventory/purchase-orders', statusKey: 'purchaseOrders' },
+  { id: 'purchaseInbound', title: '采购入库', link: '/dashboard/inventory/purchase-orders', statusKey: 'purchaseOrders' },
+  { id: 'materialOutbound', title: '原材料出库', link: '/dashboard/inventory/materials', statusKey: 'inventory' },
+  { id: 'materialPickup', title: '生产领料', link: '/dashboard/inventory/materials', statusKey: 'inventory' },
+  { id: 'production', title: '加工生产', link: '/dashboard/salary/daily-records', statusKey: 'dailyRecords' },
+  { id: 'finishedGoodsInbound', title: '成品入库', link: '/dashboard/inventory/inventory-query', statusKey: 'inventory' },
+  { id: 'finishedGoods', title: '成品出库（发货）', link: '/dashboard/inventory/sales-orders', statusKey: 'salesOrders' }
+]
+
+const nodeIconMap: Record<string, any> = {
+  salesOrder: ShoppingCart,
+  bom: Document,
+  materialReq: DataAnalysis,
+  stockCompare: Search,
+  purchaseSuggest: List,
+  purchaseInbound: Box,
+  materialOutbound: Download,
+  materialPickup: Edit,
+  production: Setting,
+  finishedGoodsInbound: Upload,
+  finishedGoods: Top
+}
+
+const makeRowNode = (id: string): FlowRowNode => {
+  const node = flowNodes.find(n => n.id === id)!
+  return { node, icon: nodeIconMap[id] }
+}
+
+const topRow = computed<FlowRowNode[]>(() =>
+  flowNodes.slice(0, 5).map(n => ({ node: n, icon: nodeIconMap[n.id] }))
+)
+
+const leftBranch = computed<FlowRowNode[]>(() => [
+  makeRowNode('purchaseInbound'),
+  makeRowNode('materialOutbound')
+])
+
+const rightBranch = computed<FlowRowNode[]>(() => [
+  makeRowNode('finishedGoods')
+])
+
+const bottomRow = computed<FlowRowNode[]>(() =>
+  flowNodes.slice(7, 10).map(n => ({ node: n, icon: nodeIconMap[n.id] }))
+)
+
+// ── 统计数据 ──
+const stats = reactive({
+  employeeCount: 0,
+  employeeTrend: 0,
+  pieceRecordCount: 0,
+  pieceRecordTrend: 0,
+  currentSalary: 0,
+  lastSalary: 0,
+  lowStockCount: 0
+})
+
+const formatMoney = (v: number) => {
+  if (v === 0) return '0'
+  return v.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+}
+
+const formatSalaryTrend = () => {
+  if (stats.lastSalary === 0) return stats.currentSalary > 0 ? '+100%' : '持平'
+  const pct = ((stats.currentSalary - stats.lastSalary) / stats.lastSalary * 100).toFixed(0)
+  return `${Number(pct) >= 0 ? '+' : ''}${pct}%`
+}
+
+// ── 生命周期 ──
+onMounted(async () => {
+  try { quickActions.value = await workflowApi.getQuickActions() } catch {}
+  try { flowStatus.value = await workflowApi.getFlowStatus() } catch {}
+  try {
+    const data = await api.get<typeof stats>('/dashboard/stats')
+    Object.assign(stats, data)
+  } catch {}
+})
 </script>
 
 <style scoped>
@@ -125,7 +229,7 @@ import {
   opacity: 0.9;
 }
 
-/* Stats Grid */
+/* ── Stats Grid ── */
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
@@ -188,24 +292,45 @@ import {
   font-weight: var(--font-weight-330);
 }
 
-.stat-trend.positive {
-  color: var(--color-success);
+.stat-trend.positive { color: var(--color-success); }
+.stat-trend.negative { color: var(--color-warning); }
+
+/* ── Workflow Section ── */
+.workflow-section {
+  margin-bottom: var(--space-8);
 }
 
-.stat-trend.negative {
-  color: var(--color-warning);
+.workflow-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
 }
 
-/* Quick Actions */
+.workflow-header h2 {
+  font-weight: var(--font-weight-450);
+  line-height: var(--line-subheading);
+  letter-spacing: var(--letter-subheading);
+  margin: 0;
+}
+
+/* ── Quick Actions ── */
 .quick-actions {
   margin-top: var(--space-8);
 }
 
-.quick-actions h2 {
+.quick-actions-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-4);
+}
+
+.quick-actions-header h2 {
   font-weight: var(--font-weight-450);
   line-height: var(--line-subheading);
   letter-spacing: var(--letter-subheading);
-  margin-bottom: var(--space-4);
+  margin: 0;
 }
 
 .actions-grid {
@@ -243,7 +368,7 @@ import {
   letter-spacing: var(--letter-body);
 }
 
-/* Responsive */
+/* ── 响应式 ── */
 @media (max-width: 768px) {
   .welcome-section {
     padding: var(--space-10) var(--space-6);

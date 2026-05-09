@@ -20,8 +20,10 @@
           <span>进销存</span>
         </template>
 
-        <el-menu-item index="/dashboard/inventory/purchase-orders">采购管理</el-menu-item>
         <el-menu-item index="/dashboard/inventory/sales-orders">销售管理</el-menu-item>
+        <el-menu-item index="/dashboard/inventory/material-requirements">物料需求</el-menu-item>
+        <el-menu-item index="/dashboard/inventory/bom">BOM 管理</el-menu-item>
+        <el-menu-item index="/dashboard/inventory/purchase-orders">采购管理</el-menu-item>
         <el-menu-item index="/dashboard/inventory/inventory-query">库存查询</el-menu-item>
       </el-sub-menu>
       <el-sub-menu index="salary">

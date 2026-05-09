@@ -1,10 +1,12 @@
 import type { ThemeConfig } from './types'
 import { stripeTheme } from './stripe'
+import { darkTheme } from './dark'
 
 export type { ThemeConfig, ThemeColors, ThemeTypography, ThemeRadius, ThemeShadows } from './types'
 
 const themes = new Map<string, ThemeConfig>([
   [stripeTheme.id, stripeTheme],
+  [darkTheme.id, darkTheme],
 ])
 
 export function registerTheme(theme: ThemeConfig): void {

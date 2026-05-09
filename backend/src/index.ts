@@ -2,6 +2,7 @@ import express from 'express'
 import cors from 'cors'
 import helmet from 'helmet'
 import dotenv from 'dotenv'
+import path from 'path'
 import { PrismaClient } from '@prisma/client'
 
 // Load environment variables
@@ -41,6 +42,7 @@ import settingRoutes from './routes/setting.routes'
 import materialRoutes from './routes/material.routes'
 import salesOrderRoutes from './routes/salesOrder.routes'
 import bomRoutes from './routes/bom.routes'
+import dashboardRoutes from './routes/dashboard.routes'
 
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/employees', employeeRoutes)
@@ -54,6 +56,7 @@ app.use('/api/v1/settings', settingRoutes)
 app.use('/api/v1/materials', materialRoutes)
 app.use('/api/v1/sales-orders', salesOrderRoutes)
 app.use('/api/v1/bom', bomRoutes)
+app.use('/api/v1/dashboard', dashboardRoutes)
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -65,6 +68,13 @@ app.get('/', (req, res) => {
       status: 'running'
     }
   })
+})
+
+// Static file serving (production: serve frontend build)
+const frontendDist = path.join(__dirname, '../../frontend/dist')
+app.use(express.static(frontendDist))
+app.get('{*path}', (req, res) => {
+  res.sendFile(path.join(frontendDist, 'index.html'))
 })
 
 // Error handling middleware

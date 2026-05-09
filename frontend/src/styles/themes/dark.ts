@@ -1,0 +1,51 @@
+import type { ThemeConfig } from './types'
+
+export const darkTheme: ThemeConfig = {
+  id: 'dark',
+  name: 'Dark',
+  description: '暗色主题，适合低光环境',
+  colors: {
+    primary: '#7c5cff',
+    primaryHover: '#9b7eff',
+    primaryText: '#ffffff',
+    bgCanvas: '#0f1117',
+    bgSurface: '#1a1d27',
+    bgElevated: '#222636',
+    bgMuted: '#2a2e3e',
+    textPrimary: '#e8eaf0',
+    textSecondary: '#9ca3b4',
+    textMuted: '#6b7280',
+    border: '#2e3345',
+    borderLight: '#252838',
+    success: '#34d399',
+    warning: '#fbbf24',
+    danger: '#f87171',
+    info: '#7c5cff',
+    glassDark: 'rgba(255, 255, 255, 0.06)',
+    glassLight: 'rgba(255, 255, 255, 0.08)',
+  },
+  typography: {
+    fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    headingWeight: 300,
+    bodyWeight: 400,
+    displayWeight: 600,
+    letterSpacing: {
+      display: '-1.72px',
+      heading: '-0.96px',
+      body: '-0.14px',
+    },
+  },
+  radius: {
+    sm: '4px',
+    md: '6px',
+    lg: '8px',
+    xl: '12px',
+    pill: '50px',
+    circle: '50%',
+  },
+  shadows: {
+    sm: '0 1px 3px 0 rgba(0, 0, 0, 0.24), 0 1px 2px 0 rgba(0, 0, 0, 0.32)',
+    md: '0 4px 6px -1px rgba(0, 0, 0, 0.32), 0 2px 4px -1px rgba(0, 0, 0, 0.24)',
+    lg: '0 10px 15px -3px rgba(0, 0, 0, 0.40), 0 4px 6px -2px rgba(0, 0, 0, 0.24)',
+  },
+}

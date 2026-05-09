@@ -89,3 +89,15 @@ Non-zero `code` indicates an error. HTTP status codes used for auth (401, 403, 4
 - **Commit messages**: Conventional Commits format in Chinese (e.g., `feat(员工管理): description`)
 - **No test framework** — there are no tests currently
 - **Lock files** are gitignored — do not commit `package-lock.json`
+
+## 中文本地化规则
+
+本项目面向中国大陆用户，所有面向用户的文本必须使用简体中文。生成代码时必须遵守：
+
+1. **Vue 模板**：所有 UI 文本（按钮、标签、表头、placeholder、空状态提示、确认弹窗标题和内容）必须为中文
+2. **状态标签**：状态枚举值（如 `pending`/`confirmed`/`completed`/`active`）在展示时必须映射为中文（如"待确认"/"已确认"/"已完成"/"启用"），不能直接显示英文
+3. **Element Plus 分页**：已配置 `zh-cn` 语言包，分页文本自动中文，无需额外处理
+4. **后端响应消息**：`message` 字段使用中文（如"操作成功"、"获取成功"、"创建成功"），不要用 `"success"`
+5. **错误提示**：`ElMessage` / `ElMessageBox` 的文本均为中文
+6. **注释和变量名**：代码注释用中文，变量名/函数名保持英文（TypeScript 规范）
+7. **新增页面/组件**：从创建之初就使用中文，不要先写英文再翻译

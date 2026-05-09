@@ -7,6 +7,15 @@
       </el-button>
     </div>
 
+    <!-- 流程进度条 -->
+    <div class="flow-progress">
+      <div v-for="(s, i) in flowMilestones" :key="i" class="flow-progress-item">
+        <div class="flow-progress-dot" :class="{ active: s.active }" />
+        <span class="flow-progress-label">{{ s.label }}</span>
+        <span v-if="i < flowMilestones.length - 1" class="flow-progress-line" :class="{ active: s.active }" />
+      </div>
+    </div>
+
     <el-card shadow="never">
       <div class="filter-bar">
         <el-input
@@ -136,6 +145,15 @@ const formRef = ref<FormInstance>()
 const customers = ref<any[]>([])
 const products = ref<Product[]>([])
 
+// 流程里程碑（销售单视角）
+const flowMilestones = ref([
+  { label: '销售下单', active: false },
+  { label: '物料需求', active: false },
+  { label: '采购到货', active: false },
+  { label: '生产报工', active: false },
+  { label: '成品入库', active: false }
+])
+
 const queryParams = reactive({ page: 1, pageSize: 20, keyword: '', status: '' })
 
 const form = reactive({
@@ -220,6 +238,16 @@ onMounted(async () => {
     const res = await productApi.getList({ page: 1, pageSize: 1000 })
     products.value = res.list
   } catch {}
+  // 加载流程状态
+  try {
+    const { workflowApi } = await import('@/api/workflow')
+    const status = await workflowApi.getFlowStatus()
+    flowMilestones.value[0].active = (status.salesOrders?.count || 0) > 0
+    flowMilestones.value[1].active = (status.salesOrders?.count || 0) > 0
+    flowMilestones.value[2].active = (status.purchaseOrders?.count || 0) > 0
+    flowMilestones.value[3].active = (status.dailyRecords?.count || 0) > 0
+    flowMilestones.value[4].active = (status.inventory?.count || 0) > 0
+  } catch {}
 })
 </script>
 
@@ -231,13 +259,61 @@ onMounted(async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--space-6);
+  margin-bottom: var(--space-4);
 }
 .page-header h1 {
   margin: 0;
   font-size: var(--font-size-h3);
   font-weight: var(--font-weight-600);
 }
+
+/* 流程进度条 */
+.flow-progress {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: var(--bg-elevated);
+  border-radius: 8px;
+  margin-bottom: var(--space-4);
+  overflow-x: auto;
+}
+.flow-progress-item {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+}
+.flow-progress-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #D1D5DB;
+  flex-shrink: 0;
+}
+.flow-progress-dot.active {
+  background: #10B981;
+}
+.flow-progress-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  margin-left: 6px;
+  white-space: nowrap;
+}
+.flow-progress-dot.active + .flow-progress-label {
+  color: var(--color-text-primary);
+  font-weight: 500;
+}
+.flow-progress-line {
+  display: inline-block;
+  width: 24px;
+  height: 1px;
+  background: #D1D5DB;
+  margin: 0 8px;
+  flex-shrink: 0;
+}
+.flow-progress-line.active {
+  background: #10B981;
+}
+
 .filter-bar {
   display: flex;
   gap: var(--space-3);
