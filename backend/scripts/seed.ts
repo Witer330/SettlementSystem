@@ -89,6 +89,27 @@ async function seed() {
 
     console.log('✓ 示例工序创建成功');
 
+    // 创建默认系统设置
+    const defaultSettings = [
+      { key: 'ui.theme', value: 'stripe', type: 'string', category: 'ui', remark: 'UI 主题' },
+      { key: 'system.name', value: '结算系统', type: 'string', category: 'system', remark: '系统名称' },
+      { key: 'system.companyName', value: '', type: 'string', category: 'system', remark: '公司名称' },
+      { key: 'system.backupInterval', value: '7', type: 'number', category: 'system', remark: '数据备份间隔（天）' },
+      { key: 'workflow.guide', value: '[]', type: 'json', category: 'workflow', remark: '首页流程引导配置' },
+      { key: 'dashboard.quickActions', value: '[]', type: 'json', category: 'dashboard', remark: '首页快速操作入口' },
+      { key: 'system.endpointRegistry', value: '[]', type: 'json', category: 'system', remark: '页面接口别名注册表' },
+    ];
+
+    for (const setting of defaultSettings) {
+      await prisma.setting.upsert({
+        where: { key: setting.key },
+        update: {},
+        create: setting,
+      });
+    }
+
+    console.log('✓ 默认系统设置创建成功');
+
     console.log('\n✅ 数据库初始化完成');
   } catch (error) {
     console.error('❌ 初始化失败:', error);

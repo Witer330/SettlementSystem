@@ -1,8 +1,6 @@
 import { Request, Response } from 'express'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../lib/prisma'
 import { AuthRequest } from '../middleware/auth.middleware'
-
-const prisma = new PrismaClient()
 
 // 获取下一个员工工号
 export const getNextCode = async (req: Request, res: Response) => {

@@ -430,9 +430,29 @@ model DailyPieceRecordItem {
 // ============ 系统设置 ============
 
 model Setting {
-  id        Int      @id @default(autoincrement())
-  key       String   @unique
-  value     String
-  remark    String?
-  updatedAt DateTime @updatedAt
+  id           Int      @id @default(autoincrement())
+  key          String   @unique
+  value        String
+  type         String   @default("string") // string | number | boolean | json
+  category     String   @default("general") // general | ui | workflow | dashboard | system
+  defaultValue String?
+  remark       String?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  createdBy    Int?
+  updatedBy    Int?
+}
+
+model SettingAuditLog {
+  id         Int      @id @default(autoincrement())
+  settingKey String
+  oldValue   String?
+  newValue   String?
+  action     String   // update | create | delete
+  userId     Int?
+  userName   String?
+  createdAt  DateTime @default(now())
+
+  @@index([settingKey])
+  @@index([createdAt])
 }

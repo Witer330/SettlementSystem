@@ -1,12 +1,11 @@
 import { Request, Response, NextFunction } from 'express'
 import jwt from 'jsonwebtoken'
+import { config } from '../config'
 
 export interface AuthRequest extends Request {
   userId?: number
   userRole?: string
 }
-
-const JWT_SECRET = process.env.JWT_SECRET || 'default-secret-change-in-production'
 
 export function authenticate(req: AuthRequest, res: Response, next: NextFunction) {
   try {
@@ -20,7 +19,7 @@ export function authenticate(req: AuthRequest, res: Response, next: NextFunction
     }
 
     const token = authHeader.substring(7)
-    const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; role: string }
+    const decoded = jwt.verify(token, config.jwt.secret) as { userId: number; role: string }
 
     req.userId = decoded.userId
     req.userRole = decoded.role

@@ -8,6 +8,7 @@
 import { onMounted } from 'vue'
 
 onMounted(() => {
+  // eslint-disable-next-line no-undef
   console.log('结算系统前端已启动')
 })
 </script>

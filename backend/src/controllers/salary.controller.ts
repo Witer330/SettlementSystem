@@ -1,8 +1,6 @@
 import { Request, Response } from 'express'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from '../lib/prisma'
 import { type AuthRequest } from '../middleware/auth.middleware'
-
-const prisma = new PrismaClient()
 
 export const salaryController = {
   // 计算工资

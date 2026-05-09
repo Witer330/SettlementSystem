@@ -1,15 +1,27 @@
 <template>
-  <el-aside :width="width" class="dashboard-sidebar">
+  <el-aside
+    :width="width"
+    class="dashboard-sidebar"
+  >
     <div class="sidebar-header">
-      <h1 class="logo">结算系统</h1>
+      <h1 class="logo">
+        结算系统
+      </h1>
     </div>
 
-    <el-menu :default-active="activeMenu" :collapse="isCollapsed" class="sidebar-menu" router>
+    <el-menu
+      :default-active="activeMenu"
+      :collapse="isCollapsed"
+      class="sidebar-menu"
+      router
+    >
       <el-menu-item index="/dashboard">
         <el-icon>
           <House />
         </el-icon>
-        <template #title>首页</template>
+        <template #title>
+          首页
+        </template>
       </el-menu-item>
 
       <el-sub-menu index="inventory">
@@ -20,11 +32,18 @@
           <span>进销存</span>
         </template>
 
-        <el-menu-item index="/dashboard/inventory/sales-orders">销售管理</el-menu-item>
-        <el-menu-item index="/dashboard/inventory/material-requirements">物料需求</el-menu-item>
-        <el-menu-item index="/dashboard/inventory/bom">BOM 管理</el-menu-item>
-        <el-menu-item index="/dashboard/inventory/purchase-orders">采购管理</el-menu-item>
-        <el-menu-item index="/dashboard/inventory/inventory-query">库存查询</el-menu-item>
+        <el-menu-item index="/dashboard/inventory/sales-orders">
+          销售管理
+        </el-menu-item>
+        <el-menu-item index="/dashboard/inventory/material-requirements">
+          物料需求
+        </el-menu-item>
+        <el-menu-item index="/dashboard/inventory/purchase-orders">
+          采购管理
+        </el-menu-item>
+        <el-menu-item index="/dashboard/inventory/inventory-query">
+          库存查询
+        </el-menu-item>
       </el-sub-menu>
       <el-sub-menu index="salary">
         <template #title>
@@ -33,8 +52,12 @@
           </el-icon>
           <span>工资核算</span>
         </template>
-        <el-menu-item index="/dashboard/salary/daily-records">计件录入</el-menu-item>
-        <el-menu-item index="/dashboard/salary/salary-calculation">工资计算</el-menu-item>
+        <el-menu-item index="/dashboard/salary/daily-records">
+          计件录入
+        </el-menu-item>
+        <el-menu-item index="/dashboard/salary/salary-calculation">
+          工资计算
+        </el-menu-item>
       </el-sub-menu>
 
       <el-sub-menu index="basic-info">
@@ -44,11 +67,24 @@
           </el-icon>
           <span>基础信息</span>
         </template>
-        <el-menu-item index="/dashboard/inventory/suppliers">供应商管理</el-menu-item>
-        <el-menu-item index="/dashboard/inventory/customers">客户管理</el-menu-item>
-        <el-menu-item index="/dashboard/inventory/materials">物料管理</el-menu-item>
-        <el-menu-item index="/dashboard/basic-info/products">产品管理</el-menu-item>
-        <el-menu-item index="/dashboard/basic-info/specs">产品规格</el-menu-item>
+        <el-menu-item index="/dashboard/inventory/suppliers">
+          供应商管理
+        </el-menu-item>
+        <el-menu-item index="/dashboard/inventory/customers">
+          客户管理
+        </el-menu-item>
+        <el-menu-item index="/dashboard/inventory/materials">
+          物料管理
+        </el-menu-item>
+        <el-menu-item index="/dashboard/basic-info/products">
+          产品管理
+        </el-menu-item>
+        <el-menu-item index="/dashboard/basic-info/specs">
+          产品规格
+        </el-menu-item>
+        <el-menu-item index="/dashboard/basic-info/bom">
+          BOM 管理
+        </el-menu-item>
       </el-sub-menu>
 
       <el-sub-menu index="system">
@@ -58,11 +94,21 @@
           </el-icon>
           <span>系统设置</span>
         </template>
-        <el-menu-item index="/dashboard/system/employees">员工管理</el-menu-item>
-        <el-menu-item index="/dashboard/system/job-types">工种管理</el-menu-item>
-        <el-menu-item index="/dashboard/system/departments">部门管理</el-menu-item>
-        <el-menu-item index="/dashboard/system/users">用户管理</el-menu-item>
-        <el-menu-item index="/dashboard/system/settings">系统设置</el-menu-item>
+        <el-menu-item index="/dashboard/system/employees">
+          员工管理
+        </el-menu-item>
+        <el-menu-item index="/dashboard/system/job-types">
+          工种管理
+        </el-menu-item>
+        <el-menu-item index="/dashboard/system/departments">
+          部门管理
+        </el-menu-item>
+        <el-menu-item index="/dashboard/system/users">
+          用户管理
+        </el-menu-item>
+        <el-menu-item index="/dashboard/system/settings">
+          系统设置
+        </el-menu-item>
       </el-sub-menu>
     </el-menu>
   </el-aside>

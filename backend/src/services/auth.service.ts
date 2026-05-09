@@ -1,9 +1,7 @@
-import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
 import { config } from '../config'
-
-const prisma = new PrismaClient()
+import { prisma } from '../lib/prisma'
 
 export const authService = {
   async hashPassword(password: string): Promise<string> {

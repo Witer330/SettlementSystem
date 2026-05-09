@@ -1,18 +1,29 @@
 <template>
   <div class="dashboard-home">
     <div class="welcome-section">
-      <h1 class="text-display">欢迎使用结算系统</h1>
-      <p class="text-h3-light">工资核算 · 进销存 · 一体化管理</p>
+      <h1 class="text-display">
+        欢迎使用结算系统
+      </h1>
+      <p class="text-h3-light">
+        工资核算 · 进销存 · 一体化管理
+      </p>
     </div>
 
     <div class="stats-grid">
       <div class="stat-card">
         <div class="stat-header">
           <span class="stat-label">员工总数</span>
-          <el-icon class="stat-icon"><User /></el-icon>
+          <el-icon class="stat-icon">
+            <User />
+          </el-icon>
         </div>
-        <div class="stat-value">{{ stats.employeeCount }}</div>
-        <div class="stat-trend" :class="stats.employeeTrend >= 0 ? 'positive' : 'negative'">
+        <div class="stat-value">
+          {{ stats.employeeCount }}
+        </div>
+        <div
+          class="stat-trend"
+          :class="stats.employeeTrend >= 0 ? 'positive' : 'negative'"
+        >
           <el-icon><TrendCharts /></el-icon>
           <span>较上月 {{ stats.employeeTrend >= 0 ? '+' : '' }}{{ stats.employeeTrend }}</span>
         </div>
@@ -21,10 +32,17 @@
       <div class="stat-card">
         <div class="stat-header">
           <span class="stat-label">本月报工</span>
-          <el-icon class="stat-icon"><Document /></el-icon>
+          <el-icon class="stat-icon">
+            <Document />
+          </el-icon>
         </div>
-        <div class="stat-value">{{ stats.pieceRecordCount }}</div>
-        <div class="stat-trend" :class="stats.pieceRecordTrend >= 0 ? 'positive' : 'negative'">
+        <div class="stat-value">
+          {{ stats.pieceRecordCount }}
+        </div>
+        <div
+          class="stat-trend"
+          :class="stats.pieceRecordTrend >= 0 ? 'positive' : 'negative'"
+        >
           <el-icon><TrendCharts /></el-icon>
           <span>较上月 {{ stats.pieceRecordTrend >= 0 ? '+' : '' }}{{ stats.pieceRecordTrend }}%</span>
         </div>
@@ -33,10 +51,17 @@
       <div class="stat-card">
         <div class="stat-header">
           <span class="stat-label">本月工资</span>
-          <el-icon class="stat-icon"><Money /></el-icon>
+          <el-icon class="stat-icon">
+            <Money />
+          </el-icon>
         </div>
-        <div class="stat-value">¥{{ formatMoney(stats.currentSalary) }}</div>
-        <div class="stat-trend" :class="stats.currentSalary >= stats.lastSalary ? 'positive' : 'negative'">
+        <div class="stat-value">
+          ¥{{ formatMoney(stats.currentSalary) }}
+        </div>
+        <div
+          class="stat-trend"
+          :class="stats.currentSalary >= stats.lastSalary ? 'positive' : 'negative'"
+        >
           <el-icon><TrendCharts /></el-icon>
           <span>较上月 {{ formatSalaryTrend() }}</span>
         </div>
@@ -45,10 +70,20 @@
       <div class="stat-card">
         <div class="stat-header">
           <span class="stat-label">库存预警</span>
-          <el-icon class="stat-icon" :class="{ warning: stats.lowStockCount > 0 }"><Warning /></el-icon>
+          <el-icon
+            class="stat-icon"
+            :class="{ warning: stats.lowStockCount > 0 }"
+          >
+            <Warning />
+          </el-icon>
         </div>
-        <div class="stat-value">{{ stats.lowStockCount }}</div>
-        <div class="stat-trend" :class="stats.lowStockCount > 0 ? 'negative' : 'positive'">
+        <div class="stat-value">
+          {{ stats.lowStockCount }}
+        </div>
+        <div
+          class="stat-trend"
+          :class="stats.lowStockCount > 0 ? 'negative' : 'positive'"
+        >
           <el-icon><Top /></el-icon>
           <span>{{ stats.lowStockCount > 0 ? '需要及时处理' : '库存充足' }}</span>
         </div>
@@ -58,8 +93,14 @@
     <!-- 操作流程 -->
     <div class="workflow-section">
       <div class="workflow-header">
-        <h2 class="text-h3">操作流程</h2>
-        <el-button link type="primary" @click="$router.push('/dashboard/system/settings')">
+        <h2 class="text-h3">
+          操作流程
+        </h2>
+        <el-button
+          link
+          type="primary"
+          @click="$router.push('/dashboard/system/settings')"
+        >
           自定义流程
         </el-button>
       </div>
@@ -74,8 +115,14 @@
 
     <div class="quick-actions">
       <div class="quick-actions-header">
-        <h2 class="text-h3">快速操作</h2>
-        <el-button link type="primary" @click="$router.push('/dashboard/system/settings')">
+        <h2 class="text-h3">
+          快速操作
+        </h2>
+        <el-button
+          link
+          type="primary"
+          @click="$router.push('/dashboard/system/settings')"
+        >
           自定义入口
         </el-button>
       </div>
@@ -112,7 +159,7 @@ const router = useRouter()
 const quickActions = ref<QuickAction[]>([])
 const flowStatus = ref<Record<string, FlowStepStatus>>({})
 
-const iconMap: Record<string, any> = {
+const iconMap: Record<string, typeof User> = {
   User, Document, Money, Warning, TrendCharts, Top, Edit, Box, Search,
   Setting, ShoppingCart, DataAnalysis, List, Download, Upload
 }
@@ -120,7 +167,7 @@ const iconMap: Record<string, any> = {
 // ── 流程节点定义 ──
 const flowNodes: FlowNodeData[] = [
   { id: 'salesOrder', title: '销售下单', link: '/dashboard/inventory/sales-orders', statusKey: 'salesOrders' },
-  { id: 'bom', title: 'BOM展开', link: '/dashboard/inventory/bom', statusKey: 'bom' },
+  { id: 'bom', title: 'BOM展开', link: '/dashboard/basic-info/bom', statusKey: 'bom' },
   { id: 'materialReq', title: '物料需求', link: '/dashboard/inventory/material-requirements', statusKey: 'salesOrders' },
   { id: 'stockCompare', title: '库存对比', link: '/dashboard/inventory/inventory-query', statusKey: 'inventory' },
   { id: 'purchaseSuggest', title: '采购建议', link: '/dashboard/inventory/purchase-orders', statusKey: 'purchaseOrders' },
@@ -132,7 +179,7 @@ const flowNodes: FlowNodeData[] = [
   { id: 'finishedGoods', title: '成品出库（发货）', link: '/dashboard/inventory/sales-orders', statusKey: 'salesOrders' }
 ]
 
-const nodeIconMap: Record<string, any> = {
+const nodeIconMap: Record<string, typeof User> = {
   salesOrder: ShoppingCart,
   bom: Document,
   materialReq: DataAnalysis,
@@ -197,7 +244,7 @@ onMounted(async () => {
   try {
     const data = await api.get<typeof stats>('/dashboard/stats')
     Object.assign(stats, data)
-  } catch {}
+  } catch { /* empty */ }
 })
 </script>
 

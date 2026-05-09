@@ -45,12 +45,14 @@ npm run preview          # Preview production build
 ## Architecture
 
 ### Backend (`backend/src/`)
-- **Entry**: `index.ts` — Express app, mounts all routes under `/api/v1/`
+- **Entry**: `index.ts` — Express app, mounts all routes under `/api/v1/`, initializes ConfigService at startup
 - **Config**: `config/index.ts` — reads env vars from `backend/.env` (DATABASE_URL, JWT_SECRET, PORT)
+- **ConfigService**: `services/config.service.ts` — singleton with in-memory cache, CRUD, audit logging, type-aware parsing
+- **Prisma Singleton**: `lib/prisma.ts` — shared PrismaClient instance (all controllers import from here)
 - **Auth**: `middleware/auth.middleware.ts` — JWT validation + role-based access (`authenticate`, `requireRole`)
 - **Controllers** handle request/response logic; **Routes** define endpoints and apply middleware
-- **Database**: Prisma schema at `prisma/schema.prisma` (26 models), SQLite stored in `prisma/data/settlement.db`
-- **Migrations**: 3 existing migrations in `prisma/migrations/`
+- **Database**: Prisma schema at `prisma/schema.prisma` (28 models), SQLite stored in `prisma/data/settlement.db`
+- **Configuration Management**: See `docs/CONFIG.md` for config categories, storage strategy, and new-config workflow
 
 ### Frontend (`frontend/src/`)
 - **Entry**: `main.ts` — bootstraps Vue + Pinia + Element Plus + Router

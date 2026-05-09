@@ -54,6 +54,11 @@ const routes: RouteRecordRaw[] = [
             path: 'specs',
             name: 'ProductSpecList',
             component: () => import('@/views/spec/ProductSpecList.vue')
+          },
+          {
+            path: 'bom',
+            name: 'BomManage',
+            component: () => import('@/views/inventory/BomManage.vue')
           }
         ]
       },
@@ -91,11 +96,6 @@ const routes: RouteRecordRaw[] = [
             path: 'inventory-query',
             name: 'InventoryQuery',
             component: () => import('@/views/inventory/InventoryQuery.vue')
-          },
-          {
-            path: 'bom',
-            name: 'BomManage',
-            component: () => import('@/views/inventory/BomManage.vue')
           },
           {
             path: 'material-requirements',

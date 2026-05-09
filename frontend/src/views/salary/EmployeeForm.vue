@@ -6,14 +6,35 @@
     :close-on-click-modal="false"
     @update:model-value="$emit('update:modelValue', $event)"
   >
-    <el-form ref="formRef" :model="formData" :rules="formRules" label-width="100px">
-      <el-form-item label="工号" prop="code">
-        <el-input v-model="formData.code" placeholder="自动生成" disabled />
+    <el-form
+      ref="formRef"
+      :model="formData"
+      :rules="formRules"
+      label-width="100px"
+    >
+      <el-form-item
+        label="工号"
+        prop="code"
+      >
+        <el-input
+          v-model="formData.code"
+          placeholder="自动生成"
+          disabled
+        />
       </el-form-item>
-      <el-form-item label="姓名" prop="name">
-        <el-input v-model="formData.name" placeholder="请输入姓名" />
+      <el-form-item
+        label="姓名"
+        prop="name"
+      >
+        <el-input
+          v-model="formData.name"
+          placeholder="请输入姓名"
+        />
       </el-form-item>
-      <el-form-item label="部门" prop="departmentId">
+      <el-form-item
+        label="部门"
+        prop="departmentId"
+      >
         <el-select
           v-model="formData.departmentId"
           placeholder="请选择部门"
@@ -28,23 +49,45 @@
           />
         </el-select>
       </el-form-item>
-      <el-form-item label="工种" prop="jobTypeId">
+      <el-form-item
+        label="工种"
+        prop="jobTypeId"
+      >
         <el-select
           v-model="formData.jobTypeId"
           placeholder="请选择工种"
           clearable
           style="width: 100%"
         >
-          <el-option v-for="jt in jobTypeList" :key="jt.id" :label="jt.name" :value="jt.id" />
+          <el-option
+            v-for="jt in jobTypeList"
+            :key="jt.id"
+            :label="jt.name"
+            :value="jt.id"
+          />
         </el-select>
       </el-form-item>
-      <el-form-item label="计费方式" prop="payType">
-        <el-radio-group v-model="formData.payType" @change="handlePayTypeChange">
-          <el-radio label="hourly">时薪</el-radio>
-          <el-radio label="piece">计件</el-radio>
+      <el-form-item
+        label="计费方式"
+        prop="payType"
+      >
+        <el-radio-group
+          v-model="formData.payType"
+          @change="handlePayTypeChange"
+        >
+          <el-radio label="hourly">
+            时薪
+          </el-radio>
+          <el-radio label="piece">
+            计件
+          </el-radio>
         </el-radio-group>
       </el-form-item>
-      <el-form-item label="时薪" prop="hourlyRate" v-if="formData.payType === 'hourly'">
+      <el-form-item
+        v-if="formData.payType === 'hourly'"
+        label="时薪"
+        prop="hourlyRate"
+      >
         <el-input-number
           v-model="formData.hourlyRate"
           :min="0"
@@ -53,16 +96,30 @@
           style="width: 100%"
         />
       </el-form-item>
-      <el-form-item label="状态" prop="status">
+      <el-form-item
+        label="状态"
+        prop="status"
+      >
         <el-radio-group v-model="formData.status">
-          <el-radio label="active">启用</el-radio>
-          <el-radio label="inactive">禁用</el-radio>
+          <el-radio label="active">
+            启用
+          </el-radio>
+          <el-radio label="inactive">
+            禁用
+          </el-radio>
         </el-radio-group>
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="$emit('update:modelValue', false)">取消</el-button>
-      <el-button type="primary" @click="handleSubmit">确定</el-button>
+      <el-button @click="$emit('update:modelValue', false)">
+        取消
+      </el-button>
+      <el-button
+        type="primary"
+        @click="handleSubmit"
+      >
+        确定
+      </el-button>
     </template>
   </el-dialog>
 </template>

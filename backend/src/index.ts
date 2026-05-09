@@ -3,14 +3,14 @@ import cors from 'cors'
 import helmet from 'helmet'
 import dotenv from 'dotenv'
 import path from 'path'
-import { PrismaClient } from '@prisma/client'
+import { prisma } from './lib/prisma'
+import { configService } from './services/config.service'
 
 // Load environment variables
 dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 3000
-const prisma = new PrismaClient()
 
 // Middleware
 app.use(helmet())
@@ -42,7 +42,11 @@ import settingRoutes from './routes/setting.routes'
 import materialRoutes from './routes/material.routes'
 import salesOrderRoutes from './routes/salesOrder.routes'
 import bomRoutes from './routes/bom.routes'
+import inventoryRoutes from './routes/inventory.routes'
 import dashboardRoutes from './routes/dashboard.routes'
+import customerRoutes from './routes/customer.routes'
+import supplierRoutes from './routes/supplier.routes'
+import purchaseOrderRoutes from './routes/purchaseOrder.routes'
 
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/employees', employeeRoutes)
@@ -56,7 +60,11 @@ app.use('/api/v1/settings', settingRoutes)
 app.use('/api/v1/materials', materialRoutes)
 app.use('/api/v1/sales-orders', salesOrderRoutes)
 app.use('/api/v1/bom', bomRoutes)
+app.use('/api/v1/inventory', inventoryRoutes)
 app.use('/api/v1/dashboard', dashboardRoutes)
+app.use('/api/v1/customers', customerRoutes)
+app.use('/api/v1/suppliers', supplierRoutes)
+app.use('/api/v1/purchase-orders', purchaseOrderRoutes)
 
 // Root endpoint
 app.get('/', (req, res) => {
@@ -88,10 +96,17 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 })
 
 // Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`)
-  console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`)
-})
+async function start() {
+  // 初始化配置服务
+  await configService.init()
+
+  app.listen(PORT, () => {
+    console.log(`🚀 Server is running on http://localhost:${PORT}`)
+    console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`)
+  })
+}
+
+start()
 
 // Graceful shutdown
 process.on('SIGINT', async () => {

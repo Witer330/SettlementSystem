@@ -34,11 +34,11 @@ export const useThemeStore = defineStore('theme', () => {
 
     try {
       const { settingApi } = await import('@/api/setting')
-      const setting = await settingApi.getSetting(API_KEY)
-      if (setting?.value && getTheme(setting.value)) {
-        if (setting.value !== currentThemeId.value) {
-          currentThemeId.value = setting.value
-          applyTheme(getTheme(setting.value)!)
+      const themeId = await settingApi.getTyped<string>(API_KEY)
+      if (themeId && getTheme(themeId)) {
+        if (themeId !== currentThemeId.value) {
+          currentThemeId.value = themeId
+          applyTheme(getTheme(themeId)!)
         }
       }
     } catch {

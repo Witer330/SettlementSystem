@@ -25,7 +25,7 @@ export interface FlowStepStatus {
 // 流程步骤 link → 后端 flow-status key 的映射
 const linkToStatusKey: Record<string, string> = {
   '/dashboard/system/employees': 'employees',
-  '/dashboard/inventory/bom': 'bom',
+  '/dashboard/basic-info/bom': 'bom',
   '/dashboard/inventory/sales-orders': 'salesOrders',
   '/dashboard/inventory/material-requirements': 'salesOrders',
   '/dashboard/inventory/purchase-orders': 'purchaseOrders',

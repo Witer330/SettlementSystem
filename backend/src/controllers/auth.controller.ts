@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import { type AuthRequest } from '../middleware/auth.middleware'
 import { authService } from '../services/auth.service'
+import { prisma } from '../lib/prisma'
 
 export const authController = {
   // 用户登录
@@ -167,8 +168,6 @@ export const authController = {
 
       const hashedPassword = await authService.hashPassword(newPassword)
 
-      const { PrismaClient } = await import('@prisma/client')
-      const prisma = new PrismaClient()
       await prisma.user.update({
         where: { id: req.userId },
         data: { password: hashedPassword }

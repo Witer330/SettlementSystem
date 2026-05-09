@@ -1,3 +1,4 @@
+<!-- eslint-disable vue/max-attributes-per-line -->
 <template>
   <el-header class="dashboard-header">
     <div class="header-left">
@@ -6,7 +7,9 @@
         class="collapse-btn"
         @click="$emit('toggle-sidebar')"
       />
-      <h2 class="page-title">{{ currentPageTitle }}</h2>
+      <h2 class="page-title">
+        {{ currentPageTitle }}
+      </h2>
     </div>
 
     <div class="header-right">
@@ -16,7 +19,9 @@
           修改密码
         </el-button>
       </div>
-      <el-button type="primary" class="logout-btn" @click="handleLogout"> 退出 </el-button>
+      <el-button type="primary" class="logout-btn" @click="handleLogout">
+        退出
+      </el-button>
     </div>
   </el-header>
 
@@ -59,7 +64,9 @@
       </el-form-item>
     </el-form>
     <template #footer>
-      <el-button @click="showPasswordDialog = false">取消</el-button>
+      <el-button @click="showPasswordDialog = false">
+        取消
+      </el-button>
       <el-button type="primary" :loading="passwordLoading" @click="handleChangePassword">
         确定
       </el-button>
