@@ -283,14 +283,22 @@ async function main() {
   if (!isPatch) {
     fs.copyFileSync(path.join(DEPLOY, 'first-run.bat'), path.join(OUTPUT_DIR, 'first-run.bat'))
 
+    // PORT=0: 后端自动分配端口，由 Tauri 反向代理转发
     const envContent = [
       'DATABASE_URL="file:./data/settlement.db"',
       'JWT_SECRET="settlement-system-secret-key-change-in-production"',
       'JWT_EXPIRES_IN="7d"',
-      'PORT=4000',
+      'PORT=0',
       'NODE_ENV="production"'
     ].join('\n')
     fs.writeFileSync(path.join(OUTPUT_DIR, 'backend', '.env'), envContent)
+  }
+
+  // 创建默认 config.json（如果不存在）
+  const configPath = path.join(OUTPUT_DIR, 'config.json')
+  if (!fs.existsSync(configPath)) {
+    const defaultConfig = { proxy_port: 4000, host: '0.0.0.0' }
+    fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2))
   }
 
   // 创建 logs 目录

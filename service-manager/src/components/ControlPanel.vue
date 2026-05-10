@@ -81,7 +81,7 @@ async function openBrowser() {
       重启服务
     </button>
     <button
-      class="btn btn-browser"
+      class="btn btn-white"
       :disabled="status !== 'running'"
       @click="openBrowser"
     >
@@ -93,33 +93,40 @@ async function openBrowser() {
 <style scoped>
 .control-panel {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
 .btn {
   flex: 1;
-  padding: 10px 16px;
-  border: none;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s;
+  padding: 8px 16px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-480);
+}
+
+.btn-start {
+  background: var(--color-success);
   color: #fff;
 }
 
-.btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.btn:not(:disabled):hover {
-  transform: translateY(-1px);
+.btn-start:hover:not(:disabled) {
   filter: brightness(1.1);
 }
 
-.btn-start { background: #22c55e; }
-.btn-stop { background: #ef4444; }
-.btn-restart { background: #f59e0b; }
-.btn-browser { background: #6366f1; }
+.btn-stop {
+  background: var(--color-danger);
+  color: #fff;
+}
+
+.btn-stop:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.btn-restart {
+  background: var(--color-warning);
+  color: #000;
+}
+
+.btn-restart:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
 </style>

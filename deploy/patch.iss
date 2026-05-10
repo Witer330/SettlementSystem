@@ -42,7 +42,6 @@ Name: "{app}\logs"
 
 [Icons]
 Name: "{group}\SettlementSystem"; Filename: "{app}\manager.exe"; IconFilename: "{app}\SettlementSystem.ico"; WorkingDir: "{app}"
-Name: "{userstartup}\SettlementSystem"; Filename: "{app}\manager.exe"; WorkingDir: "{app}"
 Name: "{group}\打开 SettlementSystem"; Filename: "http://localhost:4000"
 
 [Run]

@@ -7,8 +7,14 @@ use tauri::{
 use crate::process::ProcessManager;
 use std::sync::Arc;
 
+/// 获取安装目录（manager.exe 所在目录）
+fn get_install_dir() -> std::path::PathBuf {
+    let exe_path = std::env::current_exe().unwrap_or_default();
+    exe_path.parent().unwrap_or(&exe_path).to_path_buf()
+}
+
 /// 创建系统托盘
-pub fn create_tray(app: &AppHandle, _manager: Arc<ProcessManager>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn create_tray(app: &AppHandle, _manager: Arc<ProcessManager>, proxy_port: u16) -> Result<(), Box<dyn std::error::Error>> {
     let start_item = MenuItem::with_id(app, "start", "启动服务", true, None::<&str>)?;
     let stop_item = MenuItem::with_id(app, "stop", "停止服务", true, None::<&str>)?;
     let browser_item = MenuItem::with_id(app, "browser", "打开浏览器", true, None::<&str>)?;
@@ -23,15 +29,15 @@ pub fn create_tray(app: &AppHandle, _manager: Arc<ProcessManager>) -> Result<(),
     let _tray = TrayIconBuilder::new()
         .icon(app.default_window_icon().unwrap().clone())
         .menu(&menu)
-        .tooltip("SettlementSystem - 点击打开管理器")
+        .tooltip(&format!("SettlementSystem - 端口 {}", proxy_port))
         .on_menu_event(move |app, event| {
             match event.id.as_ref() {
                 "start" => {
                     let manager = app.state::<Arc<ProcessManager>>();
-                    let app_dir = app.path().app_data_dir().unwrap_or_default();
-                    let node_path = app_dir.join("node").join("node.exe");
-                    let server_script = app_dir.join("backend").join("dist").join("index.js");
-                    let work_dir = app_dir.join("backend");
+                    let install_dir = get_install_dir();
+                    let node_path = install_dir.join("node").join("node.exe");
+                    let server_script = install_dir.join("backend").join("dist").join("index.js");
+                    let work_dir = install_dir.join("backend");
 
                     let mgr = manager.inner().clone();
                     let node = node_path.to_string_lossy().to_string();
@@ -50,11 +56,11 @@ pub fn create_tray(app: &AppHandle, _manager: Arc<ProcessManager>) -> Result<(),
                     });
                 }
                 "browser" => {
-                    let _ = open::that("http://localhost:4000");
+                    let _ = open::that(format!("http://localhost:{}", proxy_port));
                 }
                 "logs" => {
-                    let app_dir = app.path().app_data_dir().unwrap_or_default();
-                    let log_path = app_dir.join("logs").join("server.log");
+                    let install_dir = get_install_dir();
+                    let log_path = install_dir.join("logs").join("server.log");
                     let _ = open::that(log_path);
                 }
                 "exit" => {

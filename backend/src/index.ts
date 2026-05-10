@@ -10,7 +10,7 @@ import { configService } from './services/config.service'
 dotenv.config()
 
 const app = express()
-const PORT = process.env.PORT || 3000
+const PORT = parseInt(process.env.PORT || '3000', 10)
 
 // Middleware
 app.use(helmet())
@@ -100,9 +100,16 @@ async function start() {
   // 初始化配置服务
   await configService.init()
 
-  app.listen(PORT, () => {
-    console.log(`🚀 Server is running on http://localhost:${PORT}`)
-    console.log(`📚 Environment: ${process.env.NODE_ENV || 'development'}`)
+  const server = app.listen(PORT, () => {
+    const addr = server.address()
+    const actualPort = typeof addr === 'object' && addr ? addr.port : PORT
+    // PORT=0 时，Tauri 通过 stdout 捕获实际端口
+    if (PORT === 0) {
+      console.log(`__PORT__:${actualPort}`)
+    } else {
+      console.log(`Server is running on http://localhost:${actualPort}`)
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`)
+    }
   })
 }
 

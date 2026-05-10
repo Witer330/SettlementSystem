@@ -38,14 +38,16 @@ Name: "{app}\logs"
 [Icons]
 ; 桌面快捷方式 - 启动服务管理器
 Name: "{group}\SettlementSystem"; Filename: "{app}\manager.exe"; IconFilename: "{app}\SettlementSystem.ico"; WorkingDir: "{app}"
-; 开机自启动
-Name: "{userstartup}\SettlementSystem"; Filename: "{app}\manager.exe"; WorkingDir: "{app}"
 ; 打开浏览器快捷方式
 Name: "{group}\打开 SettlementSystem"; Filename: "http://localhost:4000"
 
 [Run]
 ; 首次安装初始化
 Filename: "{app}\first-run.bat"; Parameters: """{app}"""; StatusMsg: "正在初始化数据库..."; Flags: shellexec waituntilterminated skipifsilent
+; 注册开机自启动计划任务
+Filename: "schtasks"; Parameters: "/Create /TN SettlementServiceManager /TR ""{app}\manager.exe --autostart"" /SC ONLOGON /F"; StatusMsg: "正在注册开机自启动..."; Flags: runhidden waituntilterminated skipifsilent
+; 安装完成后启动服务管理器（--autostart 自动拉起前后端服务）
+Filename: "{app}\manager.exe"; Parameters: "--autostart"; StatusMsg: "正在启动服务..."; Flags: runhidden nowait skipifsilent
 
 [Code]
 var
@@ -82,6 +84,13 @@ begin
       end;
     end;
   end;
+
+  { 安装完成后更新计划任务路径（更新安装时 exe 路径可能变化） }
+  if CurStep = ssPostInstall then
+  begin
+    Exec('schtasks', '/Delete /TN SettlementServiceManager /F', '', SW_HIDE, ewWaitUntilTerminated, resultCode);
+    Exec('schtasks', '/Create /TN SettlementServiceManager /TR ""' + ExpandConstant('{app}\manager.exe') + ' --autostart"" /SC ONLOGON /F', '', SW_HIDE, ewWaitUntilTerminated, resultCode);
+  end;
 end;
 
 function InitializeUninstall(): Boolean;
@@ -91,6 +100,9 @@ begin
   { 先停止服务 }
   Exec('taskkill', '/F /IM manager.exe', '', SW_HIDE, ewWaitUntilTerminated, dlgResult);
   Sleep(500);
+
+  { 清理计划任务（开机自启动） }
+  Exec('schtasks', '/Delete /TN SettlementServiceManager /F', '', SW_HIDE, ewWaitUntilTerminated, dlgResult);
 
   dlgResult := MsgBox(
     '是否保留数据库文件？(settlement.db)',
