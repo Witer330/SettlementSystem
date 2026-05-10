@@ -2,9 +2,14 @@
   <div class="page-container">
     <div class="page-header">
       <h1>采购管理</h1>
-      <el-button type="primary" @click="openDialog()">
-        <el-icon><Plus /></el-icon>新增采购单
-      </el-button>
+      <div class="page-header-actions">
+        <el-button @click="showReport = true">
+          <el-icon><DataAnalysis /></el-icon>查看报表
+        </el-button>
+        <el-button type="primary" @click="openDialog()">
+          <el-icon><Plus /></el-icon>新增采购单
+        </el-button>
+      </div>
     </div>
 
     <el-card shadow="never">
@@ -146,6 +151,8 @@
         <el-button type="primary" :loading="submitting" @click="handleReceive">确认入库</el-button>
       </template>
     </el-dialog>
+
+    <ReportDialog v-model="showReport" report-type="purchase" title="采购报表" />
   </div>
 </template>
 
@@ -153,11 +160,13 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
+import { Plus, DataAnalysis } from '@element-plus/icons-vue'
 import { purchaseOrderApi, type PurchaseOrder } from '@/api/purchaseOrder'
 import { supplierApi, type Supplier } from '@/api/supplier'
 import { materialApi, type Material } from '@/api/material'
+import ReportDialog from '@/components/ReportDialog.vue'
 
+const showReport = ref(false)
 const loading = ref(false)
 const submitting = ref(false)
 const tableData = ref<PurchaseOrder[]>([])

@@ -103,10 +103,6 @@ const formatDate = (val: string): string => {
   border-color: var(--color-primary);
 }
 
-.flow-node:hover::before {
-  opacity: 1;
-}
-
 .flow-node:hover .flow-node__icon {
   color: var(--color-primary);
   transform: scale(1.1);

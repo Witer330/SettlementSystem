@@ -2,9 +2,14 @@
   <div class="page-container">
     <div class="page-header">
       <h1>库存查询</h1>
-      <el-button type="primary" @click="openAdjustDialog()">
-        <el-icon><Edit /></el-icon>库存调整
-      </el-button>
+      <div class="page-header-actions">
+        <el-button @click="showReport = true">
+          <el-icon><DataAnalysis /></el-icon>查看报表
+        </el-button>
+        <el-button type="primary" @click="openAdjustDialog()">
+          <el-icon><Edit /></el-icon>库存调整
+        </el-button>
+      </div>
     </div>
 
     <el-card shadow="never">
@@ -139,6 +144,8 @@
         style="margin-top: 12px; justify-content: flex-end"
       />
     </el-dialog>
+
+    <ReportDialog v-model="showReport" report-type="inventory" title="库存报表" />
   </div>
 </template>
 
@@ -146,8 +153,11 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { Edit } from '@element-plus/icons-vue'
+import { Edit, DataAnalysis } from '@element-plus/icons-vue'
 import { inventoryApi, type InventoryItem, type InventoryLog } from '@/api/inventory'
+import ReportDialog from '@/components/ReportDialog.vue'
+
+const showReport = ref(false)
 
 const loading = ref(false)
 const adjusting = ref(false)

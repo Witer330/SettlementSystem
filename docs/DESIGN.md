@@ -1,220 +1,359 @@
-# Design System Inspiration of Figma
+# Design System Inspired by Stripe
 
 ## 1. Visual Theme & Atmosphere
 
-Figma's interface is the design tool that designed itself — a masterclass in typographic sophistication where a custom variable font (figmaSans) modulates between razor-thin (weight 320) and bold (weight 700) with stops at unusual intermediates (330, 340, 450, 480, 540) that most type systems never explore. This granular weight control gives every text element a precisely calibrated visual weight, creating hierarchy through micro-differences rather than the blunt instrument of "regular vs bold."
+Stripe's website is the gold standard of fintech design -- a system that manages to feel simultaneously technical and luxurious, precise and warm. The page opens on a clean white canvas (`#ffffff`) with deep navy headings (`#061b31`) and a signature purple (`#533afd`) that functions as both brand anchor and interactive accent. This isn't the cold, clinical purple of enterprise software; it's a rich, saturated violet that reads as confident and premium. The overall impression is of a financial institution redesigned by a world-class type foundry.
 
-The page presents a fascinating duality: the interface chrome is strictly black-and-white (literally only `#000000` and `#ffffff` detected as colors), while the hero section and product showcases explode with vibrant multi-color gradients — electric greens, bright yellows, deep purples, hot pinks. This separation means the design system itself is colorless, treating the product's colorful output as the hero content. Figma's marketing page is essentially a white gallery wall displaying colorful art.
+The custom `sohne-var` variable font is the defining element of Stripe's visual identity. Every text element enables the OpenType `"ss01"` stylistic set, which modifies character shapes for a distinctly geometric, modern feel. At display sizes (48px-56px), sohne-var runs at weight 300 -- an extraordinarily light weight for headlines that creates an ethereal, almost whispered authority. This is the opposite of the "bold hero headline" convention; Stripe's headlines feel like they don't need to shout. The negative letter-spacing (-1.4px at 56px, -0.96px at 48px) tightens the text into dense, engineered blocks. At smaller sizes, the system also uses weight 300 with proportionally reduced tracking, and tabular numerals via `"tnum"` for financial data display.
 
-What makes Figma distinctive beyond the variable font is its circle-and-pill geometry. Buttons use 50px radius (pill) or 50% (perfect circle for icon buttons), creating an organic, tool-palette-like feel. The dashed-outline focus indicator (`dashed 2px`) is a deliberate design choice that echoes selection handles in the Figma editor itself — the website's UI language references the product's UI language.
+What truly distinguishes Stripe is its shadow system. Rather than the flat or single-layer approach of most sites, Stripe uses multi-layer, blue-tinted shadows: the signature `rgba(50,50,93,0.25)` combined with `rgba(0,0,0,0.1)` creates shadows with a cool, almost atmospheric depth -- like elements are floating in a twilight sky. The blue-gray undertone of the primary shadow color (50,50,93) ties directly to the navy-purple brand palette, making even elevation feel on-brand.
 
 **Key Characteristics:**
-- Custom variable font (figmaSans) with unusual weight stops: 320, 330, 340, 450, 480, 540, 700
-- Strictly black-and-white interface chrome — color exists only in product content
-- figmaMono for uppercase technical labels with wide letter-spacing
-- Pill (50px) and circular (50%) button geometry
-- Dashed focus outlines echoing Figma's editor selection handles
-- Vibrant multi-color hero gradients (green, yellow, purple, pink)
-- OpenType `"kern"` feature enabled globally
-- Negative letter-spacing throughout — even body text at -0.14px to -0.26px
+
+- sohne-var with OpenType `"ss01"` on all text -- a custom stylistic set that defines the brand's letterforms
+- Weight 300 as the signature headline weight -- light, confident, anti-convention
+- Negative letter-spacing at display sizes (-1.4px at 56px, progressive relaxation downward)
+- Blue-tinted multi-layer shadows using `rgba(50,50,93,0.25)` -- elevation that feels brand-colored
+- Deep navy (`#061b31`) headings instead of black -- warm, premium, financial-grade
+- Conservative border-radius (4px-8px) -- nothing pill-shaped, nothing harsh
+- Ruby (`#ea2261`) and magenta (`#f96bee`) accents for gradient and decorative elements
+- `SourceCodePro` as the monospace companion for code and technical labels
 
 ## 2. Color Palette & Roles
 
 ### Primary
-- **Pure Black** (`#000000`): All text, all solid buttons, all borders. The sole "color" of the interface.
-- **Pure White** (`#ffffff`): All backgrounds, white buttons, text on dark surfaces. The other half of the binary.
 
-*Note: Figma's marketing site uses ONLY these two colors for its interface layer. All vibrant colors appear exclusively in product screenshots, hero gradients, and embedded content.*
+- **Stripe Purple** (`#533afd`): Primary brand color, CTA backgrounds, link text, interactive highlights. A saturated blue-violet that anchors the entire system.
+- **Deep Navy** (`#061b31`): `--hds-color-heading-solid`. Primary heading color. Not black, not gray -- a very dark blue that adds warmth and depth to text.
+- **Pure White** (`#ffffff`): Page background, card surfaces, button text on dark backgrounds.
 
-### Surface & Background
-- **Pure White** (`#ffffff`): Primary page background and card surfaces.
-- **Glass Black** (`rgba(0, 0, 0, 0.08)`): Subtle dark overlay for secondary circular buttons and glass effects.
-- **Glass White** (`rgba(255, 255, 255, 0.16)`): Frosted glass overlay for buttons on dark/colored surfaces.
+### Brand & Dark
 
-### Gradient System
-- **Hero Gradient**: A vibrant multi-stop gradient using electric green, bright yellow, deep purple, and hot pink. This gradient is the visual signature of the hero section — it represents the creative possibilities of the tool.
-- **Product Section Gradients**: Individual product areas (Design, Dev Mode, Prototyping) may use distinct color themes in their showcases.
+- **Brand Dark** (`#1c1e54`): `--hds-color-util-brand-900`. Deep indigo for dark sections, footer backgrounds, and immersive brand moments.
+- **Dark Navy** (`#0d253d`): `--hds-color-core-neutral-975`. The darkest neutral -- almost-black with a blue undertone for maximum depth without harshness.
+
+### Accent Colors
+
+- **Ruby** (`#ea2261`): `--hds-color-accentColorMode-ruby-icon-solid`. Warm red-pink for icons, alerts, and accent elements.
+- **Magenta** (`#f96bee`): `--hds-color-accentColorMode-magenta-icon-gradientMiddle`. Vivid pink-purple for gradients and decorative highlights.
+- **Magenta Light** (`#ffd7ef`): `--hds-color-util-accent-magenta-100`. Tinted surface for magenta-themed cards and badges.
+
+### Interactive
+
+- **Primary Purple** (`#533afd`): Primary link color, active states, selected elements.
+- **Purple Hover** (`#4434d4`): Darker purple for hover states on primary elements.
+- **Purple Deep** (`#2e2b8c`): `--hds-color-button-ui-iconHover`. Dark purple for icon hover states.
+- **Purple Light** (`#b9b9f9`): `--hds-color-action-bg-subduedHover`. Soft lavender for subdued hover backgrounds.
+- **Purple Mid** (`#665efd`): `--hds-color-input-selector-text-range`. Range selector and input highlight color.
+
+### Neutral Scale
+
+- **Heading** (`#061b31`): Primary headings, nav text, strong labels.
+- **Label** (`#273951`): `--hds-color-input-text-label`. Form labels, secondary headings.
+- **Body** (`#64748d`): Secondary text, descriptions, captions.
+- **Success Green** (`#15be53`): Status badges, success indicators (with 0.2-0.4 alpha for backgrounds/borders).
+- **Success Text** (`#108c3d`): Success badge text color.
+- **Lemon** (`#9b6829`): `--hds-color-core-lemon-500`. Warning and highlight accent.
+
+### Surface & Borders
+
+- **Border Default** (`#e5edf5`): Standard border color for cards, dividers, and containers.
+- **Border Purple** (`#b9b9f9`): Active/selected state borders on buttons and inputs.
+- **Border Soft Purple** (`#d6d9fc`): Subtle purple-tinted borders for secondary elements.
+- **Border Magenta** (`#ffd7ef`): Pink-tinted borders for magenta-themed elements.
+- **Border Dashed** (`#362baa`): Dashed borders for drop zones and placeholder elements.
+
+### Shadow Colors
+
+- **Shadow Blue** (`rgba(50,50,93,0.25)`): The signature -- blue-tinted primary shadow color.
+- **Shadow Dark Blue** (`rgba(3,3,39,0.25)`): Deeper blue shadow for elevated elements.
+- **Shadow Black** (`rgba(0,0,0,0.1)`): Secondary shadow layer for depth reinforcement.
+- **Shadow Ambient** (`rgba(23,23,23,0.08)`): Soft ambient shadow for subtle elevation.
+- **Shadow Soft** (`rgba(23,23,23,0.06)`): Minimal ambient shadow for light lift.
 
 ## 3. Typography Rules
 
 ### Font Family
-- **Primary**: `figmaSans`, with fallbacks: `figmaSans Fallback, SF Pro Display, system-ui, helvetica`
-- **Monospace / Labels**: `figmaMono`, with fallbacks: `figmaMono Fallback, SF Mono, menlo`
+
+- **Primary**: `sohne-var`, with fallback: `SF Pro Display`
+- **Monospace**: `SourceCodePro`, with fallback: `SFMono-Regular`
+- **OpenType Features**: `"ss01"` enabled globally on all sohne-var text; `"tnum"` for tabular numbers on financial data and captions.
 
 ### Hierarchy
 
-| Role | Font | Size | Weight | Line Height | Letter Spacing | Notes |
-|------|------|------|--------|-------------|----------------|-------|
-| Display / Hero | figmaSans | 86px (5.38rem) | 400 | 1.00 (tight) | -1.72px | Maximum impact, extreme tracking |
-| Section Heading | figmaSans | 64px (4rem) | 400 | 1.10 (tight) | -0.96px | Feature section titles |
-| Sub-heading | figmaSans | 26px (1.63rem) | 540 | 1.35 | -0.26px | Emphasized section text |
-| Sub-heading Light | figmaSans | 26px (1.63rem) | 340 | 1.35 | -0.26px | Light-weight section text |
-| Feature Title | figmaSans | 24px (1.5rem) | 700 | 1.45 | normal | Bold card headings |
-| Body Large | figmaSans | 20px (1.25rem) | 330–450 | 1.30–1.40 | -0.1px to -0.14px | Descriptions, intros |
-| Body / Button | figmaSans | 16px (1rem) | 330–400 | 1.40–1.45 | -0.14px to normal | Standard body, nav, buttons |
-| Body Light | figmaSans | 18px (1.13rem) | 320 | 1.45 | -0.26px to normal | Light-weight body text |
-| Mono Label | figmaMono | 18px (1.13rem) | 400 | 1.30 (tight) | 0.54px | Uppercase section labels |
-| Mono Small | figmaMono | 12px (0.75rem) | 400 | 1.00 (tight) | 0.6px | Uppercase tiny tags |
+| Role              | Font          | Size           | Weight  | Line Height    | Letter Spacing | Features  | Notes                                  |
+| ----------------- | ------------- | -------------- | ------- | -------------- | -------------- | --------- | -------------------------------------- |
+| Display Hero      | sohne-var     | 56px (3.50rem) | 300     | 1.03 (tight)   | -1.4px         | ss01      | Maximum size, whisper-weight authority |
+| Display Large     | sohne-var     | 48px (3.00rem) | 300     | 1.15 (tight)   | -0.96px        | ss01      | Secondary hero headlines               |
+| Section Heading   | sohne-var     | 32px (2.00rem) | 300     | 1.10 (tight)   | -0.64px        | ss01      | Feature section titles                 |
+| Sub-heading Large | sohne-var     | 26px (1.63rem) | 300     | 1.12 (tight)   | -0.26px        | ss01      | Card headings, sub-sections            |
+| Sub-heading       | sohne-var     | 22px (1.38rem) | 300     | 1.10 (tight)   | -0.22px        | ss01      | Smaller section heads                  |
+| Body Large        | sohne-var     | 18px (1.13rem) | 300     | 1.40           | normal         | ss01      | Feature descriptions, intro text       |
+| Body              | sohne-var     | 16px (1.00rem) | 300-400 | 1.40           | normal         | ss01      | Standard reading text                  |
+| Button            | sohne-var     | 16px (1.00rem) | 400     | 1.00 (tight)   | normal         | ss01      | Primary button text                    |
+| Button Small      | sohne-var     | 14px (0.88rem) | 400     | 1.00 (tight)   | normal         | ss01      | Secondary/compact buttons              |
+| Link              | sohne-var     | 14px (0.88rem) | 400     | 1.00 (tight)   | normal         | ss01      | Navigation links                       |
+| Caption           | sohne-var     | 13px (0.81rem) | 400     | normal         | normal         | ss01      | Small labels, metadata                 |
+| Caption Small     | sohne-var     | 12px (0.75rem) | 300-400 | 1.33-1.45      | normal         | ss01      | Fine print, timestamps                 |
+| Caption Tabular   | sohne-var     | 12px (0.75rem) | 300-400 | 1.33           | -0.36px        | tnum      | Financial data, numbers                |
+| Micro             | sohne-var     | 10px (0.63rem) | 300     | 1.15 (tight)   | 0.1px          | ss01      | Tiny labels, axis markers              |
+| Micro Tabular     | sohne-var     | 10px (0.63rem) | 300     | 1.15 (tight)   | -0.3px         | tnum      | Chart data, small numbers              |
+| Nano              | sohne-var     | 8px (0.50rem)  | 300     | 1.07 (tight)   | normal         | ss01      | Smallest labels                        |
+| Code Body         | SourceCodePro | 12px (0.75rem) | 500     | 2.00 (relaxed) | normal         | --        | Code blocks, syntax                    |
+| Code Bold         | SourceCodePro | 12px (0.75rem) | 700     | 2.00 (relaxed) | normal         | --        | Bold code, keywords                    |
+| Code Label        | SourceCodePro | 12px (0.75rem) | 500     | 2.00 (relaxed) | normal         | uppercase | Technical labels                       |
+| Code Micro        | SourceCodePro | 9px (0.56rem)  | 500     | 1.00 (tight)   | normal         | ss01      | Tiny code annotations                  |
 
 ### Principles
-- **Variable font precision**: figmaSans uses weights that most systems never touch — 320, 330, 340, 450, 480, 540. This creates hierarchy through subtle weight differences rather than dramatic jumps. The difference between 330 and 340 is nearly imperceptible but structurally significant.
-- **Light as the base**: Most body text uses 320–340 (lighter than typical 400 "regular"), creating an ethereal, airy reading experience that matches the design-tool aesthetic.
-- **Kern everywhere**: Every text element enables OpenType `"kern"` feature — kerning is not optional, it's structural.
-- **Negative tracking by default**: Even body text uses -0.1px to -0.26px letter-spacing, creating universally tight text. Display text compresses further to -0.96px and -1.72px.
-- **Mono for structure**: figmaMono in uppercase with positive letter-spacing (0.54px–0.6px) creates technical signpost labels.
+
+- **Light weight as signature**: Weight 300 at display sizes is Stripe's most distinctive typographic choice. Where others use 600-700 to command attention, Stripe uses lightness as luxury -- the text is so confident it doesn't need weight to be authoritative.
+- **ss01 everywhere**: The `"ss01"` stylistic set is non-negotiable. It modifies specific glyphs (likely alternate `a`, `g`, `l` forms) to create a more geometric, contemporary feel across all sohne-var text.
+- **Two OpenType modes**: `"ss01"` for display/body text, `"tnum"` for tabular numerals in financial data. These never overlap -- a number in a paragraph uses ss01, a number in a data table uses tnum.
+- **Progressive tracking**: Letter-spacing tightens proportionally with size: -1.4px at 56px, -0.96px at 48px, -0.64px at 32px, -0.26px at 26px, normal at 16px and below.
+- **Two-weight simplicity**: Primarily 300 (body and headings) and 400 (UI/buttons). No bold (700) in the primary font -- SourceCodePro uses 500/700 for code contrast.
 
 ## 4. Component Stylings
 
 ### Buttons
 
-**Black Solid (Pill)**
-- Background: Pure Black (`#000000`)
-- Text: Pure White (`#ffffff`)
-- Radius: circle (50%) for icon buttons
-- Focus: dashed 2px outline
-- Maximum emphasis
+**Primary Purple**
 
-**White Pill**
-- Background: Pure White (`#ffffff`)
-- Text: Pure Black (`#000000`)
-- Padding: 8px 18px 10px (asymmetric vertical)
-- Radius: pill (50px)
-- Focus: dashed 2px outline
-- Standard CTA on dark/colored surfaces
+- Background: `#533afd`
+- Text: `#ffffff`
+- Padding: 8px 16px
+- Radius: 4px
+- Font: 16px sohne-var weight 400, `"ss01"`
+- Hover: `#4434d4` background
+- Use: Primary CTA ("Start now", "Contact sales")
 
-**Glass Dark**
-- Background: `rgba(0, 0, 0, 0.08)` (subtle dark overlay)
-- Text: Pure Black
-- Radius: circle (50%)
-- Focus: dashed 2px outline
-- Secondary action on light surfaces
+**Ghost / Outlined**
 
-**Glass Light**
-- Background: `rgba(255, 255, 255, 0.16)` (frosted glass)
-- Text: Pure White
-- Radius: circle (50%)
-- Focus: dashed 2px outline
-- Secondary action on dark/colored surfaces
+- Background: transparent
+- Text: `#533afd`
+- Padding: 8px 16px
+- Radius: 4px
+- Border: `1px solid #b9b9f9`
+- Font: 16px sohne-var weight 400, `"ss01"`
+- Hover: background shifts to `rgba(83,58,253,0.05)`
+- Use: Secondary actions
+
+**Transparent Info**
+
+- Background: transparent
+- Text: `#2874ad`
+- Padding: 8px 16px
+- Radius: 4px
+- Border: `1px solid rgba(43,145,223,0.2)`
+- Use: Tertiary/info-level actions
+
+**Neutral Ghost**
+
+- Background: transparent (`rgba(255,255,255,0)`)
+- Text: `rgba(16,16,16,0.3)`
+- Padding: 8px 16px
+- Radius: 4px
+- Outline: `1px solid rgb(212,222,233)`
+- Use: Disabled or muted actions
 
 ### Cards & Containers
-- Background: Pure White
-- Border: none or minimal
-- Radius: 6px (small containers), 8px (images, cards, dialogs)
-- Shadow: subtle to medium elevation effects
-- Product screenshots as card content
+
+- Background: `#ffffff`
+- Border: `1px solid #e5edf5` (standard) or `1px solid #061b31` (dark accent)
+- Radius: 4px (tight), 5px (standard), 6px (comfortable), 8px (featured)
+- Shadow (standard): `rgba(50,50,93,0.25) 0px 30px 45px -30px, rgba(0,0,0,0.1) 0px 18px 36px -18px`
+- Shadow (ambient): `rgba(23,23,23,0.08) 0px 15px 35px 0px`
+- Hover: shadow intensifies, often adding the blue-tinted layer
+
+### Badges / Tags / Pills
+
+**Neutral Pill**
+
+- Background: `#ffffff`
+- Text: `#000000`
+- Padding: 0px 6px
+- Radius: 4px
+- Border: `1px solid #f6f9fc`
+- Font: 11px weight 400
+
+**Success Badge**
+
+- Background: `rgba(21,190,83,0.2)`
+- Text: `#108c3d`
+- Padding: 1px 6px
+- Radius: 4px
+- Border: `1px solid rgba(21,190,83,0.4)`
+- Font: 10px weight 300
+
+### Inputs & Forms
+
+- Border: `1px solid #e5edf5`
+- Radius: 4px
+- Focus: `1px solid #533afd` or purple ring
+- Label: `#273951`, 14px sohne-var
+- Text: `#061b31`
+- Placeholder: `#64748d`
 
 ### Navigation
-- Clean horizontal nav on white
-- Logo: Figma wordmark in black
-- Product tabs: pill-shaped (50px) tab navigation
-- Links: black text, underline 1px decoration
-- CTA: Black pill button
-- Hover: text color via CSS variable
 
-### Distinctive Components
+- Clean horizontal nav on white, sticky with blur backdrop
+- Brand logotype left-aligned
+- Links: sohne-var 14px weight 400, `#061b31` text with `"ss01"`
+- Radius: 6px on nav container
+- CTA: purple button right-aligned ("Sign in", "Start now")
+- Mobile: hamburger toggle with 6px radius
 
-**Product Tab Bar**
-- Horizontal pill-shaped tabs (50px radius)
-- Each tab represents a Figma product area (Design, Dev Mode, Prototyping, etc.)
-- Active tab highlighted
+### Decorative Elements
 
-**Hero Gradient Section**
-- Full-width vibrant multi-color gradient background
-- White text overlay with 86px display heading
-- Product screenshots floating within the gradient
+**Dashed Borders**
 
-**Dashed Focus Indicators**
-- All interactive elements use `dashed 2px` outline on focus
-- References the selection handles in the Figma editor
-- A meta-design choice connecting website and product
+- `1px dashed #362baa` (purple) for placeholder/drop zones
+- `1px dashed #ffd7ef` (magenta) for magenta-themed decorative borders
+
+**Gradient Accents**
+
+- Ruby-to-magenta gradients (`#ea2261` to `#f96bee`) for hero decorations
+- Brand dark sections use `#1c1e54` backgrounds with white text
 
 ## 5. Layout Principles
 
 ### Spacing System
+
 - Base unit: 8px
-- Scale: 1px, 2px, 4px, 4.5px, 8px, 10px, 12px, 16px, 18px, 24px, 32px, 40px, 46px, 48px, 50px
+- Scale: 1px, 2px, 4px, 6px, 8px, 10px, 11px, 12px, 14px, 16px, 18px, 20px
+- Notable: The scale is dense at the small end (every 2px from 4-12), reflecting Stripe's precision-oriented UI for financial data
 
 ### Grid & Container
-- Max container width: up to 1920px
-- Hero: full-width gradient with centered content
-- Product sections: alternating showcases
-- Footer: dark full-width section
-- Responsive from 559px to 1920px
+
+- Max content width: approximately 1080px
+- Hero: centered single-column with generous padding, lightweight headlines
+- Feature sections: 2-3 column grids for feature cards
+- Full-width dark sections with `#1c1e54` background for brand immersion
+- Code/dashboard previews as contained cards with blue-tinted shadows
 
 ### Whitespace Philosophy
-- **Gallery-like pacing**: Generous spacing lets each product section breathe as its own exhibit.
-- **Color sections as visual breathing**: The gradient hero and product showcases provide chromatic relief between the monochrome interface sections.
+
+- **Precision spacing**: Unlike the vast emptiness of minimalist systems, Stripe uses measured, purposeful whitespace. Every gap is a deliberate typographic choice.
+- **Dense data, generous chrome**: Financial data displays (tables, charts) are tightly packed, but the UI chrome around them is generously spaced. This creates a sense of controlled density -- like a well-organized spreadsheet in a beautiful frame.
+- **Section rhythm**: White sections alternate with dark brand sections (`#1c1e54`), creating a dramatic light/dark cadence that prevents monotony without introducing arbitrary color.
 
 ### Border Radius Scale
-- Minimal (2px): Small link elements
-- Subtle (6px): Small containers, dividers
-- Comfortable (8px): Cards, images, dialogs
-- Pill (50px): Tab buttons, CTAs
-- Circle (50%): Icon buttons, circular elements
+
+- Micro (1px): Fine-grained elements, subtle rounding
+- Standard (4px): Buttons, inputs, badges, cards -- the workhorse
+- Comfortable (5px): Standard card containers
+- Relaxed (6px): Navigation, larger interactive elements
+- Large (8px): Featured cards, hero elements
+- Compound: `0px 0px 6px 6px` for bottom-rounded containers (tab panels, dropdown footers)
 
 ## 6. Depth & Elevation
 
-| Level | Treatment | Use |
-|-------|-----------|-----|
-| Flat (Level 0) | No shadow | Page background, most text |
-| Surface (Level 1) | White card on gradient/dark section | Cards, product showcases |
-| Elevated (Level 2) | Subtle shadow | Floating cards, hover states |
+| Level                | Treatment                                                    | Use                                 |
+| -------------------- | ------------------------------------------------------------ | ----------------------------------- |
+| Flat (Level 0)       | No shadow                                                    | Page background, inline text        |
+| Ambient (Level 1)    | `rgba(23,23,23,0.06) 0px 3px 6px`                            | Subtle card lift, hover hints       |
+| Standard (Level 2)   | `rgba(23,23,23,0.08) 0px 15px 35px`                          | Standard cards, content panels      |
+| Elevated (Level 3)   | `rgba(50,50,93,0.25) 0px 30px 45px -30px, rgba(0,0,0,0.1) 0px 18px 36px -18px` | Featured cards, dropdowns, popovers |
+| Deep (Level 4)       | `rgba(3,3,39,0.25) 0px 14px 21px -14px, rgba(0,0,0,0.1) 0px 8px 17px -8px` | Modals, floating panels             |
+| Ring (Accessibility) | `2px solid #533afd` outline                                  | Keyboard focus ring                 |
 
-**Shadow Philosophy**: Figma uses shadows sparingly. The primary depth mechanisms are **background contrast** (white content on colorful/dark sections) and the inherent dimensionality of the product screenshots themselves.
+**Shadow Philosophy**: Stripe's shadow system is built on a principle of chromatic depth. Where most design systems use neutral gray or black shadows, Stripe's primary shadow color (`rgba(50,50,93,0.25)`) is a deep blue-gray that echoes the brand's navy palette. This creates shadows that don't just add depth -- they add brand atmosphere. The multi-layer approach pairs this blue-tinted shadow with a pure black secondary layer (`rgba(0,0,0,0.1)`) at a different offset, creating a parallax-like depth where the branded shadow sits farther from the element and the neutral shadow sits closer. The negative spread values (-30px, -18px) ensure shadows don't extend beyond the element's footprint horizontally, keeping elevation vertical and controlled.
+
+### Decorative Depth
+
+- Dark brand sections (`#1c1e54`) create immersive depth through background color contrast
+- Gradient overlays with ruby-to-magenta transitions for hero decorations
+- Shadow color `rgba(0,55,112,0.08)` (`--hds-color-shadow-sm-top`) for top-edge shadows on sticky elements
 
 ## 7. Do's and Don'ts
 
 ### Do
-- Use figmaSans with precise variable weights (320–540) — the granular weight control IS the design
-- Keep the interface strictly black-and-white — color comes from product content only
-- Use pill (50px) and circular (50%) geometry for all interactive elements
-- Apply dashed 2px focus outlines — the signature accessibility pattern
-- Enable `"kern"` feature on all text
-- Use figmaMono in uppercase with positive letter-spacing for labels
-- Apply negative letter-spacing throughout (-0.1px to -1.72px)
+
+- Use sohne-var with `"ss01"` on every text element -- the stylistic set IS the brand
+- Use weight 300 for all headlines and body text -- lightness is the signature
+- Apply blue-tinted shadows (`rgba(50,50,93,0.25)`) for all elevated elements
+- Use `#061b31` (deep navy) for headings instead of `#000000` -- the warmth matters
+- Keep border-radius between 4px-8px -- conservative rounding is intentional
+- Use `"tnum"` for any tabular/financial number display
+- Layer shadows: blue-tinted far + neutral close for depth parallax
+- Use `#533afd` purple as the primary interactive/CTA color
 
 ### Don't
-- Don't add interface colors — the monochrome palette is absolute
-- Don't use standard font weights (400, 500, 600, 700) — use the variable font's unique stops (320, 330, 340, 450, 480, 540)
-- Don't use sharp corners on buttons — pill and circular geometry only
-- Don't use solid focus outlines — dashed is the signature
-- Don't increase body font weight above 450 — the light-weight aesthetic is core
-- Don't use positive letter-spacing on body text — it's always negative
+
+- Don't use weight 600-700 for sohne-var headlines -- weight 300 is the brand voice
+- Don't use large border-radius (12px+, pill shapes) on cards or buttons -- Stripe is conservative
+- Don't use neutral gray shadows -- always tint with blue (`rgba(50,50,93,...)`)
+- Don't skip `"ss01"` on any sohne-var text -- the alternate glyphs define the personality
+- Don't use pure black (`#000000`) for headings -- always `#061b31` deep navy
+- Don't use warm accent colors (orange, yellow) for interactive elements -- purple is primary
+- Don't apply positive letter-spacing at display sizes -- Stripe tracks tight
+- Don't use the magenta/ruby accents for buttons or links -- they're decorative/gradient only
 
 ## 8. Responsive Behavior
 
 ### Breakpoints
-| Name | Width | Key Changes |
-|------|-------|-------------|
-| Small Mobile | <560px | Compact layout, stacked |
-| Tablet | 560–768px | Minor adjustments |
-| Small Desktop | 768–960px | 2-column layouts |
-| Desktop | 960–1280px | Standard layout |
-| Large Desktop | 1280–1440px | Expanded |
-| Ultra-wide | 1440–1920px | Maximum width |
+
+| Name          | Width       | Key Changes                                         |
+| ------------- | ----------- | --------------------------------------------------- |
+| Mobile        | <640px      | Single column, reduced heading sizes, stacked cards |
+| Tablet        | 640-1024px  | 2-column grids, moderate padding                    |
+| Desktop       | 1024-1280px | Full layout, 3-column feature grids                 |
+| Large Desktop | >1280px     | Centered content with generous margins              |
+
+### Touch Targets
+
+- Buttons use comfortable padding (8px-16px vertical)
+- Navigation links at 14px with adequate spacing
+- Badges have 6px horizontal padding minimum for tap targets
+- Mobile nav toggle with 6px radius button
 
 ### Collapsing Strategy
-- Hero text: 86px → 64px → 48px
-- Product tabs: horizontal scroll on mobile
-- Feature sections: stacked single column
-- Footer: multi-column → stacked
+
+- Hero: 56px display -> 32px on mobile, weight 300 maintained
+- Navigation: horizontal links + CTAs -> hamburger toggle
+- Feature cards: 3-column -> 2-column -> single column stacked
+- Dark brand sections: maintain full-width treatment, reduce internal padding
+- Financial data tables: horizontal scroll on mobile
+- Section spacing: 64px+ -> 40px on mobile
+- Typography scale compresses: 56px -> 48px -> 32px hero sizes across breakpoints
+
+### Image Behavior
+
+- Dashboard/product screenshots maintain blue-tinted shadow at all sizes
+- Hero gradient decorations simplify on mobile
+- Code blocks maintain `SourceCodePro` treatment, may horizontally scroll
+- Card images maintain consistent 4px-6px border-radius
 
 ## 9. Agent Prompt Guide
 
 ### Quick Color Reference
-- Everything: "Pure Black (#000000)" and "Pure White (#ffffff)"
-- Glass Dark: "rgba(0, 0, 0, 0.08)"
-- Glass Light: "rgba(255, 255, 255, 0.16)"
+
+- Primary CTA: Stripe Purple (`#533afd`)
+- CTA Hover: Purple Dark (`#4434d4`)
+- Background: Pure White (`#ffffff`)
+- Heading text: Deep Navy (`#061b31`)
+- Body text: Slate (`#64748d`)
+- Label text: Dark Slate (`#273951`)
+- Border: Soft Blue (`#e5edf5`)
+- Link: Stripe Purple (`#533afd`)
+- Dark section: Brand Dark (`#1c1e54`)
+- Success: Green (`#15be53`)
+- Accent decorative: Ruby (`#ea2261`), Magenta (`#f96bee`)
 
 ### Example Component Prompts
-- "Create a hero on a vibrant multi-color gradient (green, yellow, purple, pink). Headline at 86px figmaSans weight 400, line-height 1.0, letter-spacing -1.72px. White text. White pill CTA button (50px radius, 8px 18px padding)."
-- "Design a product tab bar with pill-shaped buttons (50px radius). Active: Black bg, white text. Inactive: transparent, black text. figmaSans at 20px weight 480."
-- "Build a section label: figmaMono 18px, uppercase, letter-spacing 0.54px, black text. Kern enabled."
-- "Create body text at 20px figmaSans weight 330, line-height 1.40, letter-spacing -0.14px. Pure Black on white."
+
+- "Create a hero section on white background. Headline at 48px sohne-var weight 300, line-height 1.15, letter-spacing -0.96px, color #061b31, font-feature-settings 'ss01'. Subtitle at 18px weight 300, line-height 1.40, color #64748d. Purple CTA button (#533afd, 4px radius, 8px 16px padding, white text) and ghost button (transparent, 1px solid #b9b9f9, #533afd text, 4px radius)."
+- "Design a card: white background, 1px solid #e5edf5 border, 6px radius. Shadow: rgba(50,50,93,0.25) 0px 30px 45px -30px, rgba(0,0,0,0.1) 0px 18px 36px -18px. Title at 22px sohne-var weight 300, letter-spacing -0.22px, color #061b31, 'ss01'. Body at 16px weight 300, #64748d."
+- "Build a success badge: rgba(21,190,83,0.2) background, #108c3d text, 4px radius, 1px 6px padding, 10px sohne-var weight 300, border 1px solid rgba(21,190,83,0.4)."
+- "Create navigation: white sticky header with backdrop-filter blur(12px). sohne-var 14px weight 400 for links, #061b31 text, 'ss01'. Purple CTA 'Start now' right-aligned (#533afd bg, white text, 4px radius). Nav container 6px radius."
+- "Design a dark brand section: #1c1e54 background, white text. Headline 32px sohne-var weight 300, letter-spacing -0.64px, 'ss01'. Body 16px weight 300, rgba(255,255,255,0.7). Cards inside use rgba(255,255,255,0.1) border with 6px radius."
 
 ### Iteration Guide
-1. Use variable font weight stops precisely: 320, 330, 340, 450, 480, 540, 700
-2. Interface is always black + white — never add colors to chrome
-3. Dashed focus outlines, not solid
-4. Letter-spacing is always negative on body, always positive on mono labels
-5. Pill (50px) for buttons/tabs, circle (50%) for icon buttons
+
+1. Always enable `font-feature-settings: "ss01"` on sohne-var text -- this is the brand's typographic DNA
+2. Weight 300 is the default; use 400 only for buttons/links/navigation
+3. Shadow formula: `rgba(50,50,93,0.25) 0px Y1 B1 -S1, rgba(0,0,0,0.1) 0px Y2 B2 -S2` where Y1/B1 are larger (far shadow) and Y2/B2 are smaller (near shadow)
+4. Heading color is `#061b31` (deep navy), body is `#64748d` (slate), labels are `#273951` (dark slate)
+5. Border-radius stays in the 4px-8px range -- never use pill shapes or large rounding
+6. Use `"tnum"` for any numbers in tables, charts, or financial displays
+7. Dark sections use `#1c1e54` -- not black, not gray, but a deep branded indigo
+8. SourceCodePro for code at 12px/500 with 2.00 line-height (very generous for readability)

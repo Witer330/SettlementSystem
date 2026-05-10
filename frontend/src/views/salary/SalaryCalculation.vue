@@ -6,6 +6,9 @@
         <h1 class="page-title">工资计算</h1>
         <p class="page-description">根据员工计费方式计算当月工资</p>
       </div>
+      <el-button @click="showReport = true">
+        <el-icon><DataAnalysis /></el-icon>查看报表
+      </el-button>
     </div>
 
     <!-- Calculate Form -->
@@ -144,16 +147,21 @@
       :bill="currentBill"
       @approve="approveCurrentBill"
     />
+
+    <ReportDialog v-model="showReport" report-type="salary" title="工资报表" />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { DataAnalysis } from '@element-plus/icons-vue'
 import { salaryApi, type CalculateSalaryResult, type SalaryBill } from '../../api/salary'
 import SalaryCalcForm from './SalaryCalcForm.vue'
 import SalaryBillDetail from './SalaryBillDetail.vue'
+import ReportDialog from '@/components/ReportDialog.vue'
 
+const showReport = ref(false)
 const calculating = ref(false)
 const loadingBills = ref(false)
 const showBillsList = ref(false)

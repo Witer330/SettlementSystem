@@ -47,6 +47,7 @@ import dashboardRoutes from './routes/dashboard.routes'
 import customerRoutes from './routes/customer.routes'
 import supplierRoutes from './routes/supplier.routes'
 import purchaseOrderRoutes from './routes/purchaseOrder.routes'
+import reportRoutes from './routes/report.routes'
 
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/employees', employeeRoutes)
@@ -65,6 +66,7 @@ app.use('/api/v1/dashboard', dashboardRoutes)
 app.use('/api/v1/customers', customerRoutes)
 app.use('/api/v1/suppliers', supplierRoutes)
 app.use('/api/v1/purchase-orders', purchaseOrderRoutes)
+app.use('/api/v1/reports', reportRoutes)
 
 // Root endpoint
 app.get('/', (req, res) => {
