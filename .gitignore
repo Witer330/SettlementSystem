@@ -73,3 +73,17 @@ data/
 
 # Memory
 .claude/
+
+# Deploy build artifacts
+deploy/cache/
+deploy/output/
+
+# Tauri / Rust build artifacts
+service-manager/src-tauri/target/
+service-manager/dist/
+
+# Installer output
+dist/installer/
+
+# Release artifacts (EXE files)
+release/

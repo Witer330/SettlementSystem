@@ -4,9 +4,17 @@
  * SettlementSystem 安装包构建脚本
  *
  * 用法:
- *   node deploy/build.js                # 完整构建
- *   node deploy/build.js --skip-frontend  # 跳过前端构建
- *   node deploy/build.js --skip-backend   # 跳过后端构建
+ *   node deploy/build.cjs                  # 完整安装包
+ *   node deploy/build.cjs --patch          # 增量补丁包（只含前后端代码+迁移）
+ *   node deploy/build.cjs --skip-frontend  # 跳过前端构建
+ *   node deploy/build.cjs --skip-backend   # 跳过后端构建
+ *   node deploy/build.cjs --skip-manager   # 跳过服务管理器构建
+ *
+ * 版本号统一从 package.json 读取，修改 version 字段即可控制版本。
+ *
+ * 输出目录:
+ *   release/installer/v{version}/  — 全量安装包
+ *   release/patch/v{version}/      — 增量补丁包
  *
  * 前置条件:
  *   - Node.js 20+
@@ -27,6 +35,7 @@ const NODE_ZIP = `node-${NODE_VERSION}-win-x64.zip`
 const NODE_URL = `https://nodejs.org/dist/${NODE_VERSION}/${NODE_ZIP}`
 const CACHE_DIR = path.join(DEPLOY, 'cache')
 const OUTPUT_DIR = path.join(DEPLOY, 'output', 'app')
+const RELEASE_DIR = path.join(ROOT, 'release')
 const ISCC_DEFAULT = 'C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe'
 
 // ============ 工具函数 ============
@@ -112,39 +121,51 @@ function findIscc() {
 // ============ 主流程 ============
 
 const args = process.argv.slice(2)
+const isPatch = args.includes('--patch')
 const skipFrontend = args.includes('--skip-frontend')
 const skipBackend = args.includes('--skip-backend')
+const skipManager = args.includes('--skip-manager')
 
 async function main() {
   const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf-8'))
   const version = pkg.version
-  log(`构建 SettlementSystem v${version}`)
+  const mode = isPatch ? '补丁包' : '安装包'
+  log(`构建 SettlementSystem v${version} (${mode})`)
 
   // 1. 清理旧构建
-  log('[1/8] 清理旧构建产物')
+  log('[1/9] 清理旧构建产物')
   rimraf(path.join(DEPLOY, 'output'))
-  rimraf(path.join(ROOT, 'dist'))
 
   // 2. 构建前端
   if (!skipFrontend) {
-    log('[2/8] 构建前端')
+    log('[2/9] 构建前端')
     run('npm install', path.join(ROOT, 'frontend'))
     run('npm run build', path.join(ROOT, 'frontend'))
   } else {
-    log('[2/8] 跳过前端构建')
+    log('[2/9] 跳过前端构建')
   }
 
   // 3. 构建后端
   if (!skipBackend) {
-    log('[3/8] 构建后端')
+    log('[3/9] 构建后端')
     run('npm install', path.join(ROOT, 'backend'))
     run('npm run build', path.join(ROOT, 'backend'))
   } else {
-    log('[3/8] 跳过后端构建')
+    log('[3/9] 跳过后端构建')
   }
 
-  // 4. 创建输出目录结构
-  log('[4/8] 组装安装包文件')
+  // 4. 构建 Tauri 服务管理器（仅全量安装包）
+  if (!skipManager && !isPatch) {
+    log('[4/9] 构建服务管理器 (Tauri)')
+    const managerDir = path.join(ROOT, 'service-manager')
+    run('npm install', managerDir)
+    run('npm run tauri build', managerDir)
+  } else {
+    log('[4/9] 跳过服务管理器构建')
+  }
+
+  // 5. 创建输出目录结构
+  log('[5/9] 组装文件')
   fs.mkdirSync(OUTPUT_DIR, { recursive: true })
 
   // 复制前端构建产物
@@ -170,47 +191,53 @@ async function main() {
     fs.copyFileSync(lockSrc, path.join(prismaDest, 'migration_lock.toml'))
   }
 
-  // 5. 创建生产 node_modules
-  log('[5/8] 创建生产依赖')
-  const backendPkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'backend', 'package.json'), 'utf-8'))
-  const prodDeps = backendPkg.dependencies || {}
-  // 额外需要 prisma CLI（用于 prisma generate 和 migrate deploy）
-  prodDeps['prisma'] = backendPkg.devDependencies?.prisma || '^5.20.0'
+  // 6. 创建生产 node_modules（仅全量安装包）
+  if (!isPatch) {
+    log('[6/9] 创建生产依赖')
+    const backendPkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'backend', 'package.json'), 'utf-8'))
+    const prodDeps = backendPkg.dependencies || {}
+    prodDeps['prisma'] = backendPkg.devDependencies?.prisma || '^5.20.0'
 
-  const tempPkg = {
-    name: 'settlement-system-prod',
-    version: '1.0.0',
-    dependencies: prodDeps
-  }
-  const tempDir = path.join(DEPLOY, 'output', 'temp')
-  fs.mkdirSync(tempDir, { recursive: true })
-  fs.writeFileSync(path.join(tempDir, 'package.json'), JSON.stringify(tempPkg, null, 2))
+    const tempPkg = {
+      name: 'settlement-system-prod',
+      version: '1.0.0',
+      dependencies: prodDeps
+    }
+    const tempDir = path.join(DEPLOY, 'output', 'temp')
+    fs.mkdirSync(tempDir, { recursive: true })
+    fs.writeFileSync(path.join(tempDir, 'package.json'), JSON.stringify(tempPkg, null, 2))
 
-  run('npm install --production', tempDir)
+    run('npm install --production', tempDir)
 
-  // 移动到输出目录
-  const nodeModulesDest = path.join(OUTPUT_DIR, 'backend', 'node_modules')
-  fs.renameSync(path.join(tempDir, 'node_modules'), nodeModulesDest)
-  rimraf(tempDir)
+    const nodeModulesDest = path.join(OUTPUT_DIR, 'backend', 'node_modules')
+    fs.renameSync(path.join(tempDir, 'node_modules'), nodeModulesDest)
+    rimraf(tempDir)
 
-  // 复制 backend 的 package.json（prisma 需要）
-  fs.copyFileSync(
-    path.join(ROOT, 'backend', 'package.json'),
-    path.join(OUTPUT_DIR, 'backend', 'package.json')
-  )
-
-  // 6. 运行 prisma generate
-  log('[6/8] 生成 Prisma Client')
-  const nodeExe = path.join(CACHE_DIR, 'node', 'node.exe')
-  if (fs.existsSync(nodeExe)) {
-    run(`"${nodeExe}" node_modules/prisma/build/index.js generate`, path.join(OUTPUT_DIR, 'backend'))
+    // 复制 backend 的 package.json（prisma 需要）
+    fs.copyFileSync(
+      path.join(ROOT, 'backend', 'package.json'),
+      path.join(OUTPUT_DIR, 'backend', 'package.json')
+    )
   } else {
-    // 如果 Node.js 便携版尚未下载，使用系统 Node
-    run('npx prisma generate', path.join(OUTPUT_DIR, 'backend'))
+    log('[6/9] 跳过（补丁包不含 node_modules）')
   }
 
-  // 7. 下载 Node.js 便携版
-  log('[7/8] 下载 Node.js 便携版')
+  // 7. 运行 prisma generate（仅全量安装包）
+  if (!isPatch) {
+    log('[7/9] 生成 Prisma Client')
+    const nodeExe = path.join(CACHE_DIR, 'node', 'node.exe')
+    if (fs.existsSync(nodeExe)) {
+      run(`"${nodeExe}" node_modules/prisma/build/index.js generate`, path.join(OUTPUT_DIR, 'backend'))
+    } else {
+      run('npx prisma generate', path.join(OUTPUT_DIR, 'backend'))
+    }
+  } else {
+    log('[7/9] 跳过（补丁包不含 prisma generate）')
+  }
+
+  // 8. 下载 Node.js 便携版（仅全量安装包）
+  if (!isPatch) {
+    log('[8/9] 下载 Node.js 便携版')
   fs.mkdirSync(CACHE_DIR, { recursive: true })
   const zipPath = path.join(CACHE_DIR, NODE_ZIP)
   const nodeDir = path.join(CACHE_DIR, 'node')
@@ -235,23 +262,36 @@ async function main() {
 
   // 复制 Node.js 到输出目录
   copyDir(nodeDir, path.join(OUTPUT_DIR, 'node'))
-
-  // 8. 复制部署脚本和图标
-  log('[8/8] 复制部署脚本')
-  const deployFiles = ['tray.ps1', 'start.bat', 'stop.bat', 'first-run.bat']
-  for (const f of deployFiles) {
-    fs.copyFileSync(path.join(DEPLOY, f), path.join(OUTPUT_DIR, f))
+  } else {
+    log('[8/9] 跳过（补丁包不含 Node.js）')
   }
 
-  // 创建 .env（生产环境）
-  const envContent = [
-    'DATABASE_URL="file:./prisma/data/settlement.db"',
-    'JWT_SECRET="settlement-system-secret-key-change-in-production"',
-    'JWT_EXPIRES_IN="7d"',
-    'PORT=4000',
-    'NODE_ENV="production"'
-  ].join('\n')
-  fs.writeFileSync(path.join(OUTPUT_DIR, 'backend', '.env'), envContent)
+  // 9. 复制服务管理器和部署脚本
+  log('[9/9] 复制服务管理器')
+
+  // 复制 Tauri 构建产物 (manager.exe)
+  const tauriRelease = path.join(ROOT, 'service-manager', 'src-tauri', 'target', 'release')
+  const managerExe = path.join(tauriRelease, 'settlement-service-manager.exe')
+  if (fs.existsSync(managerExe)) {
+    fs.copyFileSync(managerExe, path.join(OUTPUT_DIR, 'manager.exe'))
+    console.log('已复制 manager.exe')
+  } else {
+    console.warn('警告: 未找到 manager.exe，跳过')
+  }
+
+  // 复制 first-run.bat 和创建 .env（仅全量安装包）
+  if (!isPatch) {
+    fs.copyFileSync(path.join(DEPLOY, 'first-run.bat'), path.join(OUTPUT_DIR, 'first-run.bat'))
+
+    const envContent = [
+      'DATABASE_URL="file:./data/settlement.db"',
+      'JWT_SECRET="settlement-system-secret-key-change-in-production"',
+      'JWT_EXPIRES_IN="7d"',
+      'PORT=4000',
+      'NODE_ENV="production"'
+    ].join('\n')
+    fs.writeFileSync(path.join(OUTPUT_DIR, 'backend', '.env'), envContent)
+  }
 
   // 创建 logs 目录
   fs.mkdirSync(path.join(OUTPUT_DIR, 'logs'), { recursive: true })
@@ -263,7 +303,7 @@ async function main() {
   }
 
   // 9. 编译 Inno Setup
-  log('编译 Inno Setup 安装包')
+  log(`编译 Inno Setup ${mode}`)
   const iscc = findIscc()
   if (!iscc) {
     console.error('\n错误: 未找到 Inno Setup (ISCC.exe)')
@@ -273,11 +313,12 @@ async function main() {
   }
 
   const sourceDirAbs = path.resolve(OUTPUT_DIR)
-  const issScript = path.join(DEPLOY, 'installer.iss')
+  const issScript = isPatch ? path.join(DEPLOY, 'patch.iss') : path.join(DEPLOY, 'installer.iss')
   run(`"${iscc}" /DAppVersion=${version} /DSourceDir="${sourceDirAbs}" "${issScript}"`)
 
   // 完成
-  const outputExe = path.join(ROOT, 'dist', `SettlementSystem-${version}-Setup.exe`)
+  const subDir = isPatch ? 'patch' : 'installer'
+  const outputExe = path.join(RELEASE_DIR, subDir, `v${version}`, `SettlementSystem-${version}-${isPatch ? 'Patch' : 'Setup'}.exe`)
   if (fs.existsSync(outputExe)) {
     const stats = fs.statSync(outputExe)
     const sizeMB = (stats.size / 1024 / 1024).toFixed(1)

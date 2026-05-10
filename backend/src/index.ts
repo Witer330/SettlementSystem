@@ -68,22 +68,20 @@ app.use('/api/v1/suppliers', supplierRoutes)
 app.use('/api/v1/purchase-orders', purchaseOrderRoutes)
 app.use('/api/v1/reports', reportRoutes)
 
-// Root endpoint
-app.get('/', (req, res) => {
-  res.json({
-    code: 0,
-    message: 'Settlement System API',
-    data: {
-      version: '1.0.0',
-      status: 'running'
-    }
-  })
-})
-
 // Static file serving (production: serve frontend build)
 const frontendDist = path.join(__dirname, '../../frontend/dist')
 app.use(express.static(frontendDist))
+
+// SPA fallback — 非 API 路由全部返回 index.html
 app.get('{*path}', (req, res) => {
+  // 如果请求的是 API 路径但没匹配到路由，返回 404
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({
+      code: 404,
+      message: '接口不存在',
+      data: null
+    })
+  }
   res.sendFile(path.join(frontendDist, 'index.html'))
 })
 

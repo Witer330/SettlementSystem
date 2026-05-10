@@ -1,0 +1,37 @@
+{
+  "$schema": "https://raw.githubusercontent.com/tauri-apps/tauri/dev/crates/tauri-config-schema/schema.json",
+  "productName": "SettlementServiceManager",
+  "version": "1.0.0",
+  "identifier": "com.settlement.service-manager",
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "SettlementSystem 服务管理器",
+        "width": 480,
+        "height": 640,
+        "resizable": false,
+        "decorations": true,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/128x128@2x.png",
+      "icons/128x128.png",
+      "icons/32x32.png",
+      "icons/icon.ico"
+    ]
+  }
+}
