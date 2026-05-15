@@ -1,63 +1,73 @@
 <template>
-  <el-popover
-    :visible="popoverVisible"
-    placement="bottom"
-    :width="240"
-    trigger="click"
-  >
-    <template #reference>
-      <a
-        class="flow-node"
-        :class="`flow-node--${status}`"
-        :href="node.link"
-        @click.prevent="$emit('toggle-popover', node.id)"
-      >
-        <span v-if="step" class="flow-node__step">{{ step }}</span>
-        <span v-if="icon" class="flow-node__icon">
-          <el-icon :size="18"><component :is="icon" /></el-icon>
-        </span>
-        <span class="flow-node__text">{{ node.title }}</span>
-        <span class="flow-node__dot" />
-      </a>
-    </template>
-    <div class="flow-detail">
-      <div class="flow-detail__title">{{ node.title }}</div>
-      <div class="flow-detail__meta">
-        <span>数据量：</span>
-        <b>{{ popoverData?.count ?? 0 }}</b>
+  <div class="flow-node-wrap">
+    <Handle id="left"   type="target" :position="Position.Left"   class="flow-handle" />
+    <Handle id="top"    type="target" :position="Position.Top"    class="flow-handle" />
+    <Handle id="right"  type="source" :position="Position.Right"  class="flow-handle" />
+    <Handle id="bottom" type="source" :position="Position.Bottom" class="flow-handle" />
+
+    <el-popover
+      :visible="popoverVisible"
+      placement="bottom"
+      :width="240"
+      trigger="click"
+      :popper-options="{ strategy: 'fixed' }"
+    >
+      <template #reference>
+        <el-badge :value="data.todoCount" :hidden="data.todoCount === 0" class="flow-node-badge">
+          <a
+            class="flow-node"
+            :class="[`flow-node--${data.status}`, { 'flow-node--has-todo': data.todoCount > 0 }]"
+            @click.prevent="$emit('toggle-popover', nodeId)"
+          >
+            <span v-if="data.step" class="flow-node__step">{{ data.step }}</span>
+            <span v-if="data.icon" class="flow-node__icon">
+              <el-icon :size="16"><component :is="data.icon" /></el-icon>
+            </span>
+            <span class="flow-node__text">{{ data.node.title }}</span>
+            <span class="flow-node__dot" />
+          </a>
+        </el-badge>
+      </template>
+      <div class="flow-detail">
+        <div class="flow-detail__title">{{ data.node.title }}</div>
+        <div class="flow-detail__meta">
+          <span>待办数：</span><b>{{ data.todoCount }}</b>
+        </div>
+        <div class="flow-detail__meta">
+          <span>数据量：</span><b>{{ data.statusInfo?.count ?? 0 }}</b>
+        </div>
+        <div v-if="data.statusInfo?.latest" class="flow-detail__meta">
+          <span>最近更新：</span>
+          <span>{{ formatDate(data.statusInfo.latest) }}</span>
+        </div>
+        <el-button type="primary" size="small" style="width:100%;margin-top:8px" @click="$emit('navigate', nodeId)">
+          {{ data.todoCount > 0 ? `处理 ${data.todoCount} 条待办` : '前往查看' }}
+        </el-button>
       </div>
-      <div v-if="popoverData?.latest" class="flow-detail__meta">
-        <span>最近更新：</span>
-        <span>{{ formatDate(popoverData.latest) }}</span>
-      </div>
-      <el-button
-        type="primary"
-        size="small"
-        style="width: 100%; margin-top: 8px"
-        @click="$emit('navigate', node.link)"
-      >
-        前往处理
-      </el-button>
-    </div>
-  </el-popover>
+    </el-popover>
+  </div>
 </template>
 
 <script setup lang="ts">
-import type { Component } from 'vue'
-import type { FlowNodeData } from './types'
+import { Handle, Position } from '@vue-flow/core'
 
 defineProps<{
-  node: FlowNodeData
-  status?: string
-  step?: number
-  icon?: Component
+  nodeId: string
+  data: {
+    node: { id: string; title: string; link: string }
+    step: number
+    status: string
+    statusInfo?: { count: number; latest?: string }
+    icon?: any
+    todoCount: number
+  }
   popoverVisible?: boolean
   popoverData?: { count: number; latest?: string }
 }>()
 
 defineEmits<{
   'toggle-popover': [id: string]
-  'navigate': [link: string]
+  'navigate': [nodeId: string]
 }>()
 
 const formatDate = (val: string): string => {
@@ -67,12 +77,44 @@ const formatDate = (val: string): string => {
 </script>
 
 <style scoped>
+.flow-node-wrap {
+  position: relative;
+  width: 180px;
+  height: 50px;
+}
+
+/* 锚点默认隐藏，hover 节点时显示 */
+.flow-handle {
+  width: 7px !important;
+  height: 7px !important;
+  background: var(--color-primary, #6366f1) !important;
+  border: 2px solid var(--bg-surface, #fff) !important;
+  border-radius: 50% !important;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.flow-node-wrap:hover .flow-handle {
+  opacity: 1;
+}
+
+.flow-node-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.flow-node-badge :deep(.el-badge__content) {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 4;
+}
+
 .flow-node {
   display: flex;
   align-items: center;
   width: 180px;
-  height: 56px;
-  padding: 0 var(--space-3);
+  height: 50px;
+  padding: 0 var(--space-2);
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
@@ -80,13 +122,13 @@ const formatDate = (val: string): string => {
   cursor: pointer;
   text-decoration: none;
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   flex-shrink: 0;
   transition: all var(--transition-base);
-  gap: var(--space-2);
+  gap: var(--space-1);
+  box-sizing: border-box;
 }
 
-/* 状态叠加层 */
 .flow-node::before {
   content: '';
   position: absolute;
@@ -102,57 +144,65 @@ const formatDate = (val: string): string => {
   box-shadow: var(--shadow-md);
   border-color: var(--color-primary);
 }
-
 .flow-node:hover .flow-node__icon {
   color: var(--color-primary);
   transform: scale(1.1);
 }
 
-/* ── 状态变体 ── */
+/* ── 待办态 ── */
+.flow-node--has-todo {
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
+}
+.flow-node--has-todo:hover {
+  transform: scale(1.05);
+  border-color: var(--color-warning);
+}
+
+/* ── 状态 ── */
 .flow-node--pending {
   background: var(--bg-muted);
   border-color: var(--border-color);
+  opacity: 0.55;
+  filter: grayscale(0.4);
 }
-
 .flow-node--active {
   background: var(--bg-surface);
   border-color: var(--color-primary);
+  border-width: 2px;
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.15);
 }
-
 .flow-node--active::before {
   background: var(--color-primary);
-  opacity: 0.06;
+  opacity: 0.08;
 }
-
 .flow-node--completed {
   background: var(--bg-surface);
   border-color: var(--color-success);
+  border-width: 2px;
 }
-
 .flow-node--completed::before {
   background: var(--color-success);
   opacity: 0.06;
 }
 
-/* ── 步骤编号徽章 ── */
+/* ── 步骤编号 ── */
 .flow-node__step {
   position: absolute;
   top: -1px;
   left: -1px;
   min-width: 20px;
   height: 20px;
-  padding: 0 5px;
+  padding: 0 4px;
   background: var(--color-primary);
-  color: var(--color-primary-text);
+  color: #fff;
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-600);
+  font-size: 11px;
+  font-weight: 600;
   line-height: 20px;
   text-align: center;
   z-index: 1;
 }
 
-/* ── 图标 ── */
 .flow-node__icon {
   display: flex;
   align-items: center;
@@ -161,19 +211,12 @@ const formatDate = (val: string): string => {
   transition: all var(--transition-base);
   flex-shrink: 0;
 }
+.flow-node--active .flow-node__icon    { color: var(--color-primary); }
+.flow-node--completed .flow-node__icon { color: var(--color-success); }
 
-.flow-node--active .flow-node__icon {
-  color: var(--color-primary);
-}
-
-.flow-node--completed .flow-node__icon {
-  color: var(--color-success);
-}
-
-/* ── 文字 ── */
 .flow-node__text {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-500);
+  font-size: var(--font-size-xs, 12px);
+  font-weight: 500;
   color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -182,52 +225,30 @@ const formatDate = (val: string): string => {
   min-width: 0;
 }
 
-/* ── 状态圆点 ── */
 .flow-node__dot {
   width: 8px;
   height: 8px;
-  border-radius: var(--radius-circle);
+  border-radius: 50%;
   flex-shrink: 0;
   transition: all var(--transition-base);
 }
+.flow-node--pending .flow-node__dot   { background: var(--border-color); }
+.flow-node--active .flow-node__dot    { background: var(--color-primary); }
+.flow-node--completed .flow-node__dot { background: var(--color-success); }
 
-.flow-node--pending .flow-node__dot {
-  background: var(--border-color);
-}
-
-.flow-node--active .flow-node__dot {
-  background: var(--color-primary);
-  filter: drop-shadow(0 0 4px currentColor);
-}
-
-.flow-node--completed .flow-node__dot {
-  background: var(--color-success);
-  filter: drop-shadow(0 0 4px currentColor);
-}
-
-/* ── Popover 内容 ── */
 .flow-detail__title {
-  font-size: var(--font-size-body);
-  font-weight: var(--font-weight-600);
+  font-size: 14px;
+  font-weight: 600;
   margin-bottom: 6px;
   color: var(--color-text-primary);
 }
-
 .flow-detail__meta {
-  font-size: var(--font-size-sm);
+  font-size: 12px;
   color: var(--color-text-secondary);
   margin-bottom: 4px;
 }
-
 .flow-detail__meta b {
   color: var(--color-text-primary);
-  font-weight: var(--font-weight-600);
-}
-
-/* ── 响应式 ── */
-@media (max-width: 768px) {
-  .flow-node {
-    width: 100%;
-  }
+  font-weight: 600;
 }
 </style>

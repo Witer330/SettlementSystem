@@ -32,21 +32,17 @@ export const getPurchaseReport = async (req: Request, res: Response) => {
     }
 
     // 供应商占比（需要 JOIN 获取名称）
-    const supplierIds = [...new Set(orders.map(o => o.supplierId))]
+    const supplierIds = [...new Set(orders.map(o => o.supplierId).filter(Boolean) as number[])]
     const suppliers = await prisma.supplier.findMany({
       where: { id: { in: supplierIds } },
       select: { id: true, name: true }
     })
     const supplierNameMap = new Map(suppliers.map(s => [s.id, s.name]))
 
-    for (const order of orders) {
-      const name = supplierNameMap.get(order.supplierId) || '未知'
-      supplierMap.set(name, (supplierNameMap.get(order.supplierId) ? supplierMap.get(name) || 0 : 0) + order.totalAmount)
-    }
-
     // 重新计算供应商占比
     const supplierMap2 = new Map<string, number>()
     for (const order of orders) {
+      if (!order.supplierId) continue
       const name = supplierNameMap.get(order.supplierId) || '未知'
       supplierMap2.set(name, (supplierMap2.get(name) || 0) + order.totalAmount)
     }
@@ -99,7 +95,7 @@ export const getSalesReport = async (req: Request, res: Response) => {
     }
 
     // 客户占比
-    const customerIds = [...new Set(orders.map(o => o.customerId))]
+    const customerIds = [...new Set(orders.map(o => o.customerId).filter(Boolean) as number[])]
     const customers = await prisma.customer.findMany({
       where: { id: { in: customerIds } },
       select: { id: true, name: true }
@@ -108,6 +104,7 @@ export const getSalesReport = async (req: Request, res: Response) => {
 
     const customerMap = new Map<string, number>()
     for (const order of orders) {
+      if (!order.customerId) continue
       const name = customerNameMap.get(order.customerId) || '未知'
       customerMap.set(name, (customerMap.get(name) || 0) + order.totalAmount)
     }

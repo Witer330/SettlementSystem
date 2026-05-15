@@ -33,7 +33,6 @@ app.get('/health', (req, res) => {
 import employeeRoutes from './routes/employee.routes'
 import authRoutes from './routes/auth.routes'
 import salaryRoutes from './routes/salary.routes'
-import specRoutes from './routes/spec.routes'
 import dailyPieceRoutes from './routes/dailyPiece.routes'
 import productRoutes from './routes/product.routes'
 import departmentRoutes from './routes/department.routes'
@@ -48,11 +47,13 @@ import customerRoutes from './routes/customer.routes'
 import supplierRoutes from './routes/supplier.routes'
 import purchaseOrderRoutes from './routes/purchaseOrder.routes'
 import reportRoutes from './routes/report.routes'
+import productionRecordRoutes from './routes/productionRecord.routes'
+import processRoutes from './routes/process.routes'
+import returnOrderRoutes from './routes/returnOrder.routes'
 
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/employees', employeeRoutes)
 app.use('/api/v1/salary', salaryRoutes)
-app.use('/api/v1/specs', specRoutes)
 app.use('/api/v1/daily-records', dailyPieceRoutes)
 app.use('/api/v1/products', productRoutes)
 app.use('/api/v1/departments', departmentRoutes)
@@ -67,6 +68,9 @@ app.use('/api/v1/customers', customerRoutes)
 app.use('/api/v1/suppliers', supplierRoutes)
 app.use('/api/v1/purchase-orders', purchaseOrderRoutes)
 app.use('/api/v1/reports', reportRoutes)
+app.use('/api/v1/production-records', productionRecordRoutes)
+app.use('/api/v1/processes', processRoutes)
+app.use('/api/v1/return-orders', returnOrderRoutes)
 
 // Static file serving (production: serve frontend build)
 const frontendDist = path.join(__dirname, '../../frontend/dist')

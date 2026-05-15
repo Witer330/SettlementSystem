@@ -20,35 +20,75 @@
             :value="o.id"
           />
         </el-select>
-        <el-button v-if="selectedOrderId" type="primary" @click="loadRequirements">刷新</el-button>
+        <el-button
+          v-if="selectedOrderId"
+          type="primary"
+          @click="loadRequirements"
+        >
+          刷新
+        </el-button>
       </div>
 
       <!-- 销售单信息 -->
-      <div v-if="salesOrderInfo" class="order-info">
+      <div
+        v-if="salesOrderInfo"
+        class="order-info"
+      >
         <span>单号：<b>{{ salesOrderInfo.orderNo }}</b></span>
         <span>客户：<b>{{ salesOrderInfo.customerName || '-' }}</b></span>
-        <span>状态：<el-tag :type="statusType(salesOrderInfo.status)" size="small">{{ statusLabel(salesOrderInfo.status) }}</el-tag></span>
+        <span>状态：<el-tag
+          :type="statusType(salesOrderInfo.status)"
+          size="small"
+        >{{ statusLabel(salesOrderInfo.status) }}</el-tag></span>
       </div>
 
       <!-- 物料需求汇总表 -->
       <el-table
         v-if="requirements.length > 0"
+        v-loading="loading"
         :data="requirements"
         stripe
-        v-loading="loading"
         border
         row-key="materialId"
       >
-        <el-table-column prop="materialCode" label="编码" width="120" />
-        <el-table-column prop="materialName" label="物料名称" min-width="150" />
-        <el-table-column prop="unit" label="单位" width="80" />
-        <el-table-column prop="totalRequired" label="需求总量" width="120">
-          <template #default="{ row }">{{ row.totalRequired.toFixed(2) }}</template>
+        <el-table-column
+          prop="materialCode"
+          label="编码"
+          width="120"
+        />
+        <el-table-column
+          prop="materialName"
+          label="物料名称"
+          min-width="150"
+        />
+        <el-table-column
+          prop="unit"
+          label="单位"
+          width="80"
+        />
+        <el-table-column
+          prop="totalRequired"
+          label="需求总量"
+          width="120"
+        >
+          <template #default="{ row }">
+            {{ row.totalRequired.toFixed(2) }}
+          </template>
         </el-table-column>
-        <el-table-column prop="currentStock" label="当前库存" width="120">
-          <template #default="{ row }">{{ row.currentStock.toFixed(2) }}</template>
+        <el-table-column
+          prop="currentStock"
+          label="当前库存"
+          width="120"
+        >
+          <template #default="{ row }">
+            {{ row.currentStock.toFixed(2) }}
+          </template>
         </el-table-column>
-        <el-table-column prop="shortage" label="缺口量" width="120">
+        <el-table-column
+          prop="shortage"
+          label="缺口量"
+          width="120"
+        >
           <template #default="{ row }">
             <span :class="{ 'shortage-negative': row.shortage > 0 }">
               {{ row.shortage > 0 ? row.shortage.toFixed(2) : '充足' }}
@@ -69,7 +109,10 @@
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="(d, i) in row.details" :key="i">
+                  <tr
+                    v-for="(d, i) in row.details"
+                    :key="i"
+                  >
                     <td>{{ d.productName }}</td>
                     <td>{{ d.productCode }}</td>
                     <td>{{ d.quantity }}</td>
@@ -83,8 +126,14 @@
         </el-table-column>
       </el-table>
 
-      <el-empty v-if="!loading && selectedOrderId && requirements.length === 0" description="该订单暂无物料需求数据" />
-      <el-empty v-if="!selectedOrderId" description="请先选择一个销售单" />
+      <el-empty
+        v-if="!loading && selectedOrderId && requirements.length === 0"
+        description="该订单暂无物料需求数据"
+      />
+      <el-empty
+        v-if="!selectedOrderId"
+        description="请先选择一个销售单"
+      />
     </el-card>
   </div>
 </template>

@@ -4,7 +4,10 @@
       <AppSidebar :is-collapsed="isCollapsed" />
 
       <el-container class="dashboard-main">
-        <AppHeader :is-collapsed="isCollapsed" @toggle-sidebar="toggleSidebar" />
+        <AppHeader
+          :is-collapsed="isCollapsed"
+          @toggle-sidebar="toggleSidebar"
+        />
 
         <el-main class="dashboard-content">
           <router-view />

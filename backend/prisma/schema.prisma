@@ -70,21 +70,24 @@ model Employee {
 }
 
 model Product {
-  id           Int      @id @default(autoincrement())
-  name         String
-  code         String   @unique
-  category     String
+  id            Int      @id @default(autoincrement())
+  name          String
+  code          String   @unique
+  category      String
   specification String?
-  unit         String
-  status       String   @default("active")
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  unit          String
+  price         Float    @default(0)
+  stock         Float    @default(0)
+  status        String   @default("active")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   bomItems          BillOfMaterial[]
   productProcesses  ProductProcess[]
   productionRecords ProductionRecord[]
-  specs             ProductSpec[]
-  salesItems        SalesItem[]
+  dailyPieceRecords  DailyPieceRecordItem[]
+  returnOrderItems   ReturnOrderItem[]
+  salesItems         SalesItem[]
 }
 
 model BillOfMaterial {
@@ -268,17 +271,20 @@ model Material {
 }
 
 model PurchaseOrder {
-  id         Int      @id @default(autoincrement())
-  supplierId Int
-  orderNo    String   @unique
-  totalAmount Float
-  status     String   @default("pending")
-  remark     String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id               Int      @id @default(autoincrement())
+  supplierId       Int?
+  salesOrderId     Int?
+  orderNo          String   @unique
+  totalAmount      Float
+  status           String   @default("pending")
+  remark           String?
+  reserveInventory Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  supplier Supplier       @relation(fields: [supplierId], references: [id])
-  items    PurchaseItem[]
+  supplier   Supplier?    @relation(fields: [supplierId], references: [id])
+  salesOrder SalesOrder?  @relation(fields: [salesOrderId], references: [id])
+  items      PurchaseItem[]
 }
 
 model PurchaseItem {
@@ -290,22 +296,25 @@ model PurchaseItem {
   receivedQuantity Float    @default(0)
   createdAt       DateTime @default(now())
 
-  order    PurchaseOrder @relation(fields: [orderId], references: [id])
+  order    PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   material Material      @relation(fields: [materialId], references: [id])
 }
 
 model SalesOrder {
-  id         Int      @id @default(autoincrement())
-  customerId Int
-  orderNo    String   @unique
-  totalAmount Float
-  status     String   @default("pending")
-  remark     String?
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id               Int      @id @default(autoincrement())
+  customerId       Int?
+  orderNo          String   @unique
+  totalAmount      Float
+  status           String   @default("pending")
+  remark           String?
+  reserveInventory Boolean  @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
-  customer Customer    @relation(fields: [customerId], references: [id])
-  items    SalesItem[]
+  customer       Customer?       @relation(fields: [customerId], references: [id])
+  purchaseOrders PurchaseOrder[]
+  returnOrders   ReturnOrder[]
+  items          SalesItem[]
 }
 
 model SalesItem {
@@ -317,14 +326,42 @@ model SalesItem {
   shippedQuantity Float    @default(0)
   createdAt     DateTime @default(now())
 
-  order   SalesOrder @relation(fields: [orderId], references: [id])
+  order   SalesOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product    @relation(fields: [productId], references: [id])
+}
+
+model ReturnOrder {
+  id            Int      @id @default(autoincrement())
+  salesOrderId  Int
+  returnNo      String   @unique
+  totalQuantity Float
+  status        String   @default("confirmed") // confirmed=已确认退货, completed=已退款入库
+  reason        String?
+  remark        String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  salesOrder SalesOrder        @relation(fields: [salesOrderId], references: [id])
+  items      ReturnOrderItem[]
+}
+
+model ReturnOrderItem {
+  id            Int    @id @default(autoincrement())
+  returnOrderId Int
+  salesItemId   Int
+  productId     Int
+  quantity      Float
+  createdAt     DateTime @default(now())
+
+  returnOrder ReturnOrder @relation(fields: [returnOrderId], references: [id])
+  product     Product     @relation(fields: [productId], references: [id])
 }
 
 model Inventory {
   id          Int      @id @default(autoincrement())
   materialId  Int      @unique
   quantity    Float    @default(0)
+  reserved    Float    @default(0)
   lastUpdated DateTime @default(now())
 
   material Material @relation(fields: [materialId], references: [id])
@@ -343,66 +380,12 @@ model InventoryLog {
   material Material @relation(fields: [materialId], references: [id])
 }
 
-// ============ 产品规格计件系统 ============
-
-// 产品规格表
-model ProductSpec {
-  id        Int      @id @default(autoincrement())
-  productId Int
-  name      String   // 规格名称，如 "Φ100×20-A3"
-  code      String   @unique // 规格编码
-
-  // 规格参数（JSON格式存储，String类型存储）
-  dimensions String   @default("{}")  // {"diameter": 100, "length": 20}
-  material   String   @default("{}")  // {"type": "steel", "thickness": 2}
-  craft      String   @default("{}")  // {"surface": "galvanized", "precision": "H7"}
-  difficulty String   @default("medium") // easy/medium/hard
-
-  // 定价相关
-  basePrice Float    @default(0) // 基础价格
-
-  status    String   @default("active")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  product     Product         @relation(fields: [productId], references: [id])
-  specPrice   SpecPrice?
-  dailyRecords DailyPieceRecordItem[]
-}
-
-// 规格系数配置表
-model SpecCoefficient {
-  id        Int      @id @default(autoincrement())
-  type      String   // dimension/material/craft/difficulty
-  code      String   // 系数代码，如 "diameter_gt_100"
-  name      String   // 系数名称，如 "直径>100mm"
-  value     Float    // 系数值，如 0.15
-  priority  Int      @default(0) // 优先级
-
-  status    String   @default("active")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-// 规格价目表
-model SpecPrice {
-  id          Int      @id @default(autoincrement())
-  specId      Int      @unique
-  unitPrice   Float    // 最终计算单价
-  effectiveAt DateTime @default(now()) // 生效时间
-  remark      String?
-
-  createdAt   DateTime @default(now())
-
-  spec ProductSpec @relation(fields: [specId], references: [id])
-}
-
 // 每日计件记录表
 model DailyPieceRecord {
   id         Int      @id @default(autoincrement())
   employeeId Int
-  date       DateTime // 日期
-  totalAmount Float   @default(0) // 当日总金额
+  date       DateTime
+  totalAmount Float   @default(0)
   remark     String?
 
   createdAt  DateTime @default(now())
@@ -414,17 +397,17 @@ model DailyPieceRecord {
 
 // 每日计件明细表
 model DailyPieceRecordItem {
-  id     Int      @id @default(autoincrement())
-  recordId Int
-  specId Int
-  quantity Int     // 数量
-  unitPrice Float  // 记录时的单价
-  amount   Float   // 金额
+  id        Int      @id @default(autoincrement())
+  recordId  Int
+  productId Int
+  quantity  Int
+  unitPrice Float    // 记录时的单价
+  amount    Float    // 金额
 
   createdAt DateTime @default(now())
 
-  record DailyPieceRecord @relation(fields: [recordId], references: [id])
-  spec   ProductSpec       @relation(fields: [specId], references: [id])
+  record  DailyPieceRecord @relation(fields: [recordId], references: [id])
+  product Product          @relation(fields: [productId], references: [id])
 }
 
 // ============ 系统设置 ============

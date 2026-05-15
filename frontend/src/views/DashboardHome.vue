@@ -105,11 +105,11 @@
         </el-button>
       </div>
       <FlowChart
-        :top-row="topRow"
-        :left-branch="leftBranch"
-        :right-branch="rightBranch"
-        :bottom-row="bottomRow"
+        :flow-nodes="flowNodes"
+        :node-icons="nodeIconMap"
         :statuses="flowStatus"
+        :todo-counts="todoCounts"
+        @navigate="handleFlowNavigate"
       />
     </div>
 
@@ -144,7 +144,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   User, Document, Money, Warning, TrendCharts, Top,
@@ -153,11 +153,31 @@ import {
 } from '@element-plus/icons-vue'
 import { workflowApi, type QuickAction, type FlowStepStatus } from '@/api/workflow'
 import { api } from '@/api/request'
-import { FlowChart, type FlowRowNode, type FlowNodeData } from '@/components/flow-chart'
+import { FlowChart, type FlowNodeData } from '@/components/flow-chart'
 
 const router = useRouter()
 const quickActions = ref<QuickAction[]>([])
 const flowStatus = ref<Record<string, FlowStepStatus>>({})
+
+// ── 待办数量 ──
+const todoCounts = ref<Record<string, number>>({})
+
+// 节点 ID → 路由 query 参数映射
+const nodeQueryParams: Record<string, Record<string, string>> = {
+  salesOrder: { status: 'draft' },
+  purchaseSuggest: { status: 'pending' },
+  purchaseInbound: { status: 'confirmed' },
+  materialPickup: { status: 'confirmed' },
+  production: {},
+  finishedGoods: { status: 'pending' },
+  materialOutbound: { type: 'out' },
+  bom: {},
+  materialReq: {},
+  stockCompare: { lowStock: '1' },
+  finishedGoodsInbound: {}
+}
+
+let pollTimer: ReturnType<typeof setInterval> | null = null
 
 const iconMap: Record<string, typeof User> = {
   User, Document, Money, Warning, TrendCharts, Top, Edit, Box, Search,
@@ -193,28 +213,6 @@ const nodeIconMap: Record<string, typeof User> = {
   finishedGoods: Top
 }
 
-const makeRowNode = (id: string): FlowRowNode => {
-  const node = flowNodes.find(n => n.id === id)!
-  return { node, icon: nodeIconMap[id] }
-}
-
-const topRow = computed<FlowRowNode[]>(() =>
-  flowNodes.slice(0, 5).map(n => ({ node: n, icon: nodeIconMap[n.id] }))
-)
-
-const leftBranch = computed<FlowRowNode[]>(() => [
-  makeRowNode('purchaseInbound'),
-  makeRowNode('materialOutbound')
-])
-
-const rightBranch = computed<FlowRowNode[]>(() => [
-  makeRowNode('finishedGoods')
-])
-
-const bottomRow = computed<FlowRowNode[]>(() =>
-  flowNodes.slice(7, 10).map(n => ({ node: n, icon: nodeIconMap[n.id] }))
-)
-
 // ── 统计数据 ──
 const stats = reactive({
   employeeCount: 0,
@@ -237,6 +235,40 @@ const formatSalaryTrend = () => {
   return `${Number(pct) >= 0 ? '+' : ''}${pct}%`
 }
 
+// ── 流程图导航处理 ──
+function handleFlowNavigate(nodeId: string, link: string) {
+  const query = nodeQueryParams[nodeId]
+  if (query && Object.keys(query).length > 0) {
+    router.push({ path: link, query })
+  } else {
+    router.push(link)
+  }
+}
+
+// ── 待办轮询 ──
+async function pollTodoCounts() {
+  try {
+    const [draftSO, pendingPO, confirmedPO] = await Promise.all([
+      api.get<{ total: number }>('/sales-orders', { params: { page: 1, pageSize: 1, status: 'draft' } }),
+      api.get<{ total: number }>('/purchase-orders', { params: { page: 1, pageSize: 1, status: 'pending' } }),
+      api.get<{ total: number }>('/purchase-orders', { params: { page: 1, pageSize: 1, status: 'confirmed' } })
+    ])
+    todoCounts.value = {
+      salesOrder: draftSO.total,
+      purchaseSuggest: pendingPO.total,
+      purchaseInbound: confirmedPO.total,
+      materialOutbound: 0,
+      materialPickup: 0,
+      production: 0,
+      finishedGoodsInbound: 0,
+      finishedGoods: 0,
+      bom: 0,
+      materialReq: 0,
+      stockCompare: 0
+    }
+  } catch { /* 静默失败 */ }
+}
+
 // ── 生命周期 ──
 onMounted(async () => {
   try { quickActions.value = await workflowApi.getQuickActions() } catch {}
@@ -245,6 +277,17 @@ onMounted(async () => {
     const data = await api.get<typeof stats>('/dashboard/stats')
     Object.assign(stats, data)
   } catch { /* empty */ }
+  // 初始加载待办数
+  pollTodoCounts()
+  // 每 5 秒轮询
+  pollTimer = setInterval(pollTodoCounts, 5000)
+})
+
+onUnmounted(() => {
+  if (pollTimer) {
+    clearInterval(pollTimer)
+    pollTimer = null
+  }
 })
 </script>
 

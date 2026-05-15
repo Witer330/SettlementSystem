@@ -55,6 +55,18 @@ async function restartServer() {
 async function openBrowser() {
   await invoke('open_browser')
 }
+
+async function detachServer() {
+  loading.value = true
+  try {
+    await invoke('detach_server')
+    setTimeout(() => emit('refresh'), 500)
+  } catch (e) {
+    console.error('脱管失败:', e)
+  } finally {
+    loading.value = false
+  }
+}
 </script>
 
 <template>
@@ -72,6 +84,14 @@ async function openBrowser() {
       @click="stopServer"
     >
       停止服务
+    </button>
+    <button
+      class="btn btn-detach"
+      :disabled="status === 'stopped' || loading"
+      @click="detachServer"
+      title="停止管理但服务继续在后台运行"
+    >
+      脱管
     </button>
     <button
       class="btn btn-restart"
@@ -118,6 +138,15 @@ async function openBrowser() {
 }
 
 .btn-stop:hover:not(:disabled) {
+  filter: brightness(1.1);
+}
+
+.btn-detach {
+  background: var(--color-warning);
+  color: #000;
+}
+
+.btn-detach:hover:not(:disabled) {
   filter: brightness(1.1);
 }
 

@@ -61,7 +61,7 @@
           <template #default="{ row }">
             <div class="detail-list">
               <div v-for="item in row.items" :key="item.id" class="detail-item">
-                <span class="spec-name">{{ item.spec?.product?.name }}-{{ item.spec?.name }}</span>
+                <span class="spec-name">{{ item.product?.name || `产品#${item.productId}` }}</span>
                 <span class="spec-quantity">{{ item.quantity }}件</span>
                 <span class="spec-amount">¥{{ item.amount.toFixed(2) }}</span>
               </div>
@@ -103,7 +103,7 @@
       :mode="dialogMode"
       :record="currentRecord"
       :employees="employees"
-      :specs="specs"
+      :products="products"
       @success="loadRecordList"
     />
   </div>
@@ -115,13 +115,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Search, Refresh, Edit, Delete } from '@element-plus/icons-vue'
 import { dailyPieceApi, type DailyPieceRecord } from '../../api/dailyPiece'
 import { employeeApi } from '../../api/employee'
-import { specApi, type ProductSpec } from '../../api/spec'
+import { productApi, type Product } from '../../api/product'
 import DailyPieceForm from './DailyPieceForm.vue'
 
 const loading = ref(false)
 const recordList = ref<DailyPieceRecord[]>([])
 const employees = ref<any[]>([])
-const specs = ref<ProductSpec[]>([])
+const products = ref<Product[]>([])
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增记录')
 const dialogMode = ref<'create' | 'edit'>('create')
@@ -171,11 +171,12 @@ const loadEmployees = async () => {
   }
 }
 
-const loadSpecs = async () => {
+const loadProducts = async () => {
   try {
-    specs.value = await specApi.getSpecs({ status: 'active' })
+    const res = await productApi.getList({ status: 'active', pageSize: 1000 })
+    products.value = res.list
   } catch (error: any) {
-    ElMessage.error(error.message || '加载规格列表失败')
+    ElMessage.error(error.message || '加载产品列表失败')
   }
 }
 
@@ -233,7 +234,7 @@ const handleDelete = async (row: DailyPieceRecord) => {
 
 onMounted(() => {
   loadEmployees()
-  loadSpecs()
+  loadProducts()
   loadRecordList()
 })
 </script>

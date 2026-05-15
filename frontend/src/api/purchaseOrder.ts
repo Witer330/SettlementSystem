@@ -13,13 +13,16 @@ export interface PurchaseOrderItem {
 export interface PurchaseOrder {
   id: number
   orderNo: string
-  supplierId: number
+  supplierId?: number
   supplierName?: string
+  supplier?: { name: string }
   totalAmount: number
   status: string
   remark?: string
+  reserveInventory?: boolean
   items: PurchaseOrderItem[]
   createdAt: string
+  updatedAt: string
 }
 
 export interface PurchaseOrderListParams {
@@ -36,7 +39,7 @@ export const purchaseOrderApi = {
   getDetail: (id: number) =>
     api.get<PurchaseOrder>(`/purchase-orders/${id}`),
 
-  create: (data: { supplierId: number; items: PurchaseOrderItem[]; remark?: string }) =>
+  create: (data: { supplierId?: number; items?: PurchaseOrderItem[]; remark?: string; status?: string }) =>
     api.post<PurchaseOrder>('/purchase-orders', data),
 
   update: (id: number, data: Partial<PurchaseOrder>) =>

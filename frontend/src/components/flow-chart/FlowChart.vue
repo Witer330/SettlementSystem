@@ -1,247 +1,167 @@
 <template>
   <div class="flow-chart-wrapper">
-    <div class="flow-chart">
-      <!-- 顶部水平行 -->
-      <div class="flow-chart__row">
-        <template v-for="item in topRowItems" :key="item.key">
-          <FlowNode
-            v-if="item.type === 'node' && item.node"
-            :node="item.node"
-            :status="getStatus(item.node)"
-            :step="getStep(item.node)"
-            :icon="item.icon"
-            :popover-visible="activePopover === item.node.id"
-            :popover-data="getPopoverData(item.node)"
-            @toggle-popover="togglePopover"
-            @navigate="navigateTo"
-          />
-          <FlowConnector v-else direction="right" />
-        </template>
-      </div>
-
-      <!-- 左侧分支 -->
-      <div class="flow-chart__branch flow-chart__branch--left">
-        <span class="flow-chart__vline" />
+    <VueFlow
+      v-model:nodes="nodes"
+      v-model:edges="edges"
+      :default-viewport="{ x: 0, y: 0, zoom: 1 }"
+      :min-zoom="0.3"
+      :max-zoom="2"
+      :nodes-draggable="false"
+      :no-wheel-class-name="'flow-chart__no-wheel'"
+      fit-view-on-init
+    >
+      <template #node-custom="nodeProps">
         <FlowNode
-          :node="leftBranch[0].node"
-          :status="getStatus(leftBranch[0].node)"
-          :step="getStep(leftBranch[0].node)"
-          :icon="leftBranch[0].icon"
-          :popover-visible="activePopover === leftBranch[0].node.id"
-          :popover-data="getPopoverData(leftBranch[0].node)"
+          :node-id="nodeProps.id"
+          :data="nodeProps.data"
+          :popover-visible="activePopover === nodeProps.id"
+          :popover-data="getPopoverData(nodeProps.id)"
           @toggle-popover="togglePopover"
           @navigate="navigateTo"
         />
-        <span class="flow-chart__vline" />
-        <FlowNode
-          :node="leftBranch[1].node"
-          :status="getStatus(leftBranch[1].node)"
-          :step="getStep(leftBranch[1].node)"
-          :icon="leftBranch[1].icon"
-          :popover-visible="activePopover === leftBranch[1].node.id"
-          :popover-data="getPopoverData(leftBranch[1].node)"
-          @toggle-popover="togglePopover"
-          @navigate="navigateTo"
-        />
-      </div>
-
-      <!-- 右侧分支 -->
-      <div class="flow-chart__branch flow-chart__branch--right">
-        <span class="flow-chart__vline" />
-        <FlowNode
-          :node="rightBranch[0].node"
-          :status="getStatus(rightBranch[0].node)"
-          :step="getStep(rightBranch[0].node)"
-          :icon="rightBranch[0].icon"
-          :popover-visible="activePopover === rightBranch[0].node.id"
-          :popover-data="getPopoverData(rightBranch[0].node)"
-          @toggle-popover="togglePopover"
-          @navigate="navigateTo"
-        />
-      </div>
-
-      <!-- 底部水平行 -->
-      <div class="flow-chart__row flow-chart__row--bottom">
-        <template v-for="item in bottomRowItems" :key="item.key">
-          <FlowNode
-            v-if="item.type === 'node' && item.node"
-            :node="item.node"
-            :status="getStatus(item.node)"
-            :step="getStep(item.node)"
-            :icon="item.icon"
-            :popover-visible="activePopover === item.node.id"
-            :popover-data="getPopoverData(item.node)"
-            @toggle-popover="togglePopover"
-            @navigate="navigateTo"
-          />
-          <FlowConnector v-else direction="right" />
-        </template>
-      </div>
-    </div>
+      </template>
+    </VueFlow>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, markRaw } from 'vue'
+import { VueFlow, MarkerType } from '@vue-flow/core'
+import '@vue-flow/core/dist/style.css'
+import '@vue-flow/core/dist/theme-default.css'
 import FlowNode from './FlowNode.vue'
-import FlowConnector from './FlowConnector.vue'
-import type { FlowRowNode, FlowNodeStatusInfo } from './types'
+import type { FlowNodeData, FlowNodeStatusInfo } from './types'
 
 const props = defineProps<{
-  topRow: FlowRowNode[]
-  leftBranch: FlowRowNode[]
-  rightBranch: FlowRowNode[]
-  bottomRow: FlowRowNode[]
+  flowNodes: FlowNodeData[]
+  nodeIcons: Record<string, any>
   statuses: Record<string, FlowNodeStatusInfo>
+  todoCounts: Record<string, number>
+}>()
+
+const emit = defineEmits<{
+  navigate: [nodeId: string, link: string]
 }>()
 
 const activePopover = ref<string | null>(null)
-
-interface InterleavedNode {
-  type: 'node'
-  key: string
-  node: FlowRowNode['node']
-  icon: FlowRowNode['icon']
+const togglePopover = (id: string) => { activePopover.value = activePopover.value === id ? null : id }
+const navigateTo = (nodeId: string) => {
+  const node = props.flowNodes.find(n => n.id === nodeId)
+  if (node) emit('navigate', nodeId, node.link)
+}
+const getPopoverData = (nodeId: string) => {
+  const fn = props.flowNodes.find(n => n.id === nodeId)
+  return fn ? props.statuses[fn.statusKey] : undefined
 }
 
-interface InterleavedConnector {
-  type: 'connector'
-  key: string
+// ── 节点位置 ──
+// 卡片 180×50, 列间距 190px(Y=50), 行间距 120px
+const X = [20, 260, 500, 740, 980]  // 5列, 240px间距
+const Y = [50, 170, 290, 410]       // 4行
+
+// 卡片 4,6,7,10 同列 (col4=X[3]=600)
+// 卡片 8,9,10 底行 (col2,col3,col4)
+const posMap: Record<string, { x: number; y: number }> = {
+  salesOrder:           { x: X[0], y: Y[0] },
+  bom:                  { x: X[1], y: Y[0] },
+  materialReq:          { x: X[2], y: Y[0] },
+  stockCompare:         { x: X[3], y: Y[0] },
+  purchaseSuggest:      { x: X[4], y: Y[0] },
+  purchaseInbound:      { x: X[3], y: Y[1] },
+  materialOutbound:     { x: X[3], y: Y[2] },
+  finishedGoods:        { x: X[4], y: Y[1] },
+  materialPickup:       { x: X[1], y: Y[3] },
+  production:           { x: X[2], y: Y[3] },
+  finishedGoodsInbound: { x: X[3], y: Y[3] },
 }
 
-type InterleavedItem = InterleavedNode | InterleavedConnector
+const nodeStatus = (id: string): string => {
+  const fn = props.flowNodes.find(n => n.id === id)
+  if (!fn) return 'pending'
+  return props.statuses[fn.statusKey]?.status ?? 'pending'
+}
 
-function interleave(nodes: FlowRowNode[], prefix: string): InterleavedItem[] {
-  const result: InterleavedItem[] = []
-  nodes.forEach((item, i) => {
-    result.push({ type: 'node', key: item.node.id, node: item.node, icon: item.icon })
-    if (i < nodes.length - 1) {
-      result.push({ type: 'connector', key: `${prefix}-c-${i}` })
+const nodes = computed(() => props.flowNodes.map((fn, i) => ({
+  id: fn.id,
+  type: 'custom',
+  position: posMap[fn.id] || { x: 30, y: i * 120 + 50 },
+  style: { width: 180, height: 50 },
+  data: {
+    node: fn,
+    step: i + 1,
+    status: props.statuses[fn.statusKey]?.status ?? 'pending',
+    statusInfo: props.statuses[fn.statusKey],
+    icon: markRaw(props.nodeIcons[fn.id]),
+    todoCount: props.todoCounts[fn.id] ?? 0,
+  },
+})))
+
+const edges = computed(() => {
+  const tStatus = (id: string) => nodeStatus(id)
+  const edge = (
+    id: string, s: string, t: string,
+    sh: string, th: string,
+    label?: string,
+  ) => {
+    const ts = tStatus(t)
+    const strong = ts !== 'pending'
+    const c = ts === 'completed' ? 'var(--color-success, #22c55e)' : 'var(--color-primary, #6366f1)'
+    return {
+      id,
+      source: s,
+      target: t,
+      sourceHandle: sh,
+      targetHandle: th,
+      type: 'smoothstep',
+      animated: true,
+      label,
+      style: { stroke: c, strokeWidth: strong ? 1.8 : 0.6, opacity: strong ? 1 : 0.15 },
+      labelStyle: { fill: 'var(--color-text-muted, #999)', fontSize: 10, fontWeight: 500 },
+      markerEnd: strong ? { type: MarkerType.ArrowClosed, color: c, width: 12, height: 12 } : undefined,
     }
-  })
-  return result
-}
+  }
 
-const topRowItems = computed(() => interleave(props.topRow, 'top'))
-const bottomRowItems = computed(() => interleave(props.bottomRow, 'bot'))
-
-// 所有节点按顺序编号
-const allNodes = computed(() => [
-  ...props.topRow.map(n => n.node),
-  ...props.leftBranch.map(n => n.node),
-  ...props.rightBranch.map(n => n.node),
-  ...props.bottomRow.map(n => n.node)
-])
-
-const getStep = (node: { id: string }): number => {
-  return allNodes.value.findIndex(n => n.id === node.id) + 1
-}
-
-const getStatus = (node: { statusKey: string }): string => {
-  return props.statuses[node.statusKey]?.status ?? 'pending'
-}
-
-const getPopoverData = (node: { statusKey: string }) => {
-  return props.statuses[node.statusKey]
-}
-
-const togglePopover = (id: string) => {
-  activePopover.value = activePopover.value === id ? null : id
-}
-
-const navigateTo = (link: string) => {
-  window.location.href = link
-}
+  return [
+    // ── 顶行主干：1→2→3→4→5 ──
+    edge('e-1-2',  'salesOrder',       'bom',               'right', 'left'),
+    edge('e-2-3',  'bom',              'materialReq',       'right', 'left'),
+    edge('e-3-4',  'materialReq',      'stockCompare',      'right', 'left'),
+    edge('e-4-5',  'stockCompare',     'purchaseSuggest',   'right', 'left'),
+    // ── 采购分支：4↓6↓7 ──
+    edge('e-4-6',  'stockCompare',     'purchaseInbound',   'bottom', 'top'),
+    edge('e-6-7',  'purchaseInbound',  'materialOutbound',  'bottom', 'top'),
+    // ── 成品出库分支：5↓11 ──
+    edge('e-5-11', 'purchaseSuggest',  'finishedGoods',     'bottom', 'top'),
+    // ── 7↓10 原料入库 → 成品入库 ──
+    edge('e-7-10', 'materialOutbound', 'finishedGoodsInbound', 'bottom', 'top'),
+    // ── 底行车间流水线：8→9→10 ──
+    edge('e-8-9',  'materialPickup',   'production',        'right', 'left'),
+    edge('e-9-10', 'production',       'finishedGoodsInbound', 'right', 'left'),
+    // ── 库存充足直达生产：4左 → 8顶 ──
+    edge('e-4-8',  'stockCompare',     'materialPickup',    'left',  'top'),
+  ]
+})
 </script>
 
-<style scoped>
+<style>
 .flow-chart-wrapper {
-  background: var(--bg-elevated);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6);
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
+  background: var(--bg-elevated, #1e1e2e);
+  border-radius: var(--radius-lg, 8px);
+  height: 500px;
+  width: 100%;
 }
+.flow-chart-wrapper .vue-flow { border-radius: inherit; }
+.flow-chart-wrapper .vue-flow__controls { display: none; }
+.flow-chart-wrapper .vue-flow__minimap { display: none; }
+.flow-chart-wrapper .vue-flow__background { background: var(--bg-elevated, #1e1e2e); }
+.flow-chart-wrapper .vue-flow__node { overflow: visible !important; }
 
-.flow-chart {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  min-width: 860px;
+/* 连线流动动画 */
+.flow-chart-wrapper .vue-flow__edge-path {
+  stroke-dasharray: 6 4;
+  animation: flow-dash 0.5s linear infinite;
 }
-
-.flow-chart__row {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  flex-shrink: 0;
-}
-
-.flow-chart__row--bottom {
-  margin-left: 60px;
-}
-
-.flow-chart__branch {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  flex-shrink: 0;
-}
-
-.flow-chart__branch--left {
-  margin-left: calc(50% - 310px);
-}
-
-.flow-chart__branch--right {
-  margin-left: calc(50% + 260px);
-}
-
-.flow-chart__vline {
-  width: 2px;
-  height: 20px;
-  background: var(--border-color);
-  flex-shrink: 0;
-  transition: background var(--transition-base);
-}
-
-/* ── 平板适配 ── */
-@media (max-width: 1023px) and (min-width: 768px) {
-  .flow-chart__branch--left {
-    margin-left: calc(50% - 260px);
-  }
-
-  .flow-chart__branch--right {
-    margin-left: calc(50% + 200px);
-  }
-
-  .flow-chart__row--bottom {
-    margin-left: 40px;
-  }
-
-  .flow-chart__vline {
-    height: 16px;
-  }
-}
-
-/* ── 移动端适配 ── */
-@media (max-width: 767px) {
-  .flow-chart {
-    min-width: 0;
-    align-items: stretch;
-  }
-
-  .flow-chart__row {
-    flex-direction: column;
-    gap: 0;
-  }
-
-  .flow-chart__row--bottom {
-    margin-left: 0;
-  }
-
-  .flow-chart__branch--left,
-  .flow-chart__branch--right {
-    margin-left: 0;
-  }
+@keyframes flow-dash {
+  to { stroke-dashoffset: -10; }
 }
 </style>

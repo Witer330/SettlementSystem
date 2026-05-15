@@ -18,6 +18,15 @@ hyper-util = { version = "0.1", features = ["full"] }
 http-body-util = "0.1"
 bytes = "1"
 sysinfo = "0.33"
+dirs = "6"
+
+[[bin]]
+name = "settlement-service-manager"
+path = "src/main.rs"
+
+[[bin]]
+name = "settlement-proxy"
+path = "src/bin/proxy.rs"
 
 [features]
 default = ["custom-protocol"]

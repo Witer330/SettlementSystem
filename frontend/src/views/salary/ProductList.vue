@@ -29,6 +29,13 @@
         <el-table-column prop="category" label="分类" width="100" />
         <el-table-column prop="specification" label="规格" width="120" />
         <el-table-column prop="unit" label="单位" width="80" />
+        <el-table-column label="售价" width="100">
+          <template #default="{ row }">
+            <span :style="{ color: row.price > 0 ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }">
+              {{ row.price > 0 ? `¥${row.price.toFixed(2)}` : '未设置' }}
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
             <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
@@ -70,6 +77,9 @@
         </el-form-item>
         <el-form-item label="单位" prop="unit">
           <el-input v-model="form.unit" placeholder="如 个、件、套" />
+        </el-form-item>
+        <el-form-item label="售价">
+          <el-input-number v-model="form.price" :min="0" :precision="2" style="width:100%" placeholder="不填则默认为0（赠品）" />
         </el-form-item>
         <el-form-item label="状态" v-if="isEdit">
           <el-select v-model="form.status" style="width: 100%">
@@ -115,6 +125,7 @@ const form = reactive({
   category: '',
   specification: '',
   unit: '',
+  price: 0,
   status: 'active'
 })
 
@@ -144,6 +155,7 @@ const openDialog = (row?: Product) => {
   form.category = row?.category || ''
   form.specification = row?.specification || ''
   form.unit = row?.unit || ''
+  form.price = row?.price || 0
   form.status = row?.status || 'active'
   dialogVisible.value = true
 }

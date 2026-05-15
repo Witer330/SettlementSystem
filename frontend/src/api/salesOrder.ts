@@ -13,13 +13,16 @@ export interface SalesOrderItem {
 export interface SalesOrder {
   id: number
   orderNo: string
-  customerId: number
+  customerId?: number
   customerName?: string
+  customer?: { name: string }
   totalAmount: number
   status: string
   remark?: string
+  reserveInventory?: boolean
   items: SalesOrderItem[]
   createdAt: string
+  updatedAt: string
 }
 
 export interface MaterialRequirement {
@@ -53,7 +56,7 @@ export const salesOrderApi = {
   getDetail: (id: number) =>
     api.get<SalesOrder>(`/sales-orders/${id}`),
 
-  create: (data: { customerId: number; items: SalesOrderItem[]; remark?: string }) =>
+  create: (data: { customerId?: number; items?: SalesOrderItem[]; remark?: string; status?: string }) =>
     api.post<SalesOrder>('/sales-orders', data),
 
   update: (id: number, data: Partial<SalesOrder>) =>
@@ -62,8 +65,8 @@ export const salesOrderApi = {
   delete: (id: number) =>
     api.delete(`/sales-orders/${id}`),
 
-  updateStatus: (id: number, status: string) =>
-    api.patch(`/sales-orders/${id}/status`, { status }),
+  updateStatus: (id: number, status: string, extra?: Record<string, any>) =>
+    api.patch(`/sales-orders/${id}/status`, { status, ...extra }),
 
   getMaterialRequirements: (id: number) =>
     api.get<{ salesOrder: SalesOrder; requirements: MaterialRequirement[] }>(

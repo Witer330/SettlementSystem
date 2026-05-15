@@ -70,33 +70,44 @@ export const getPurchaseOrder = async (req: Request, res: Response) => {
 // 创建采购单
 export const createPurchaseOrder = async (req: Request, res: Response) => {
   try {
-    const { supplierId, items, remark } = req.body
-    if (!supplierId || !items || items.length === 0) {
+    const { supplierId, items, remark, status: reqStatus, reserveInventory } = req.body
+    const isDraft = reqStatus === 'draft'
+
+    // 草稿：跳过必填校验
+    if (!isDraft && (!supplierId || !items || items.length === 0)) {
       res.status(400).json({ code: 400, message: '供应商和采购明细不能为空' })
       return
     }
 
-    const orderNo = await generateOrderNo()
-    const totalAmount = items.reduce((sum: number, item: any) => sum + item.quantity * item.price, 0)
+    const orderNo = isDraft
+      ? `DRAFT-PO-${Date.now()}`
+      : await generateOrderNo()
+    const totalAmount = items
+      ? items.reduce((sum: number, item: any) => sum + item.quantity * item.price, 0)
+      : 0
 
     const order = await prisma.purchaseOrder.create({
       data: {
-        supplierId,
+        supplierId: supplierId || null,
         orderNo,
         totalAmount,
+        status: isDraft ? 'draft' : 'pending',
         remark,
-        items: {
-          create: items.map((item: any) => ({
-            materialId: item.materialId,
-            quantity: item.quantity,
-            price: item.price
-          }))
-        }
+        reserveInventory: reserveInventory !== undefined ? reserveInventory : true,
+        ...(items && items.length > 0 && {
+          items: {
+            create: items.map((item: any) => ({
+              materialId: item.materialId,
+              quantity: item.quantity,
+              price: item.price
+            }))
+          }
+        })
       },
       include: { supplier: true, items: { include: { material: true } } }
     })
 
-    res.json({ code: 0, message: '创建成功', data: order })
+    res.json({ code: 0, message: isDraft ? '草稿已保存' : '创建成功', data: order })
   } catch (error: any) {
     res.status(500).json({ code: 500, message: error.message || '创建失败' })
   }
@@ -106,13 +117,17 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
 export const updatePurchaseOrder = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id)
-    const { supplierId, items, remark } = req.body
+    const { supplierId, items, remark, status, reserveInventory } = req.body
 
     const existing = await prisma.purchaseOrder.findUnique({ where: { id } })
     if (!existing) {
       res.status(404).json({ code: 404, message: '采购单不存在' })
       return
     }
+
+    // 草稿转正式：生成正式单号
+    const isDraftToPending = existing.status === 'draft' && status === 'pending'
+    const finalOrderNo = isDraftToPending ? await generateOrderNo() : undefined
 
     const totalAmount = items
       ? items.reduce((sum: number, item: any) => sum + item.quantity * item.price, 0)
@@ -121,9 +136,12 @@ export const updatePurchaseOrder = async (req: Request, res: Response) => {
     const order = await prisma.purchaseOrder.update({
       where: { id },
       data: {
-        supplierId,
+        ...(supplierId !== undefined && { supplierId: supplierId || null }),
+        ...(finalOrderNo && { orderNo: finalOrderNo }),
         totalAmount,
         remark,
+        ...(reserveInventory !== undefined && { reserveInventory }),
+        ...(status && { status }),
         ...(items && {
           items: {
             deleteMany: {},

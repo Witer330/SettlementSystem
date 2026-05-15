@@ -38,6 +38,9 @@
         <el-menu-item index="/dashboard/inventory/material-requirements">
           物料需求
         </el-menu-item>
+        <el-menu-item index="/dashboard/inventory/return-orders">
+          退货管理
+        </el-menu-item>
         <el-menu-item index="/dashboard/inventory/purchase-orders">
           采购管理
         </el-menu-item>
@@ -78,9 +81,6 @@
         </el-menu-item>
         <el-menu-item index="/dashboard/basic-info/products">
           产品管理
-        </el-menu-item>
-        <el-menu-item index="/dashboard/basic-info/specs">
-          产品规格
         </el-menu-item>
         <el-menu-item index="/dashboard/basic-info/bom">
           BOM 管理

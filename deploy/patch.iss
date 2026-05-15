@@ -31,11 +31,13 @@ Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.i
 Name: "english"; MessagesFile: "compiler:Default.isl"
 
 [Files]
-; 只覆盖前后端代码和数据库迁移
-Source: "{#SourceDir}\frontend\dist\*"; DestDir: "{app}\frontend\dist"; Flags: recursesubdirs createallsubdirs ignoreversion
-Source: "{#SourceDir}\backend\dist\*"; DestDir: "{app}\backend\dist"; Flags: recursesubdirs createallsubdirs ignoreversion
-Source: "{#SourceDir}\backend\prisma\*"; DestDir: "{app}\backend\prisma"; Flags: recursesubdirs createallsubdirs ignoreversion
-Source: "{#SourceDir}\manager.exe"; DestDir: "{app}"; Flags: ignoreversion
+; 代码文件 → 临时目录，由 manager --apply-update 迁移
+Source: "{#SourceDir}\frontend\dist\*"; DestDir: "{app}\.update\frontend\dist"; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "{#SourceDir}\backend\dist\*"; DestDir: "{app}\.update\backend\dist"; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "{#SourceDir}\backend\prisma\*"; DestDir: "{app}\.update\backend\prisma"; Flags: recursesubdirs createallsubdirs ignoreversion
+Source: "{#SourceDir}\settlement-proxy.exe"; DestDir: "{app}\.update"; Flags: ignoreversion
+; manager.exe → 暂存为 .new
+Source: "{#SourceDir}\manager.exe"; DestDir: "{app}"; DestName: "manager.exe.new"; Flags: ignoreversion
 
 [Dirs]
 Name: "{app}\logs"
@@ -45,17 +47,47 @@ Name: "{group}\SettlementSystem"; Filename: "{app}\manager.exe"; IconFilename: "
 Name: "{group}\打开 SettlementSystem"; Filename: "http://localhost:4000"
 
 [Run]
-; 补丁安装后运行数据库迁移
-Filename: "{app}\node\node.exe"; Parameters: "node_modules\prisma\build\index.js migrate deploy --schema=prisma\schema.prisma"; StatusMsg: "正在更新数据库..."; WorkingDir: "{app}\backend"; Flags: shellexec waituntilterminated skipifsilent
+; 启动管理器执行文件迁移 + 数据库迁移
+Filename: "{app}\manager.exe"; Parameters: "--apply-update"; StatusMsg: "正在应用更新..."; Flags: runhidden nowait skipifsilent
 
 [Code]
 var
   isUpdate: Boolean;
 
+function CheckNodeInstalled(): Boolean;
+var
+  r: Integer;
+begin
+  Exec('cmd', '/c node --version >nul 2>&1', '', SW_HIDE, ewWaitUntilTerminated, r);
+  Result := (r = 0);
+end;
+
 function InitializeSetup(): Boolean;
 begin
   Result := True;
   isUpdate := False;
+
+  if not CheckNodeInstalled() then
+  begin
+    MsgBox(
+      '未检测到 Node.js 环境。' + #13#10 + #13#10 +
+      'SettlementSystem 需要 Node.js 来运行后端服务。' + #13#10 + #13#10 +
+      '请先安装 Node.js（推荐 v20 LTS）：' + #13#10 +
+      'https://nodejs.org/zh-cn/download',
+      mbError, MB_OK
+    );
+    Result := False;
+    Exit;
+  end;
+end;
+
+{ 只杀管理器 }
+procedure KillManager();
+var
+  resultCode: Integer;
+begin
+  Exec('taskkill', '/F /IM manager.exe', '', SW_HIDE, ewWaitUntilTerminated, resultCode);
+  Sleep(1500);
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
@@ -64,22 +96,18 @@ var
 begin
   if CurStep = ssInstall then
   begin
-    { 检测是否为更新安装 }
     if FileExists(ExpandConstant('{app}\manager.exe')) then
     begin
       isUpdate := True;
-      { 停止正在运行的服务管理器 }
-      Exec('taskkill', '/F /IM manager.exe', '', SW_HIDE, ewWaitUntilTerminated, resultCode);
-      Sleep(1000);
-      { 备份数据库 }
-      if FileExists(ExpandConstant('{app}\backend\prisma\data\settlement.db')) then
-      begin
-        CopyFile(
-          ExpandConstant('{app}\backend\prisma\data\settlement.db'),
-          ExpandConstant('{app}\backend\prisma\data\settlement.db.bak'),
-          False
-        );
-      end;
+      KillManager();
     end;
+  end;
+
+  { 替换 manager.exe }
+  if CurStep = ssPostInstall then
+  begin
+    if FileExists(ExpandConstant('{app}\manager.exe')) then
+      RenameFile(ExpandConstant('{app}\manager.exe'), ExpandConstant('{app}\manager.exe.old'));
+    RenameFile(ExpandConstant('{app}\manager.exe.new'), ExpandConstant('{app}\manager.exe'));
   end;
 end;

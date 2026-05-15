@@ -8,6 +8,9 @@ pub struct AppConfig {
     pub proxy_port: u16,
     /// 绑定地址
     pub host: String,
+    /// 外网访问地址（用户手动填入，如 http://公网IP:端口 或 http://域名:端口）
+    #[serde(default)]
+    pub external_url: Option<String>,
 }
 
 impl Default for AppConfig {
@@ -15,6 +18,7 @@ impl Default for AppConfig {
         Self {
             proxy_port: 4000,
             host: "0.0.0.0".to_string(),
+            external_url: None,
         }
     }
 }

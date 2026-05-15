@@ -9,93 +9,52 @@ export const getDashboardStats = async (_req: Request, res: Response) => {
       ? `${now.getFullYear() - 1}-12`
       : `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}`
 
-    // 员工总数
-    const employeeCount = await prisma.employee.count({
-      where: { status: 'active' }
-    })
-
-    // 上月员工数
+    const employeeCount = await prisma.employee.count({ where: { status: 'active' } })
     const lastMonthEmployeeCount = await prisma.employee.count({
-      where: {
-        status: 'active',
-        createdAt: { lt: new Date(now.getFullYear(), now.getMonth(), 1) }
-      }
+      where: { status: 'active', createdAt: { lt: new Date(now.getFullYear(), now.getMonth(), 1) } }
     })
 
-    // 本月报工记录数
-    const pieceRecordCount = await prisma.dailyPieceRecord.count({
-      where: {
-        date: {
-          gte: new Date(now.getFullYear(), now.getMonth(), 1),
-          lt: new Date(now.getFullYear(), now.getMonth() + 1, 1)
-        }
-      }
-    })
+    // 本月报工（日报 + 生产报工）
+    const [pieceRecordCount, prodRecordCount] = await Promise.all([
+      prisma.dailyPieceRecord.count({
+        where: { date: { gte: new Date(now.getFullYear(), now.getMonth(), 1), lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) } }
+      }),
+      prisma.productionRecord.count({
+        where: { date: { gte: new Date(now.getFullYear(), now.getMonth(), 1), lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) } }
+      })
+    ])
+    const totalRecords = pieceRecordCount + prodRecordCount
 
-    // 上月报工记录数
     const lastMonthPieceCount = await prisma.dailyPieceRecord.count({
-      where: {
-        date: {
-          gte: new Date(now.getFullYear(), now.getMonth() - 1, 1),
-          lt: new Date(now.getFullYear(), now.getMonth(), 1)
-        }
-      }
+      where: { date: { gte: new Date(now.getFullYear(), now.getMonth() - 1, 1), lt: new Date(now.getFullYear(), now.getMonth(), 1) } }
     })
 
-    // 本月工资总额
-    const salaryResult = await prisma.salaryBill.aggregate({
-      where: { period: currentMonth },
-      _sum: { totalAmount: true }
-    })
+    const salaryResult = await prisma.salaryBill.aggregate({ where: { period: currentMonth }, _sum: { totalAmount: true } })
     const currentSalary = salaryResult._sum.totalAmount || 0
-
-    // 上月工资总额
-    const lastSalaryResult = await prisma.salaryBill.aggregate({
-      where: { period: lastMonth },
-      _sum: { totalAmount: true }
-    })
+    const lastSalaryResult = await prisma.salaryBill.aggregate({ where: { period: lastMonth }, _sum: { totalAmount: true } })
     const lastSalary = lastSalaryResult._sum.totalAmount || 0
 
-    // 库存预警（库存量 < 安全库存的物料数）
     const lowStockMaterials = await prisma.material.findMany({
-      where: { status: 'active', safeStock: { gt: 0 } },
-      include: { inventory: true }
+      where: { status: 'active', safeStock: { gt: 0 } }, include: { inventory: true }
     })
-    const lowStockCount = lowStockMaterials.filter(m => {
-      const stock = m.inventory?.quantity || 0
-      return stock < m.safeStock
-    }).length
+    const lowStockCount = lowStockMaterials.filter(m => (m.inventory?.quantity || 0) < m.safeStock).length
 
     res.json({
-      code: 0,
-      message: '获取成功',
+      code: 0, message: '获取成功',
       data: {
-        employeeCount,
-        employeeTrend: employeeCount - lastMonthEmployeeCount,
-        pieceRecordCount,
-        pieceRecordTrend: lastMonthPieceCount > 0
-          ? Math.round(((pieceRecordCount - lastMonthPieceCount) / lastMonthPieceCount) * 100)
-          : 0,
-        currentSalary,
-        lastSalary,
-        lowStockCount
+        employeeCount, employeeTrend: employeeCount - lastMonthEmployeeCount,
+        pieceRecordCount: totalRecords,
+        pieceRecordTrend: lastMonthPieceCount > 0 ? Math.round(((totalRecords - lastMonthPieceCount) / lastMonthPieceCount) * 100) : 0,
+        currentSalary, lastSalary, lowStockCount
       }
     })
   } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取统计数据失败',
-      data: null
-    })
+    res.status(500).json({ code: 500, message: error.message || '获取统计数据失败', data: null })
   }
 }
 
-// 流程步骤状态查询
-// 每个步骤映射到一个数据模型，根据是否有数据判断状态
-const flowStepChecks: Array<{
-  key: string
-  check: () => Promise<{ count: number; latest?: string }>
-}> = [
+// ── 流程状态（支持 pending / active / completed 三级） ──
+const flowStepChecks: Array<{ key: string; check: () => Promise<{ count: number; completedCount?: number; latest?: string }> }> = [
   {
     key: 'employees',
     check: async () => {
@@ -108,30 +67,38 @@ const flowStepChecks: Array<{
     key: 'bom',
     check: async () => {
       const count = await prisma.billOfMaterial.count()
-      const latest = await prisma.billOfMaterial.findFirst({ orderBy: { id: 'desc' }, select: { id: true } })
-      return { count, latest: latest ? String(latest.id) : undefined }
+      return { count }
     }
   },
   {
     key: 'salesOrders',
     check: async () => {
-      const count = await prisma.salesOrder.count()
+      const [count, completedCount] = await Promise.all([
+        prisma.salesOrder.count(),
+        prisma.salesOrder.count({ where: { status: 'completed' } })
+      ])
       const latest = await prisma.salesOrder.findFirst({ orderBy: { createdAt: 'desc' }, select: { createdAt: true } })
-      return { count, latest: latest?.createdAt?.toISOString() }
+      return { count, completedCount, latest: latest?.createdAt?.toISOString() }
     }
   },
   {
     key: 'purchaseOrders',
     check: async () => {
-      const count = await prisma.purchaseOrder.count()
+      const [count, completedCount] = await Promise.all([
+        prisma.purchaseOrder.count(),
+        prisma.purchaseOrder.count({ where: { status: 'completed' } })
+      ])
       const latest = await prisma.purchaseOrder.findFirst({ orderBy: { createdAt: 'desc' }, select: { createdAt: true } })
-      return { count, latest: latest?.createdAt?.toISOString() }
+      return { count, completedCount, latest: latest?.createdAt?.toISOString() }
     }
   },
   {
     key: 'inventory',
     check: async () => {
-      const count = await prisma.inventory.count({ where: { quantity: { gt: 0 } } })
+      const [count, lowCount] = await Promise.all([
+        prisma.inventory.count({ where: { quantity: { gt: 0 } } }),
+        prisma.inventory.count({ where: { quantity: { gt: 0 } } })  // simplified
+      ])
       return { count }
     }
   },
@@ -139,15 +106,15 @@ const flowStepChecks: Array<{
     key: 'dailyRecords',
     check: async () => {
       const now = new Date()
-      const count = await prisma.dailyPieceRecord.count({
-        where: {
-          date: {
-            gte: new Date(now.getFullYear(), now.getMonth(), 1),
-            lt: new Date(now.getFullYear(), now.getMonth() + 1, 1)
-          }
-        }
-      })
-      return { count }
+      const [pieceCount, prodCount] = await Promise.all([
+        prisma.dailyPieceRecord.count({
+          where: { date: { gte: new Date(now.getFullYear(), now.getMonth(), 1), lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) } }
+        }),
+        prisma.productionRecord.count({
+          where: { date: { gte: new Date(now.getFullYear(), now.getMonth(), 1), lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) } }
+        })
+      ])
+      return { count: pieceCount + prodCount }
     }
   },
   {
@@ -155,9 +122,12 @@ const flowStepChecks: Array<{
     check: async () => {
       const now = new Date()
       const period = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-      const count = await prisma.salaryBill.count({ where: { period } })
+      const [count, approvedCount] = await Promise.all([
+        prisma.salaryBill.count({ where: { period } }),
+        prisma.salaryBill.count({ where: { period, status: 'approved' } })
+      ])
       const latest = await prisma.salaryBill.findFirst({ where: { period }, orderBy: { createdAt: 'desc' }, select: { createdAt: true } })
-      return { count, latest: latest?.createdAt?.toISOString() }
+      return { count, completedCount: approvedCount, latest: latest?.createdAt?.toISOString() }
     }
   }
 ]
@@ -165,28 +135,20 @@ const flowStepChecks: Array<{
 export const getFlowStatus = async (_req: Request, res: Response) => {
   try {
     const results: Record<string, { status: string; count: number; latest?: string }> = {}
-
     for (const step of flowStepChecks) {
-      const { count, latest } = await step.check()
+      const { count, completedCount, latest } = await step.check()
       let status: string
-      if (count > 0) {
+      if (completedCount !== undefined && completedCount > 0 && completedCount >= count) {
+        status = 'completed'
+      } else if (count > 0) {
         status = 'active'
       } else {
         status = 'pending'
       }
       results[step.key] = { status, count, latest }
     }
-
-    res.json({
-      code: 0,
-      message: '获取成功',
-      data: results
-    })
+    res.json({ code: 0, message: '获取成功', data: results })
   } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取流程状态失败',
-      data: null
-    })
+    res.status(500).json({ code: 500, message: error.message || '获取流程状态失败', data: null })
   }
 }

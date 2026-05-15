@@ -24,16 +24,12 @@
 const { execSync } = require('child_process')
 const path = require('path')
 const fs = require('fs')
-const https = require('https')
 
 // ============ 配置 ============
 
 const ROOT = path.resolve(__dirname, '..')
 const DEPLOY = __dirname
-const NODE_VERSION = 'v20.18.3'
-const NODE_ZIP = `node-${NODE_VERSION}-win-x64.zip`
-const NODE_URL = `https://nodejs.org/dist/${NODE_VERSION}/${NODE_ZIP}`
-const CACHE_DIR = path.join(DEPLOY, 'cache')
+// 不再打包 Node.js，依赖系统 PATH 中的 node
 const OUTPUT_DIR = path.join(DEPLOY, 'output', 'app')
 const RELEASE_DIR = path.join(ROOT, 'release')
 const ISCC_DEFAULT = 'C:\\Program Files (x86)\\Inno Setup 6\\ISCC.exe'
@@ -68,28 +64,6 @@ function copyDir(src, dest) {
       fs.copyFileSync(srcPath, destPath)
     }
   }
-}
-
-function downloadFile(url, dest) {
-  return new Promise((resolve, reject) => {
-    console.log(`下载: ${url}`)
-    const file = fs.createWriteStream(dest)
-    https.get(url, (response) => {
-      if (response.statusCode === 302 || response.statusCode === 301) {
-        file.close()
-        fs.unlinkSync(dest)
-        return downloadFile(response.headers.location, dest).then(resolve).catch(reject)
-      }
-      response.pipe(file)
-      file.on('finish', () => {
-        file.close()
-        resolve()
-      })
-    }).on('error', (err) => {
-      fs.unlinkSync(dest)
-      reject(err)
-    })
-  })
 }
 
 function findIscc() {
@@ -224,66 +198,35 @@ async function main() {
 
   // 7. 运行 prisma generate（仅全量安装包）
   if (!isPatch) {
-    log('[7/9] 生成 Prisma Client')
-    const nodeExe = path.join(CACHE_DIR, 'node', 'node.exe')
-    if (fs.existsSync(nodeExe)) {
-      run(`"${nodeExe}" node_modules/prisma/build/index.js generate`, path.join(OUTPUT_DIR, 'backend'))
-    } else {
-      run('npx prisma generate', path.join(OUTPUT_DIR, 'backend'))
-    }
+    log('[7/8] 生成 Prisma Client')
+    run('npx prisma generate', path.join(OUTPUT_DIR, 'backend'))
   } else {
-    log('[7/9] 跳过（补丁包不含 prisma generate）')
+    log('[7/8] 跳过（补丁包不含 prisma generate）')
   }
 
-  // 8. 下载 Node.js 便携版（仅全量安装包）
-  if (!isPatch) {
-    log('[8/9] 下载 Node.js 便携版')
-  fs.mkdirSync(CACHE_DIR, { recursive: true })
-  const zipPath = path.join(CACHE_DIR, NODE_ZIP)
-  const nodeDir = path.join(CACHE_DIR, 'node')
+  // 8. 复制服务管理器和部署脚本
+  log('[8/8] 复制服务管理器')
 
-  if (!fs.existsSync(path.join(nodeDir, 'node.exe'))) {
-    rimraf(nodeDir)
-    await downloadFile(NODE_URL, zipPath)
-    // 解压
-    run(`powershell -Command "Expand-Archive -Path '${zipPath}' -DestinationPath '${CACHE_DIR}' -Force"`)
-    // 重命名解压后的目录
-    const extractedDir = path.join(CACHE_DIR, `node-${NODE_VERSION}-win-x64`)
-    if (fs.existsSync(extractedDir)) {
-      if (fs.existsSync(nodeDir)) rimraf(nodeDir)
-      fs.renameSync(extractedDir, nodeDir)
-    }
-    // 清理 zip
-    if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath)
-    console.log('Node.js 便携版已下载并缓存')
-  } else {
-    console.log('Node.js 便携版已缓存，跳过下载')
-  }
-
-  // 复制 Node.js 到输出目录
-  copyDir(nodeDir, path.join(OUTPUT_DIR, 'node'))
-  } else {
-    log('[8/9] 跳过（补丁包不含 Node.js）')
-  }
-
-  // 9. 复制服务管理器和部署脚本
-  log('[9/9] 复制服务管理器')
-
-  // 复制 Tauri 构建产物 (manager.exe)
+  // 复制 Tauri 构建产物
   const tauriRelease = path.join(ROOT, 'service-manager', 'src-tauri', 'target', 'release')
   const managerExe = path.join(tauriRelease, 'settlement-service-manager.exe')
+  const proxyExe = path.join(tauriRelease, 'settlement-proxy.exe')
   if (fs.existsSync(managerExe)) {
     fs.copyFileSync(managerExe, path.join(OUTPUT_DIR, 'manager.exe'))
     console.log('已复制 manager.exe')
   } else {
     console.warn('警告: 未找到 manager.exe，跳过')
   }
+  if (fs.existsSync(proxyExe)) {
+    fs.copyFileSync(proxyExe, path.join(OUTPUT_DIR, 'settlement-proxy.exe'))
+    console.log('已复制 settlement-proxy.exe')
+  } else {
+    console.warn('警告: 未找到 settlement-proxy.exe，跳过')
+  }
 
-  // 复制 first-run.bat 和创建 .env（仅全量安装包）
+  // 创建 .env（仅全量安装包）
   if (!isPatch) {
-    fs.copyFileSync(path.join(DEPLOY, 'first-run.bat'), path.join(OUTPUT_DIR, 'first-run.bat'))
-
-    // PORT=0: 后端自动分配端口，由 Tauri 反向代理转发
+    // .env 会被复制到 .update\backend\，ssPostInstall 时拷贝到 {app}
     const envContent = [
       'DATABASE_URL="file:./data/settlement.db"',
       'JWT_SECRET="settlement-system-secret-key-change-in-production"',

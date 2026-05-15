@@ -137,7 +137,6 @@ const currentPageTitle = computed(() => {
     '/dashboard/inventory/sales-orders': '销售管理',
     '/dashboard/inventory/inventory-query': '库存查询',
     '/dashboard/basic-info/products': '产品管理',
-    '/dashboard/basic-info/specs': '产品规格',
     '/dashboard/system/users': '用户管理',
     '/dashboard/system/job-types': '工种管理',
     '/dashboard/system/employees': '员工管理',

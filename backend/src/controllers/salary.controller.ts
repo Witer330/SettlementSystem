@@ -90,32 +90,21 @@ export const salaryController = {
             })
           }
         } else {
-          // 计件计算：基于生产报工记录
+          // 计件计算：生产报工 + 每日计件记录，两者合并计算
+          // 1. 生产报工记录（按工序计件）
           const productionRecords = await prisma.productionRecord.findMany({
             where: {
               employeeId: employee.id,
-              date: {
-                gte: startDate,
-                lte: endDate
-              }
+              date: { gte: startDate, lte: endDate }
             },
-            include: {
-              process: true
-            }
+            include: { process: true }
           })
 
           for (const record of productionRecords) {
-            // 获取计件单价（优先级从高到低）
-            const unitPrice = await this.getPieceRate(
-              employee.id,
-              record.productId,
-              record.processId
-            )
-
+            const unitPrice = await this.getPieceRate(employee.id, record.productId, record.processId)
             const amount = record.quantity * unitPrice
             pieceAmount += amount
             pieceCount += Math.floor(record.quantity)
-
             details.push({
               type: 'piece',
               date: record.date,
@@ -126,6 +115,31 @@ export const salaryController = {
               amount,
               remark: record.remark
             })
+          }
+
+          // 2. 每日计件记录（按规格计件，单价已预计算）
+          const dailyRecords = await prisma.dailyPieceRecord.findMany({
+            where: {
+              employeeId: employee.id,
+              date: { gte: startDate, lte: endDate }
+            },
+            include: { items: { include: { product: true } } }
+          })
+
+          for (const dr of dailyRecords) {
+            for (const item of dr.items) {
+              pieceAmount += item.amount
+              pieceCount += item.quantity
+              details.push({
+                type: 'piece',
+                date: dr.date,
+                productId: item.productId,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                amount: item.amount,
+                remark: dr.remark || `产品: ${item.product?.name || '-'}`
+              })
+            }
           }
         }
 

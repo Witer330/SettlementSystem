@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed } from 'vue'
 import { invoke } from '@tauri-apps/api/core'
-import { ElMessage } from 'element-plus'
-import { CopyDocument, Edit, Check } from '@element-plus/icons-vue'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { CopyDocument, Edit, Check, Link, QuestionFilled } from '@element-plus/icons-vue'
 
 const emit = defineEmits<{
   configChanged: []
@@ -11,23 +11,29 @@ const emit = defineEmits<{
 interface Config {
   proxy_port: number
   host: string
+  external_url: string | null
 }
 
-const config = reactive<Config>({ proxy_port: 4000, host: '0.0.0.0' })
+const config = reactive<Config>({ proxy_port: 4000, host: '0.0.0.0', external_url: null })
 const lanIp = ref('127.0.0.1')
 const portEditing = ref(false)
 const portSaving = ref(false)
 const autoStart = ref(false)
 const autoStartLoading = ref(false)
+const externalEditing = ref(false)
+const externalInput = ref('')
 
 const localUrl = computed(() => `http://localhost:${config.proxy_port}`)
 const lanUrl = computed(() => `http://${lanIp.value}:${config.proxy_port}`)
+const externalUrl = computed(() => config.external_url || '')
 
 onMounted(async () => {
   try {
     const c = await invoke<Config>('get_config')
     config.proxy_port = c.proxy_port
     config.host = c.host
+    config.external_url = c.external_url ?? null
+    externalInput.value = config.external_url || ''
   } catch { /* ignore */ }
   try {
     lanIp.value = await invoke<string>('get_lan_ip')
@@ -43,6 +49,57 @@ function copyUrl(url: string) {
   }).catch(() => {
     ElMessage.error('复制失败')
   })
+}
+
+async function createShortcut(url: string) {
+  try {
+    await invoke('create_desktop_shortcut', { url })
+    ElMessage.success('桌面快捷方式已创建')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '创建快捷方式失败')
+  }
+}
+
+async function saveExternalUrl() {
+  const url = externalInput.value.trim()
+  config.external_url = url || null
+  try {
+    await invoke('save_config', { newConfig: { proxy_port: config.proxy_port, host: config.host, external_url: config.external_url } })
+    ElMessage.success('外网地址已保存')
+    externalEditing.value = false
+  } catch {
+    ElMessage.error('保存失败')
+  }
+}
+
+function showExternalHelp() {
+  ElMessageBox.alert(
+    `<div style="line-height:1.8;font-size:13px;">
+      <p><b>方式一：公网 IP + 端口映射</b></p>
+      <p>1. 获取路由器的公网 IP（在路由器管理页面查看 WAN 口 IP）</p>
+      <p>2. 登录路由器管理页面，找到「端口映射」或「虚拟服务器」设置</p>
+      <p>3. 添加映射规则：外部端口 <code>${config.proxy_port}</code> → 内部 IP（本机局域网 IP）端口 <code>${config.proxy_port}</code></p>
+      <p>4. 通过 <code>http://公网IP:${config.proxy_port}</code> 访问</p>
+      <p style="color:#999;margin-top:8px;">注意：部分运营商会封锁 80/443 端口，建议使用高位端口。</p>
+      <p style="margin-top:12px;"><b>方式二：域名访问（推荐）</b></p>
+      <p>1. 注册域名（如阿里云、腾讯云等域名服务商）</p>
+      <p>2. 安装内网穿透工具（如 frp、Cloudflare Tunnel、花生壳）</p>
+      <p>3. 将域名 A 记录指向公网 IP，或配置穿透工具的自定义域名</p>
+      <p>4. 通过 <code>http://你的域名:端口</code> 访问</p>
+      <p style="color:#999;margin-top:8px;">内网穿透工具可免去端口映射配置，适合无公网 IP 的场景。</p>
+      <p style="margin-top:12px;"><b>方式三：Tailscale / ZeroTier 组网</b></p>
+      <p>1. 在本机和访问端设备均安装 Tailscale（或 ZeroTier）</p>
+      <p>2. 同一账号登录后自动组网</p>
+      <p>3. 通过 Tailscale 分配的 IP 直接访问，无需端口映射</p>
+      <p style="color:#999;margin-top:8px;">适合远程办公，安全性高，无需暴露公网端口。</p>
+     </div>`,
+    '外网访问配置说明',
+    {
+      dangerouslyUseHTMLString: true,
+      confirmButtonText: '我知道了',
+      customStyle: { maxWidth: '520px' },
+    }
+  )
 }
 
 async function savePort() {
@@ -98,9 +155,14 @@ async function toggleAutoStart(val: boolean) {
           <span class="text-xs url-label">本地访问</span>
           <span class="text-small text-mono-small url-value">{{ localUrl }}</span>
         </div>
-        <button class="btn btn-sm btn-white" @click="copyUrl(localUrl)">
-          <el-icon :size="14"><CopyDocument /></el-icon>
-        </button>
+        <div class="url-actions">
+          <button class="btn btn-sm btn-white" @click="copyUrl(localUrl)">
+            <el-icon :size="14"><CopyDocument /></el-icon>
+          </button>
+          <button class="btn btn-sm btn-white" @click="createShortcut(localUrl)" title="创建桌面快捷方式">
+            <el-icon :size="14"><Link /></el-icon>
+          </button>
+        </div>
       </div>
 
       <div class="url-row">
@@ -108,9 +170,61 @@ async function toggleAutoStart(val: boolean) {
           <span class="text-xs url-label">局域网访问</span>
           <span class="text-small text-mono-small url-value">{{ lanUrl }}</span>
         </div>
-        <button class="btn btn-sm btn-white" @click="copyUrl(lanUrl)">
-          <el-icon :size="14"><CopyDocument /></el-icon>
-        </button>
+        <div class="url-actions">
+          <button class="btn btn-sm btn-white" @click="copyUrl(lanUrl)">
+            <el-icon :size="14"><CopyDocument /></el-icon>
+          </button>
+          <button class="btn btn-sm btn-white" @click="createShortcut(lanUrl)" title="创建桌面快捷方式">
+            <el-icon :size="14"><Link /></el-icon>
+          </button>
+        </div>
+      </div>
+
+      <!-- 外网访问 -->
+      <div class="url-row">
+        <div class="url-info" style="flex:1;">
+          <div class="url-external-header">
+            <span class="text-xs url-label">外网访问</span>
+            <button class="btn-help" @click="showExternalHelp" title="配置说明">
+              <el-icon :size="12"><QuestionFilled /></el-icon>
+            </button>
+          </div>
+          <template v-if="!externalEditing">
+            <span v-if="externalUrl" class="text-small text-mono-small url-value" @click="externalEditing = true" style="cursor:pointer;">{{ externalUrl }}</span>
+            <span v-else class="text-small url-value url-placeholder" @click="externalEditing = true" style="cursor:pointer;">点击设置外网访问地址</span>
+          </template>
+          <template v-else>
+            <div class="external-input-group">
+              <el-input
+                v-model="externalInput"
+                size="small"
+                placeholder="如 http://公网IP:端口 或 http://域名:端口"
+                @keyup.enter="saveExternalUrl"
+                @keyup.escape="externalEditing = false"
+                style="flex:1;"
+              />
+              <button class="btn btn-sm btn-primary" @click="saveExternalUrl">
+                <el-icon :size="14"><Check /></el-icon>
+              </button>
+              <button class="btn btn-sm btn-white" @click="externalEditing = false">
+                <el-icon :size="14"><CopyDocument /></el-icon>
+              </button>
+            </div>
+          </template>
+        </div>
+        <template v-if="externalUrl && !externalEditing">
+          <div class="url-actions">
+            <button class="btn btn-sm btn-white" @click="copyUrl(externalUrl)">
+              <el-icon :size="14"><CopyDocument /></el-icon>
+            </button>
+            <button class="btn btn-sm btn-white" @click="createShortcut(externalUrl)" title="创建桌面快捷方式">
+              <el-icon :size="14"><Link /></el-icon>
+            </button>
+            <button class="btn btn-sm btn-white" @click="externalEditing = true">
+              <el-icon :size="14"><Edit /></el-icon>
+            </button>
+          </div>
+        </template>
       </div>
     </div>
 
@@ -209,6 +323,50 @@ async function toggleAutoStart(val: boolean) {
 
 .url-value {
   color: var(--color-text-primary);
+}
+
+.url-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.url-external-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.btn-help {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: none;
+  border-radius: 50%;
+  background: var(--border-color-light);
+  color: var(--color-text-muted);
+  cursor: pointer;
+  padding: 0;
+  transition: all 0.15s;
+}
+.btn-help:hover {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.url-placeholder {
+  color: var(--color-text-muted);
+  font-style: italic;
+  font-family: inherit;
+  letter-spacing: normal;
+}
+
+.external-input-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
 }
 
 .control-row {

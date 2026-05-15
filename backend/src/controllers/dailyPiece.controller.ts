@@ -1,42 +1,22 @@
 import { Request, Response } from 'express'
 import { prisma } from '../lib/prisma'
 
-// 创建每日计件记录
 export const createDailyRecord = async (req: Request, res: Response) => {
   try {
     const { employeeId, date, items, remark } = req.body
 
-    // 计算总金额
     let totalAmount = 0
     for (const item of items) {
-      const spec = await prisma.productSpec.findUnique({
-        where: { id: item.specId },
-        include: { specPrice: true }
-      })
-
-      if (!spec) {
-        return res.status(404).json({
-          code: 404,
-          message: `规格ID ${item.specId} 不存在`,
-          data: null
-        })
+      const product = await prisma.product.findUnique({ where: { id: item.productId } })
+      if (!product) {
+        return res.status(404).json({ code: 404, message: `产品ID ${item.productId} 不存在`, data: null })
       }
-
-      if (!spec.specPrice) {
-        return res.status(400).json({
-          code: 400,
-          message: `规格 "${spec.name}" 未设置单价`,
-          data: null
-        })
-      }
-
-      const amount = item.quantity * spec.specPrice.unitPrice
-      item.unitPrice = spec.specPrice.unitPrice
-      item.amount = amount
-      totalAmount += amount
+      const unitPrice = item.unitPrice ?? product.price
+      item.unitPrice = unitPrice
+      item.amount = item.quantity * unitPrice
+      totalAmount += item.amount
     }
 
-    // 创建记录
     const record = await prisma.dailyPieceRecord.create({
       data: {
         employeeId,
@@ -45,317 +25,141 @@ export const createDailyRecord = async (req: Request, res: Response) => {
         remark,
         items: {
           create: items.map((item: any) => ({
-            specId: item.specId,
+            productId: item.productId,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             amount: item.amount
           }))
         }
       },
-      include: {
-        employee: true,
-        items: {
-          include: {
-            spec: {
-              include: {
-                product: true
-              }
-            }
-          }
-        }
-      }
+      include: { employee: true, items: { include: { product: true } } }
     })
 
-    res.json({
-      code: 0,
-      message: '创建成功',
-      data: record
-    })
+    res.json({ code: 0, message: '创建成功', data: record })
   } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '创建失败',
-      data: null
-    })
+    res.status(500).json({ code: 500, message: error.message || '创建失败', data: null })
   }
 }
 
-// 获取每日计件记录列表
 export const getDailyRecords = async (req: Request, res: Response) => {
   try {
     const { page = 1, pageSize = 10, employeeId, date, startDate, endDate } = req.query
-
     const where: any = {}
     if (employeeId) where.employeeId = parseInt(employeeId as string)
     if (date) {
-      const dateObj = new Date(date as string)
-      const nextDay = new Date(dateObj)
-      nextDay.setDate(nextDay.getDate() + 1)
-      where.date = {
-        gte: dateObj,
-        lt: nextDay
-      }
+      const d = new Date(date as string)
+      where.date = { gte: d, lt: new Date(d.getTime() + 86400000) }
     }
     if (startDate && endDate) {
-      where.date = {
-        gte: new Date(startDate as string),
-        lte: new Date(endDate as string)
-      }
+      where.date = { gte: new Date(startDate as string), lte: new Date(endDate as string) }
     }
 
     const [list, total] = await Promise.all([
       prisma.dailyPieceRecord.findMany({
         where,
-        include: {
-          employee: true,
-          items: {
-            include: {
-              spec: {
-                include: {
-                  product: true
-                }
-              }
-            }
-          }
-        },
+        include: { employee: true, items: { include: { product: true } } },
         orderBy: { date: 'desc' },
-        skip: ((page as number) - 1) * (pageSize as number),
-        take: parseInt(pageSize as string)
+        skip: (Number(page) - 1) * Number(pageSize),
+        take: Number(pageSize)
       }),
       prisma.dailyPieceRecord.count({ where })
     ])
 
-    res.json({
-      code: 0,
-      message: '获取成功',
-      data: {
-        list,
-        total,
-        page: parseInt(page as string),
-        pageSize: parseInt(pageSize as string),
-        totalPages: Math.ceil(total / parseInt(pageSize as string))
-      }
-    })
+    res.json({ code: 0, message: '获取成功', data: { list, total, page: Number(page), pageSize: Number(pageSize) } })
   } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取失败',
-      data: null
-    })
+    res.status(500).json({ code: 500, message: error.message || '获取失败', data: null })
   }
 }
 
-// 获取每日计件记录详情
 export const getDailyRecord = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params
-
+    const id = Number(req.params.id)
     const record = await prisma.dailyPieceRecord.findUnique({
-      where: { id: parseInt(id as string) },
-      include: {
-        employee: true,
-        items: {
-          include: {
-            spec: {
-              include: {
-                product: true
-              }
-            }
-          }
-        }
-      }
+      where: { id },
+      include: { employee: true, items: { include: { product: true } } }
     })
-
-    if (!record) {
-      return res.status(404).json({
-        code: 404,
-        message: '记录不存在',
-        data: null
-      })
-    }
-
-    res.json({
-      code: 0,
-      message: '获取成功',
-      data: record
-    })
+    if (!record) { res.status(404).json({ code: 404, message: '记录不存在', data: null }); return }
+    res.json({ code: 0, message: '获取成功', data: record })
   } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取失败',
-      data: null
-    })
+    res.status(500).json({ code: 500, message: error.message || '获取失败', data: null })
   }
 }
 
-// 更新每日计件记录
 export const updateDailyRecord = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params
+    const id = Number(req.params.id)
     const { items, remark } = req.body
 
-    // 删除原有明细
-    await prisma.dailyPieceRecordItem.deleteMany({
-      where: { recordId: parseInt(id as string) }
-    })
+    await prisma.dailyPieceRecordItem.deleteMany({ where: { recordId: id } })
 
-    // 计算新总金额
     let totalAmount = 0
     for (const item of items) {
-      const spec = await prisma.productSpec.findUnique({
-        where: { id: item.specId },
-        include: { specPrice: true }
-      })
-
-      if (!spec || !spec.specPrice) {
-        continue
-      }
-
-      const amount = item.quantity * spec.specPrice.unitPrice
+      const product = await prisma.product.findUnique({ where: { id: item.productId } })
+      const unitPrice = item.unitPrice ?? product?.price ?? 0
+      const amount = item.quantity * unitPrice
       totalAmount += amount
     }
 
-    // 更新记录
     const record = await prisma.dailyPieceRecord.update({
-      where: { id: parseInt(id as string) },
+      where: { id },
       data: {
         totalAmount,
         remark,
         items: {
-          create: items.map((item: any) => {
-            const spec = item.spec || { specPrice: { unitPrice: item.unitPrice } }
-            return {
-              specId: item.specId,
-              quantity: item.quantity,
-              unitPrice: spec.specPrice?.unitPrice || item.unitPrice,
-              amount: item.quantity * (spec.specPrice?.unitPrice || item.unitPrice)
-            }
-          })
+          create: items.map((item: any) => ({
+            productId: item.productId,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice ?? 0,
+            amount: item.quantity * (item.unitPrice ?? 0)
+          }))
         }
       },
-      include: {
-        employee: true,
-        items: {
-          include: {
-            spec: {
-              include: {
-                product: true
-              }
-            }
-          }
-        }
-      }
+      include: { employee: true, items: { include: { product: true } } }
     })
 
-    res.json({
-      code: 0,
-      message: '更新成功',
-      data: record
-    })
+    res.json({ code: 0, message: '更新成功', data: record })
   } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '更新失败',
-      data: null
-    })
+    res.status(500).json({ code: 500, message: error.message || '更新失败', data: null })
   }
 }
 
-// 删除每日计件记录
 export const deleteDailyRecord = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params
-
-    await prisma.dailyPieceRecord.delete({
-      where: { id: parseInt(id as string) }
-    })
-
-    res.json({
-      code: 0,
-      message: '删除成功',
-      data: null
-    })
+    await prisma.dailyPieceRecord.delete({ where: { id: Number(req.params.id) } })
+    res.json({ code: 0, message: '删除成功', data: null })
   } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '删除失败',
-      data: null
-    })
+    res.status(500).json({ code: 500, message: error.message || '删除失败', data: null })
   }
 }
 
-// 获取员工月度计件汇总
 export const getMonthlySummary = async (req: Request, res: Response) => {
   try {
-    const { employeeId, period } = req.params // period format: YYYY-MM
-
-    const [year, month] = (period as string).split('-').map(Number)
+    const employeeId = Number(req.params.employeeId)
+    const [year, month] = String(req.params.period).split('-').map(Number)
     const startDate = new Date(year, month - 1, 1)
     const endDate = new Date(year, month, 0, 23, 59, 59)
 
     const records = await prisma.dailyPieceRecord.findMany({
-      where: {
-        employeeId: parseInt(employeeId as string),
-        date: {
-          gte: startDate,
-          lte: endDate
-        }
-      },
-      include: {
-        items: {
-          include: {
-            spec: {
-              include: {
-                product: true
-              }
-            }
-          }
-        }
-      },
+      where: { employeeId, date: { gte: startDate, lte: endDate } },
+      include: { items: { include: { product: true } } },
       orderBy: { date: 'asc' }
     })
 
-    // 汇总统计
-    let totalAmount = 0
-    let totalCount = 0
-    const specSummary: any = {}
-
-    records.forEach((record) => {
-      totalAmount += record.totalAmount
-      record.items.forEach((item) => {
+    let totalAmount = 0; let totalCount = 0
+    const productSummary: Record<string, any> = {}
+    for (const r of records) {
+      totalAmount += r.totalAmount
+      for (const item of r.items) {
         totalCount += item.quantity
-
-        const specKey = `${item.spec.product.name}-${item.spec.name}`
-        if (!specSummary[specKey]) {
-          specSummary[specKey] = {
-            specName: item.spec.name,
-            productName: item.spec.product.name,
-            quantity: 0,
-            amount: 0
-          }
-        }
-        specSummary[specKey].quantity += item.quantity
-        specSummary[specKey].amount += item.amount
-      })
-    })
-
-    res.json({
-      code: 0,
-      message: '获取成功',
-      data: {
-        records,
-        summary: {
-          totalAmount,
-          totalCount,
-          specSummary: Object.values(specSummary)
-        }
+        const key = item.product.name
+        if (!productSummary[key]) productSummary[key] = { productName: item.product.name, quantity: 0, amount: 0 }
+        productSummary[key].quantity += item.quantity
+        productSummary[key].amount += item.amount
       }
-    })
+    }
+
+    res.json({ code: 0, message: '获取成功', data: { records, summary: { totalAmount, totalCount, productSummary: Object.values(productSummary) } } })
   } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取失败',
-      data: null
-    })
+    res.status(500).json({ code: 500, message: error.message || '获取失败', data: null })
   }
 }

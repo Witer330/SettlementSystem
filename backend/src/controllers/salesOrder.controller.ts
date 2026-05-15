@@ -34,7 +34,7 @@ export const getSalesOrders = async (req: Request, res: Response) => {
     const [orders, total] = await Promise.all([
       prisma.salesOrder.findMany({
         where, skip, take, orderBy: { createdAt: 'desc' },
-        include: { customer: true, items: { include: { product: true } } }
+        include: { customer: true, items: { include: { product: true } }, returnOrders: { include: { items: true } } }
       }),
       prisma.salesOrder.count({ where })
     ])
@@ -70,33 +70,44 @@ export const getSalesOrder = async (req: Request, res: Response) => {
 // 创建销售单
 export const createSalesOrder = async (req: Request, res: Response) => {
   try {
-    const { customerId, items, remark } = req.body
-    if (!customerId || !items || items.length === 0) {
+    const { customerId, items, remark, status: reqStatus, reserveInventory } = req.body
+    const isDraft = reqStatus === 'draft'
+
+    // 草稿：跳过必填校验
+    if (!isDraft && (!customerId || !items || items.length === 0)) {
       res.status(400).json({ code: 400, message: '客户和销售明细不能为空' })
       return
     }
 
-    const orderNo = await generateOrderNo()
-    const totalAmount = items.reduce((sum: number, item: any) => sum + item.quantity * item.price, 0)
+    const orderNo = isDraft
+      ? `DRAFT-SO-${Date.now()}`
+      : await generateOrderNo()
+    const totalAmount = items
+      ? items.reduce((sum: number, item: any) => sum + item.quantity * item.price, 0)
+      : 0
 
     const order = await prisma.salesOrder.create({
       data: {
-        customerId,
+        customerId: customerId || null,
         orderNo,
         totalAmount,
+        status: isDraft ? 'draft' : 'pending',
         remark,
-        items: {
-          create: items.map((item: any) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            price: item.price
-          }))
-        }
+        reserveInventory: reserveInventory !== undefined ? reserveInventory : true,
+        ...(items && items.length > 0 && {
+          items: {
+            create: items.map((item: any) => ({
+              productId: item.productId,
+              quantity: item.quantity,
+              price: item.price
+            }))
+          }
+        })
       },
       include: { customer: true, items: { include: { product: true } } }
     })
 
-    res.json({ code: 0, message: '创建成功', data: order })
+    res.json({ code: 0, message: isDraft ? '草稿已保存' : '创建成功', data: order })
   } catch (error: any) {
     res.status(500).json({ code: 500, message: error.message || '创建失败' })
   }
@@ -106,13 +117,17 @@ export const createSalesOrder = async (req: Request, res: Response) => {
 export const updateSalesOrder = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id)
-    const { customerId, items, remark, status } = req.body
+    const { customerId, items, remark, status, reserveInventory } = req.body
 
     const existing = await prisma.salesOrder.findUnique({ where: { id } })
     if (!existing) {
       res.status(404).json({ code: 404, message: '销售单不存在' })
       return
     }
+
+    // 草稿转正式：生成正式单号
+    const isDraftToPending = existing.status === 'draft' && status === 'pending'
+    const finalOrderNo = isDraftToPending ? await generateOrderNo() : undefined
 
     const totalAmount = items
       ? items.reduce((sum: number, item: any) => sum + item.quantity * item.price, 0)
@@ -121,10 +136,12 @@ export const updateSalesOrder = async (req: Request, res: Response) => {
     const order = await prisma.salesOrder.update({
       where: { id },
       data: {
-        customerId,
+        ...(customerId !== undefined && { customerId: customerId || null }),
+        ...(finalOrderNo && { orderNo: finalOrderNo }),
         totalAmount,
         remark,
-        status,
+        ...(reserveInventory !== undefined && { reserveInventory }),
+        ...(status && { status }),
         ...(items && {
           items: {
             deleteMany: {},
@@ -167,6 +184,20 @@ export const updateSalesOrderStatus = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id)
     const { status } = req.body
+
+    const existing = await prisma.salesOrder.findUnique({
+      where: { id },
+      include: { items: true }
+    })
+    if (!existing) { res.status(404).json({ code: 404, message: '销售单不存在' }); return }
+
+    // completed → 扣减成品库存
+    if (status === 'completed' && existing.status !== 'completed') {
+      for (const item of existing.items) {
+        const qty = item.shippedQuantity > 0 ? item.shippedQuantity : item.quantity
+        await prisma.product.update({ where: { id: item.productId }, data: { stock: { decrement: qty } } })
+      }
+    }
 
     const order = await prisma.salesOrder.update({
       where: { id },

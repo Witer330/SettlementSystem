@@ -38,9 +38,20 @@ impl ProcessManager {
     }
 
     /// 启动 Node.js 服务（自动分配端口）
-    pub async fn start(&self, node_path: &str, server_script: &str, work_dir: &str) -> Result<u16, String> {
+    /// `detached` 为 true 时，子进程脱离父进程，托盘退出后服务继续运行
+    pub async fn start(&self, node_path: &str, server_script: &str, work_dir: &str, detached: bool) -> Result<u16, String> {
         if self.pid.load(Ordering::Relaxed) != 0 {
             return Err("服务已在运行".to_string());
+        }
+
+        // 检查 Node.js 是否可用
+        let version_check = tokio::process::Command::new(node_path)
+            .arg("--version")
+            .creation_flags(0x08000000)
+            .output()
+            .await;
+        if version_check.is_err() || !version_check.unwrap().status.success() {
+            return Err("未检测到 Node.js，请安装 Node.js v20 LTS:\nhttps://nodejs.org/zh-cn/download".into());
         }
 
         let mut cmd = tokio::process::Command::new(node_path);
@@ -49,8 +60,12 @@ impl ProcessManager {
            .env("NODE_ENV", "production")
            .env("PORT", "0") // OS 自动分配端口
            .stdout(std::process::Stdio::piped())
-           .stderr(std::process::Stdio::piped())
-           .creation_flags(0x08000000); // CREATE_NO_WINDOW
+           .stderr(std::process::Stdio::piped());
+
+        // 不弹黑窗 + 脱离父进程 JobObject，托盘退出后服务继续运行
+        // CREATE_NO_WINDOW (0x08000000) | CREATE_NEW_PROCESS_GROUP (0x200) | CREATE_BREAKAWAY_FROM_JOB (0x01000000)
+        let flags = if detached { 0x09000200 } else { 0x08000000 };
+        cmd.creation_flags(flags);
 
         let mut child = cmd.spawn().map_err(|e| format!("启动失败: {}", e))?;
         let child_pid = child.id().unwrap_or(0);
@@ -106,6 +121,16 @@ impl ProcessManager {
         Ok(port)
     }
 
+    /// 接管已运行的后端进程（重启托盘时，检测到端口被占用，绑定到该进程）
+    pub fn attach(&self, pid: u32, port: u16) {
+        self.pid.store(pid, Ordering::Relaxed);
+        self.backend_port.store(port, Ordering::Relaxed);
+        self.should_be_running.store(true, Ordering::Relaxed);
+        self.health_failures.store(0, Ordering::Relaxed);
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        self.started_at.store(now, Ordering::Relaxed);
+    }
+
     /// 停止服务
     pub async fn stop(&self) -> Result<(), String> {
         self.should_be_running.store(false, Ordering::Relaxed);
@@ -141,11 +166,19 @@ impl ProcessManager {
         Ok(())
     }
 
+    /// 脱管：停止管理但不杀进程，服务继续运行
+    pub fn detach(&self) {
+        self.should_be_running.store(false, Ordering::Relaxed);
+        self.pid.store(0, Ordering::Relaxed);
+        self.backend_port.store(0, Ordering::Relaxed);
+        self.started_at.store(0, Ordering::Relaxed);
+    }
+
     /// 重启服务
     pub async fn restart(&self, node_path: &str, server_script: &str, work_dir: &str) -> Result<u16, String> {
         self.stop().await?;
         tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
-        self.start(node_path, server_script, work_dir).await
+        self.start(node_path, server_script, work_dir, true).await
     }
 
     /// 获取状态（含内存和 CPU）

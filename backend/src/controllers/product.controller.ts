@@ -78,7 +78,7 @@ export const getProduct = async (req: Request, res: Response) => {
 // 创建产品
 export const createProduct = async (req: Request, res: Response) => {
   try {
-    const { name, code, category, specification, unit } = req.body
+    const { name, code, category, specification, unit, price } = req.body
 
     const product = await prisma.product.create({
       data: {
@@ -87,6 +87,7 @@ export const createProduct = async (req: Request, res: Response) => {
         category,
         specification,
         unit,
+        price: price || 0,
         status: 'active'
       }
     })
@@ -109,7 +110,7 @@ export const createProduct = async (req: Request, res: Response) => {
 export const updateProduct = async (req: Request, res: Response) => {
   try {
     const { id } = req.params
-    const { name, code, category, specification, unit, status } = req.body
+    const { name, code, category, specification, unit, price, status } = req.body
 
     const product = await prisma.product.update({
       where: { id: parseInt(id as string) },
@@ -119,6 +120,7 @@ export const updateProduct = async (req: Request, res: Response) => {
         category,
         specification,
         unit,
+        price,
         status
       }
     })
