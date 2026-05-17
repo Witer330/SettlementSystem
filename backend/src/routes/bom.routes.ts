@@ -5,8 +5,11 @@ import {
   addBomItem,
   deleteBomItem
 } from '../controllers/bom.controller'
+import { authenticate } from '../middleware/auth.middleware'
 
 const router = Router()
+
+router.use(authenticate)
 
 router.get('/product/:productId', getBomByProduct)
 router.post('/product/:productId', saveBom)

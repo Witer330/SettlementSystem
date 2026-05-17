@@ -16,9 +16,7 @@ export interface Employee {
   code: string
   departmentId: number | null
   jobType: string
-  payType: string
-  hourlyRate: number
-  pieceRate: number
+  hourlyRate?: number | null
   status: string
   createdAt: string
   updatedAt: string

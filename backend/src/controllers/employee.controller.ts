@@ -122,12 +122,7 @@ export const employeeController = {
         where: { id: Number(id) },
         include: {
           department: true,
-          jobTypeRef: true,
-          processRates: {
-            include: {
-              process: true
-            }
-          }
+          jobTypeRef: true
         }
       })
 
@@ -161,7 +156,6 @@ export const employeeController = {
         code,
         departmentId,
         jobTypeId,
-        payType,
         hourlyRate,
         status = 'active'
       } = req.body
@@ -218,8 +212,7 @@ export const employeeController = {
           code: employeeCode,
           departmentId: departmentId ? Number(departmentId) : null,
           jobTypeId: jobTypeId ? Number(jobTypeId) : null,
-          payType: payType || 'hourly',
-          hourlyRate: hourlyRate || 0,
+          hourlyRate: hourlyRate || null,
           status
         },
         include: {
@@ -246,7 +239,7 @@ export const employeeController = {
   async update(req: AuthRequest, res: Response) {
     try {
       const { id } = req.params
-      const { name, code, departmentId, jobTypeId, payType, hourlyRate, status } = req.body
+      const { name, code, departmentId, jobTypeId, hourlyRate, status } = req.body
 
       const employee = await prisma.employee.update({
         where: { id: Number(id) },
@@ -257,8 +250,7 @@ export const employeeController = {
             departmentId: departmentId ? Number(departmentId) : null
           }),
           ...(jobTypeId !== undefined && { jobTypeId: jobTypeId ? Number(jobTypeId) : null }),
-          ...(payType !== undefined && { payType }),
-          ...(hourlyRate !== undefined && { hourlyRate }),
+          ...(hourlyRate !== undefined && { hourlyRate: hourlyRate || null }),
           ...(status !== undefined && { status })
         },
         include: {

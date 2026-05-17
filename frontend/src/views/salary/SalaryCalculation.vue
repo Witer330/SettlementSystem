@@ -16,71 +16,13 @@
       :form="calcForm"
       :loading="calculating"
       @update:period="calcForm.period = $event"
-      @update:employee-scope="calcForm.employeeScope = $event"
       @calculate="handleCalculate"
     />
 
-    <!-- Results Table -->
-    <el-card class="result-card" shadow="never" v-if="calculationResults.length > 0">
-      <div class="result-header">
-        <h2>计算结果</h2>
-        <el-button type="primary" size="small" @click="loadSalaryBills"> 查看工资单 </el-button>
-      </div>
-
-      <el-table :data="calculationResults" stripe>
-        <el-table-column prop="employeeName" label="员工姓名" width="120" />
-        <el-table-column prop="payType" label="计费方式" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.payType === 'piece' ? 'success' : 'warning'" size="small">
-              {{ row.payType === 'piece' ? '计件' : '时薪' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="时薪部分" width="120">
-          <template #default="{ row }">
-            <div v-if="row.payType === 'hourly'">
-              <div>{{ row.hourlyHours }}小时</div>
-              <div class="amount">¥{{ row.hourlyAmount.toFixed(2) }}</div>
-            </div>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="计件部分" width="120">
-          <template #default="{ row }">
-            <div v-if="row.payType === 'piece'">
-              <div>{{ row.pieceCount }}件</div>
-              <div class="amount">¥{{ row.pieceAmount.toFixed(2) }}</div>
-            </div>
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="总金额" width="120">
-          <template #default="{ row }">
-            <span class="total-amount">¥{{ (row.totalAmount || row.amount).toFixed(2) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column prop="status" label="状态" width="100">
-          <template #default="{ row }">
-            <el-tag :type="row.status === 'approved' ? 'success' : 'info'" size="small">
-              {{ row.status === 'approved' ? '已审核' : '待审核' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
-          <template #default="{ row }">
-            <el-button link type="primary" @click="viewBillDetail(row.billId)">
-              查看明细
-            </el-button>
-          </template>
-        </el-table-column>
-      </el-table>
-    </el-card>
-
     <!-- Salary Bills List -->
-    <el-card class="bills-card" shadow="never" v-if="showBillsList">
+    <el-card class="bills-card" shadow="never">
       <div class="bills-header">
         <h2>工资单列表</h2>
-        <el-button link @click="showBillsList = false">关闭</el-button>
       </div>
 
       <el-table :data="salaryBills" v-loading="loadingBills" stripe>
@@ -90,40 +32,75 @@
             {{ row.employee?.name }} ({{ row.employee?.code }})
           </template>
         </el-table-column>
-        <el-table-column label="时薪金额" width="100">
+        <el-table-column label="时薪金额" width="120">
           <template #default="{ row }">
-            <span v-if="row.hourlyAmount > 0">¥{{ row.hourlyAmount.toFixed(2) }}</span>
+            <div v-if="(row.hourlyAmount ?? 0) > 0">
+              <div>{{ row.hourlyHours }}小时</div>
+              <div class="amount">¥{{ (row.hourlyAmount ?? 0).toFixed(2) }}</div>
+            </div>
             <span v-else>-</span>
           </template>
         </el-table-column>
-        <el-table-column label="计件金额" width="100">
+        <el-table-column label="计件金额" width="120">
           <template #default="{ row }">
-            <span v-if="row.pieceAmount > 0">¥{{ row.pieceAmount.toFixed(2) }}</span>
+            <div v-if="(row.pieceAmount ?? 0) > 0">
+              <div>{{ row.pieceCount }}件</div>
+              <div class="amount">¥{{ (row.pieceAmount ?? 0).toFixed(2) }}</div>
+            </div>
+            <span v-else>-</span>
+          </template>
+        </el-table-column>
+        <el-table-column label="其他工资" width="120">
+          <template #default="{ row }">
+            <div v-if="(row.otherAmount ?? 0) > 0">
+              <div>{{ row.otherCount }}项</div>
+              <div class="amount">¥{{ (row.otherAmount ?? 0).toFixed(2) }}</div>
+            </div>
             <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column label="总金额" width="120">
           <template #default="{ row }">
-            <span class="total-amount">¥{{ row.totalAmount.toFixed(2) }}</span>
+            <span class="total-amount">¥{{ (row.totalAmount ?? 0).toFixed(2) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'approved' ? 'success' : 'warning'" size="small">
-              {{ row.status === 'approved' ? '已审核' : '待审核' }}
+            <el-tag :type="billStatusType(row.status)" size="small">
+              {{ billStatusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="180" fixed="right">
+        <el-table-column label="操作" width="280">
           <template #default="{ row }">
             <el-button link type="primary" @click="viewBillDetail(row.id)"> 查看明细 </el-button>
             <el-button
               v-if="row.status === 'pending'"
-              link
-              type="success"
+              link type="success"
               @click="approveBill(row)"
             >
               审核
+            </el-button>
+            <el-button
+              v-if="row.status === 'approved'"
+              link type="warning"
+              @click="revokeBill(row)"
+            >
+              反审
+            </el-button>
+            <el-button
+              v-if="row.status === 'approved'"
+              link type="success"
+              @click="issueBill(row)"
+            >
+              发放
+            </el-button>
+            <el-button
+              v-if="row.status === 'pending'"
+              link type="danger"
+              @click="deleteBill(row)"
+            >
+              删除
             </el-button>
           </template>
         </el-table-column>
@@ -146,6 +123,8 @@
       v-model="detailDialogVisible"
       :bill="currentBill"
       @approve="approveCurrentBill"
+      @revoke="revokeCurrentBill"
+      @issue="issueCurrentBill"
     />
 
     <ReportDialog v-model="showReport" report-type="salary" title="工资报表" />
@@ -153,10 +132,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { DataAnalysis } from '@element-plus/icons-vue'
-import { salaryApi, type CalculateSalaryResult, type SalaryBill } from '../../api/salary'
+import { salaryApi, type SalaryBill } from '../../api/salary'
 import SalaryCalcForm from './SalaryCalcForm.vue'
 import SalaryBillDetail from './SalaryBillDetail.vue'
 import ReportDialog from '@/components/ReportDialog.vue'
@@ -164,14 +143,10 @@ import ReportDialog from '@/components/ReportDialog.vue'
 const showReport = ref(false)
 const calculating = ref(false)
 const loadingBills = ref(false)
-const showBillsList = ref(false)
 
 const calcForm = reactive({
-  period: '',
-  employeeScope: 'all' as 'all' | 'hourly' | 'piece'
+  period: ''
 })
-
-const calculationResults = ref<CalculateSalaryResult[]>([])
 
 const salaryBills = ref<SalaryBill[]>([])
 const billsPagination = reactive({
@@ -183,6 +158,27 @@ const billsPagination = reactive({
 const detailDialogVisible = ref(false)
 const currentBill = ref<SalaryBill | null>(null)
 
+const loadSalaryBills = async () => {
+  try {
+    loadingBills.value = true
+    const response = await salaryApi.getSalaryBills({
+      page: billsPagination.page,
+      pageSize: billsPagination.pageSize,
+      period: calcForm.period || undefined
+    })
+    salaryBills.value = response.list
+    billsPagination.total = response.total
+  } catch (error: any) {
+    ElMessage.error(error.message || '加载工资单失败')
+  } finally {
+    loadingBills.value = false
+  }
+}
+
+onMounted(() => {
+  loadSalaryBills()
+})
+
 const handleCalculate = async () => {
   if (!calcForm.period) {
     ElMessage.warning('请选择结算周期')
@@ -192,37 +188,16 @@ const handleCalculate = async () => {
   try {
     calculating.value = true
 
-    const params: any = {}
-    if (calcForm.employeeScope !== 'all') {
-      params.employeeIds = calcForm.employeeScope
-    }
-
-    const response = await salaryApi.calculateSalary(calcForm.period, params)
-    calculationResults.value = response
-
+    await salaryApi.calculateSalary(calcForm.period)
     ElMessage.success('工资计算完成')
+
+    // 计算完成后自动刷新工资单列表，筛选当前周期
+    billsPagination.page = 1
+    await loadSalaryBills()
   } catch (error: any) {
     ElMessage.error(error.message || '计算失败')
   } finally {
     calculating.value = false
-  }
-}
-
-const loadSalaryBills = async () => {
-  try {
-    loadingBills.value = true
-    const response = await salaryApi.getSalaryBills({
-      page: billsPagination.page,
-      pageSize: billsPagination.pageSize,
-      period: calcForm.period
-    })
-    salaryBills.value = response.list
-    billsPagination.total = response.total
-    showBillsList.value = true
-  } catch (error: any) {
-    ElMessage.error(error.message || '加载工资单失败')
-  } finally {
-    loadingBills.value = false
   }
 }
 
@@ -274,12 +249,108 @@ const approveCurrentBill = async (bill: SalaryBill) => {
     await salaryApi.approveSalaryBill(bill.id)
     ElMessage.success('审核成功')
     detailDialogVisible.value = false
-    if (showBillsList.value) {
-      loadSalaryBills()
-    }
+    loadSalaryBills()
   } catch (error: any) {
     if (error !== 'cancel') {
       ElMessage.error(error.message || '审核失败')
+    }
+  }
+}
+
+const revokeBill = async (bill: SalaryBill) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要反审 "${bill.employee?.name}" 的工资单吗？反审后工资单将恢复为待审核状态。`,
+      '确认反审',
+      { type: 'warning' }
+    )
+
+    await salaryApi.revokeSalaryBill(bill.id)
+    ElMessage.success('反审成功')
+    loadSalaryBills()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '反审失败')
+    }
+  }
+}
+
+const revokeCurrentBill = async (bill: SalaryBill) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要反审 "${bill.employee?.name}" 的工资单吗？反审后关联的计件/工时记录将解锁，可重新修改。`,
+      '确认反审',
+      { type: 'warning' }
+    )
+
+    await salaryApi.revokeSalaryBill(bill.id)
+    ElMessage.success('反审成功')
+    detailDialogVisible.value = false
+    loadSalaryBills()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '反审失败')
+    }
+  }
+}
+
+const billStatusType = (status: string) =>
+  ({ pending: 'warning', approved: 'success', issued: 'primary' } as Record<string, string>)[status] || 'info'
+
+const billStatusLabel = (status: string) =>
+  ({ pending: '待审核', approved: '已审核', issued: '已发放' } as Record<string, string>)[status] || status
+
+const issueBill = async (bill: SalaryBill) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要发放 "${bill.employee?.name}" 的工资单吗？发放后数据将固化，不可再反审或修改。`,
+      '确认发放',
+      { type: 'warning' }
+    )
+
+    await salaryApi.issueSalaryBill(bill.id)
+    ElMessage.success('发放成功，数据已固化')
+    loadSalaryBills()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '发放失败')
+    }
+  }
+}
+
+const issueCurrentBill = async (bill: SalaryBill) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要发放 "${bill.employee?.name}" 的工资单吗？发放后数据将固化，不可再反审或修改。`,
+      '确认发放',
+      { type: 'warning' }
+    )
+
+    await salaryApi.issueSalaryBill(bill.id)
+    ElMessage.success('发放成功，数据已固化')
+    detailDialogVisible.value = false
+    loadSalaryBills()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '发放失败')
+    }
+  }
+}
+
+const deleteBill = async (bill: SalaryBill) => {
+  try {
+    await ElMessageBox.confirm(
+      `确定要删除 "${bill.employee?.name}" 的工资单吗？删除后可修改原始记录并重新计算。`,
+      '确认删除',
+      { type: 'warning' }
+    )
+
+    await salaryApi.deleteSalaryBill(bill.id)
+    ElMessage.success('删除成功')
+    loadSalaryBills()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '删除失败')
     }
   }
 }
@@ -315,12 +386,10 @@ const approveCurrentBill = async (bill: SalaryBill) => {
   color: var(--color-text-secondary);
 }
 
-.result-card,
 .bills-card {
   margin-bottom: var(--space-6);
 }
 
-.result-header,
 .bills-header {
   display: flex;
   justify-content: space-between;
@@ -328,7 +397,6 @@ const approveCurrentBill = async (bill: SalaryBill) => {
   margin-bottom: var(--space-4);
 }
 
-.result-header h2,
 .bills-header h2 {
   margin: 0;
   font-size: var(--font-size-h4);

@@ -8,6 +8,7 @@ export interface Product {
   specification?: string | null
   unit: string
   price: number
+  unitPrice: number
   stock: number
   status: string
   createdAt: string

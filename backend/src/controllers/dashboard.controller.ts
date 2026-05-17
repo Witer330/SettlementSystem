@@ -14,16 +14,10 @@ export const getDashboardStats = async (_req: Request, res: Response) => {
       where: { status: 'active', createdAt: { lt: new Date(now.getFullYear(), now.getMonth(), 1) } }
     })
 
-    // 本月报工（日报 + 生产报工）
-    const [pieceRecordCount, prodRecordCount] = await Promise.all([
-      prisma.dailyPieceRecord.count({
-        where: { date: { gte: new Date(now.getFullYear(), now.getMonth(), 1), lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) } }
-      }),
-      prisma.productionRecord.count({
-        where: { date: { gte: new Date(now.getFullYear(), now.getMonth(), 1), lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) } }
-      })
-    ])
-    const totalRecords = pieceRecordCount + prodRecordCount
+    // 本月报工
+    const pieceRecordCount = await prisma.dailyPieceRecord.count({
+      where: { date: { gte: new Date(now.getFullYear(), now.getMonth(), 1), lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) } }
+    })
 
     const lastMonthPieceCount = await prisma.dailyPieceRecord.count({
       where: { date: { gte: new Date(now.getFullYear(), now.getMonth() - 1, 1), lt: new Date(now.getFullYear(), now.getMonth(), 1) } }
@@ -43,8 +37,8 @@ export const getDashboardStats = async (_req: Request, res: Response) => {
       code: 0, message: '获取成功',
       data: {
         employeeCount, employeeTrend: employeeCount - lastMonthEmployeeCount,
-        pieceRecordCount: totalRecords,
-        pieceRecordTrend: lastMonthPieceCount > 0 ? Math.round(((totalRecords - lastMonthPieceCount) / lastMonthPieceCount) * 100) : 0,
+        pieceRecordCount,
+        pieceRecordTrend: lastMonthPieceCount > 0 ? Math.round(((pieceRecordCount - lastMonthPieceCount) / lastMonthPieceCount) * 100) : 0,
         currentSalary, lastSalary, lowStockCount
       }
     })
@@ -106,15 +100,10 @@ const flowStepChecks: Array<{ key: string; check: () => Promise<{ count: number;
     key: 'dailyRecords',
     check: async () => {
       const now = new Date()
-      const [pieceCount, prodCount] = await Promise.all([
-        prisma.dailyPieceRecord.count({
-          where: { date: { gte: new Date(now.getFullYear(), now.getMonth(), 1), lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) } }
-        }),
-        prisma.productionRecord.count({
-          where: { date: { gte: new Date(now.getFullYear(), now.getMonth(), 1), lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) } }
-        })
-      ])
-      return { count: pieceCount + prodCount }
+      const count = await prisma.dailyPieceRecord.count({
+        where: { date: { gte: new Date(now.getFullYear(), now.getMonth(), 1), lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) } }
+      })
+      return { count }
     }
   },
   {

@@ -7,9 +7,7 @@ export interface Employee {
   departmentId?: number | null
   jobType?: string
   jobTypeId?: number | null
-  payType: string // hourly(时薪) / piece(计件)
-  hourlyRate: number
-  pieceRate: number // 默认计件单价
+  hourlyRate?: number | null
   status: string
   createdAt: string
   updatedAt: string

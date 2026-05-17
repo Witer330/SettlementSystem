@@ -92,6 +92,30 @@ Non-zero `code` indicates an error. HTTP status codes used for auth (401, 403, 4
 - **No test framework** — there are no tests currently
 - **Lock files** are gitignored — do not commit `package-lock.json`
 
+### File Size Constraints
+
+Strict line limits enforced to keep code maintainable and agent-friendly:
+
+| File Type | Max Lines | Rationale |
+|-----------|-----------|-----------|
+| `.vue` (SFC) | **500** | Template + script + style combined |
+| `.ts` (TypeScript) | **400** | Single responsibility module |
+| `.rs` (Rust) | **400** | Single responsibility module |
+
+**When a file exceeds the limit:**
+1. Extract reusable composables (`frontend/src/composables/`) — dialogs, form logic, status helpers
+2. Extract sub-components (`frontend/src/components/`) — complex table sections, dialog forms
+3. For Rust, split into separate modules under `src-tauri/src/`
+4. For backend controllers, extract shared helpers to `backend/src/services/`
+
+**Refactoring checklist:**
+- [ ] Can the `<script>` logic be extracted to a composable?
+- [ ] Can any `<el-dialog>` be extracted to its own component?
+- [ ] Can repeated table columns/mappings be centralized?
+- [ ] Are there `statusLabel`/`statusType` helpers duplicated across files?
+
+Use the `/simplify` skill to auto-review and refactor oversized files.
+
 ## 中文本地化规则
 
 本项目面向中国大陆用户，所有面向用户的文本必须使用简体中文。生成代码时必须遵守：

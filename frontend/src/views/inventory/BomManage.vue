@@ -47,7 +47,7 @@
           <el-table-column prop="material.name" label="物料名称" min-width="150" />
           <el-table-column prop="material.unit" label="单位" width="80" />
           <el-table-column prop="quantity" label="用量" width="120" />
-          <el-table-column label="操作" width="100" fixed="right">
+          <el-table-column label="操作" width="100">
             <template #default="{ row }">
               <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
             </template>

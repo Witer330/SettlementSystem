@@ -68,24 +68,7 @@
         </el-select>
       </el-form-item>
       <el-form-item
-        label="计费方式"
-        prop="payType"
-      >
-        <el-radio-group
-          v-model="formData.payType"
-          @change="handlePayTypeChange"
-        >
-          <el-radio label="hourly">
-            时薪
-          </el-radio>
-          <el-radio label="piece">
-            计件
-          </el-radio>
-        </el-radio-group>
-      </el-form-item>
-      <el-form-item
-        v-if="formData.payType === 'hourly'"
-        label="时薪"
+        label="时薪标准（可选）"
         prop="hourlyRate"
       >
         <el-input-number
@@ -154,25 +137,13 @@ const formData = reactive({
   departmentId: null as number | null,
   jobTypeId: null as number | null,
   jobType: '',
-  payType: 'hourly' as 'hourly' | 'piece',
-  hourlyRate: 0,
-  pieceRate: 0,
+  hourlyRate: null as number | null,
   status: 'active'
 })
 
 const formRules: FormRules = {
   name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
   jobTypeId: [{ required: true, message: '请选择工种', trigger: 'change' }]
-}
-
-const handlePayTypeChange = (value: 'hourly' | 'piece') => {
-  if (value === 'hourly') {
-    formData.hourlyRate = formData.hourlyRate || 0
-    formData.pieceRate = 0
-  } else {
-    formData.pieceRate = formData.pieceRate || 0
-    formData.hourlyRate = 0
-  }
 }
 
 const resetForm = () => {
@@ -183,9 +154,7 @@ const resetForm = () => {
     departmentId: null,
     jobTypeId: null,
     jobType: '',
-    payType: 'hourly',
-    hourlyRate: 0,
-    pieceRate: 0,
+    hourlyRate: null,
     status: 'active'
   })
 }
@@ -207,9 +176,7 @@ const initForm = async () => {
       departmentId: props.employee.departmentId || null,
       jobTypeId: props.employee.jobTypeId || null,
       jobType: props.employee.jobType,
-      payType: props.employee.payType || 'hourly',
-      hourlyRate: props.employee.hourlyRate,
-      pieceRate: props.employee.pieceRate || 0,
+      hourlyRate: props.employee.hourlyRate ?? null,
       status: props.employee.status
     })
   }

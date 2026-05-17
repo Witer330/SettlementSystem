@@ -5,54 +5,161 @@
     </div>
     <el-card shadow="never">
       <div class="filter-bar">
-        <el-input v-model="query.keyword" placeholder="搜索退货单号/销货单号/客户" clearable style="width:260px" @keyup.enter="loadData" />
-        <el-select v-model="query.status" placeholder="状态" clearable style="width:140px" @change="loadData">
-          <el-option label="待入库" value="confirmed" />
-          <el-option label="已入库" value="completed" />
-          <el-option label="已取消" value="cancelled" />
-          <el-option label="已报废" value="scrapped" />
+        <el-input
+          v-model="query.keyword"
+          placeholder="搜索退货单号/销货单号/客户"
+          clearable
+          style="width:260px"
+          @keyup.enter="loadData"
+        />
+        <el-select
+          v-model="query.status"
+          placeholder="状态"
+          clearable
+          style="width:140px"
+          @change="loadData"
+        >
+          <el-option
+            label="待入库"
+            value="confirmed"
+          />
+          <el-option
+            label="已入库"
+            value="completed"
+          />
+          <el-option
+            label="已取消"
+            value="cancelled"
+          />
+          <el-option
+            label="已报废"
+            value="scrapped"
+          />
         </el-select>
-        <el-button type="primary" @click="loadData">搜索</el-button>
+        <el-button
+          type="primary"
+          @click="loadData"
+        >
+          搜索
+        </el-button>
       </div>
 
-      <el-table :data="list" stripe v-loading="loading">
-        <el-table-column prop="returnNo" label="退货单号" width="180" />
-        <el-table-column label="关联销货单" width="180">
-          <template #default="{ row }">{{ row.salesOrder?.orderNo }}</template>
-        </el-table-column>
-        <el-table-column label="客户" min-width="120">
-          <template #default="{ row }">{{ row.salesOrder?.customer?.name }}</template>
-        </el-table-column>
-        <el-table-column prop="totalQuantity" label="退货数量" width="100" />
-        <el-table-column label="退货明细" min-width="200">
+      <el-table
+        v-loading="loading"
+        :data="list"
+        stripe
+      >
+        <el-table-column
+          prop="returnNo"
+          label="退货单号"
+          width="180"
+        />
+        <el-table-column
+          label="关联销货单"
+          width="180"
+        >
           <template #default="{ row }">
-            <span v-for="(i, idx) in row.items" :key="i.id">
+            {{ row.salesOrder?.orderNo }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          label="客户"
+          min-width="120"
+        >
+          <template #default="{ row }">
+            {{ row.salesOrder?.customer?.name }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="totalQuantity"
+          label="退货数量"
+          width="100"
+        />
+        <el-table-column
+          label="退货明细"
+          min-width="200"
+        >
+          <template #default="{ row }">
+            <span
+              v-for="(i, idx) in row.items"
+              :key="i.id"
+            >
               {{ i.product?.name }}×{{ i.quantity }}<span v-if="idx < row.items.length - 1">, </span>
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="reason" label="退货原因" width="120" />
-        <el-table-column label="状态" width="110">
+        <el-table-column
+          prop="reason"
+          label="退货原因"
+          width="120"
+        />
+        <el-table-column
+          label="状态"
+          width="110"
+        >
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
+            <el-tag
+              :type="statusTagType(row.status)"
+              size="small"
+            >
+              {{ statusLabel(row.status) }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="160">
-          <template #default="{ row }">{{ new Date(row.createdAt).toLocaleDateString('zh-CN') }}</template>
-        </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column
+          prop="createdAt"
+          label="创建时间"
+          width="160"
+        >
           <template #default="{ row }">
-            <el-button v-if="row.status === 'confirmed'" link type="success" @click="handleComplete(row)">确认入库</el-button>
-            <el-button v-if="row.status === 'confirmed'" link type="danger" @click="handleScrap(row)">报废</el-button>
-            <el-button v-if="row.status === 'confirmed' || row.status === 'completed'" link type="warning" @click="handleCancel(row)">取消退货</el-button>
-            <span v-if="row.status === 'cancelled' || row.status === 'scrapped'" style="color:var(--color-text-muted);font-size:12px">-</span>
+            {{ new Date(row.createdAt).toLocaleDateString('zh-CN') }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          label="操作"
+          width="220"
+         
+        >
+          <template #default="{ row }">
+            <el-button
+              v-if="row.status === 'confirmed'"
+              link
+              type="success"
+              @click="handleComplete(row)"
+            >
+              确认入库
+            </el-button>
+            <el-button
+              v-if="row.status === 'confirmed'"
+              link
+              type="danger"
+              @click="handleScrap(row)"
+            >
+              报废
+            </el-button>
+            <el-button
+              v-if="row.status === 'confirmed' || row.status === 'completed'"
+              link
+              type="warning"
+              @click="handleCancel(row)"
+            >
+              取消退货
+            </el-button>
+            <span
+              v-if="row.status === 'cancelled' || row.status === 'scrapped'"
+              style="color:var(--color-text-muted);font-size:12px"
+            >-</span>
           </template>
         </el-table-column>
       </el-table>
 
       <el-pagination
-        v-model:current-page="query.page" v-model:page-size="query.pageSize" :total="total"
-        layout="total, prev, pager, next" style="margin-top:16px;justify-content:flex-end" @current-change="loadData"
+        v-model:current-page="query.page"
+        v-model:page-size="query.pageSize"
+        :total="total"
+        layout="total, prev, pager, next"
+        style="margin-top:16px;justify-content:flex-end"
+        @current-change="loadData"
       />
     </el-card>
   </div>

@@ -36,6 +36,13 @@
             </span>
           </template>
         </el-table-column>
+        <el-table-column label="计件单价" width="100">
+          <template #default="{ row }">
+            <span :style="{ color: row.unitPrice > 0 ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }">
+              {{ row.unitPrice > 0 ? `¥${row.unitPrice.toFixed(2)}` : '未设置' }}
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
             <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
@@ -43,7 +50,7 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="150">
           <template #default="{ row }">
             <el-button link type="primary" @click="openDialog(row)">编辑</el-button>
             <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
@@ -80,6 +87,9 @@
         </el-form-item>
         <el-form-item label="售价">
           <el-input-number v-model="form.price" :min="0" :precision="2" style="width:100%" placeholder="不填则默认为0（赠品）" />
+        </el-form-item>
+        <el-form-item label="计件单价">
+          <el-input-number v-model="form.unitPrice" :min="0" :precision="2" style="width:100%" placeholder="计件工资单价" />
         </el-form-item>
         <el-form-item label="状态" v-if="isEdit">
           <el-select v-model="form.status" style="width: 100%">
@@ -126,6 +136,7 @@ const form = reactive({
   specification: '',
   unit: '',
   price: 0,
+  unitPrice: 0,
   status: 'active'
 })
 
@@ -156,6 +167,7 @@ const openDialog = (row?: Product) => {
   form.specification = row?.specification || ''
   form.unit = row?.unit || ''
   form.price = row?.price || 0
+  form.unitPrice = row?.unitPrice || 0
   form.status = row?.status || 'active'
   dialogVisible.value = true
 }

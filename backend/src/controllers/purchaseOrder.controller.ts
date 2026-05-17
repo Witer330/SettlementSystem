@@ -235,8 +235,8 @@ export const receivePurchaseOrder = async (req: Request, res: Response) => {
               materialId: purchaseItem.materialId,
               type: 'in',
               quantity: delta,
-              relatedType: 'purchase',
-              relatedId: id,
+              referenceType: 'purchase',
+              referenceId: id,
               remark: `采购入库 ${order.orderNo}`
             }
           })

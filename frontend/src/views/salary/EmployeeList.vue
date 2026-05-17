@@ -65,17 +65,9 @@
             {{ row.jobTypeRef?.name || row.jobType || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="计费方式" width="100" align="center" show-overflow-tooltip>
+        <el-table-column label="时薪标准" width="120" align="right" show-overflow-tooltip>
           <template #default="{ row }">
-            <el-tag :type="row.payType === 'piece' ? 'primary' : 'success'" size="small">
-              {{ row.payType === 'piece' ? '计件' : '时薪' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="时薪" width="120" align="right" show-overflow-tooltip>
-          <template #default="{ row }">
-            <span v-if="row.payType === 'piece'">-</span>
-            <span v-else>¥{{ row.hourlyRate.toFixed(2) }}</span>
+            <span>{{ row.hourlyRate ? `¥${row.hourlyRate.toFixed(2)}` : '-' }}</span>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="90" align="center" show-overflow-tooltip>
@@ -96,7 +88,7 @@
             {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150" fixed="right" align="center">
+        <el-table-column label="操作" width="150" align="center">
           <template #default="{ row }">
             <el-button link type="primary" @click="handleEdit(row)"> 编辑 </el-button>
             <el-divider direction="vertical" />

@@ -211,3 +211,89 @@ function getStockStatus(quantity: number, safeStock: number): string {
   if (quantity < safeStock) return 'low'
   return 'normal'
 }
+
+// ── 成品库存 ──
+
+// 获取成品库存列表
+export const getProductStockList = async (req: Request, res: Response) => {
+  try {
+    const { page = '1', pageSize = '20', keyword } = req.query
+    const skip = (Number(page) - 1) * Number(pageSize)
+    const take = Number(pageSize)
+
+    const where: any = {}
+    if (keyword) {
+      where.OR = [
+        { name: { contains: String(keyword) } },
+        { code: { contains: String(keyword) } }
+      ]
+    }
+
+    const [products, total] = await Promise.all([
+      prisma.product.findMany({
+        where,
+        skip,
+        take,
+        orderBy: { updatedAt: 'desc' },
+        select: { id: true, name: true, code: true, category: true, specification: true, unit: true, stock: true, updatedAt: true }
+      }),
+      prisma.product.count({ where })
+    ])
+
+    const list = products.map(p => ({
+      productId: p.id,
+      productCode: p.code,
+      productName: p.name,
+      category: p.category,
+      specification: p.specification,
+      unit: p.unit,
+      quantity: p.stock,
+      lastUpdated: p.updatedAt,
+      stockStatus: p.stock <= 0 ? 'empty' : 'normal'
+    }))
+
+    res.json({ code: 0, message: '获取成功', data: { list, total, page: Number(page), pageSize: take } })
+  } catch (error: any) {
+    res.status(500).json({ code: 500, message: error.message || '获取成品库存失败' })
+  }
+}
+
+// 手动调整成品库存
+export const adjustProductStock = async (req: Request, res: Response) => {
+  try {
+    const { productId, quantity, type, remark } = req.body
+    if (!productId || quantity === undefined || !type) {
+      res.status(400).json({ code: 400, message: '缺少必填字段' })
+      return
+    }
+    if (!['in', 'out'].includes(type)) {
+      res.status(400).json({ code: 400, message: '类型必须为 in 或 out' })
+      return
+    }
+    if (quantity <= 0) {
+      res.status(400).json({ code: 400, message: '数量必须大于0' })
+      return
+    }
+
+    const product = await prisma.product.findUnique({ where: { id: Number(productId) } })
+    if (!product) {
+      res.status(404).json({ code: 404, message: '产品不存在' })
+      return
+    }
+
+    if (type === 'out' && product.stock < quantity) {
+      res.status(400).json({ code: 400, message: `库存不足，当前库存 ${product.stock} ${product.unit}` })
+      return
+    }
+
+    const delta = type === 'in' ? quantity : -quantity
+    const updated = await prisma.product.update({
+      where: { id: Number(productId) },
+      data: { stock: { increment: delta } }
+    })
+
+    res.json({ code: 0, message: `${type === 'in' ? '入库' : '出库'}成功`, data: updated })
+  } catch (error: any) {
+    res.status(500).json({ code: 500, message: error.message || '成品库存调整失败' })
+  }
+}

@@ -41,6 +41,12 @@ export const saveBom = async (req: Request, res: Response) => {
       })
     }
 
+    // 标记该产品下待生产/生产中的工单领料单为过期
+    await prisma.productionOrder.updateMany({
+      where: { productId, status: { in: ['pending', 'processing'] } },
+      data: { pickingStale: true }
+    })
+
     const result = await prisma.billOfMaterial.findMany({
       where: { productId },
       include: { material: true }
@@ -69,6 +75,12 @@ export const addBomItem = async (req: Request, res: Response) => {
       include: { material: true }
     })
 
+    // 标记该产品下待生产/生产中的工单领料单为过期
+    await prisma.productionOrder.updateMany({
+      where: { productId, status: { in: ['pending', 'processing'] } },
+      data: { pickingStale: true }
+    })
+
     res.json({ code: 0, message: '添加成功', data: item })
   } catch (error: any) {
     res.status(500).json({ code: 500, message: error.message || '添加失败' })
@@ -79,7 +91,20 @@ export const addBomItem = async (req: Request, res: Response) => {
 export const deleteBomItem = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id)
+    const bomItem = await prisma.billOfMaterial.findUnique({ where: { id } })
+    if (!bomItem) {
+      res.status(404).json({ code: 404, message: 'BOM项不存在' })
+      return
+    }
+
     await prisma.billOfMaterial.delete({ where: { id } })
+
+    // 标记该产品下待生产/生产中的工单领料单为过期
+    await prisma.productionOrder.updateMany({
+      where: { productId: bomItem.productId, status: { in: ['pending', 'processing'] } },
+      data: { pickingStale: true }
+    })
+
     res.json({ code: 0, message: '删除成功' })
   } catch (error: any) {
     res.status(500).json({ code: 500, message: error.message || '删除失败' })

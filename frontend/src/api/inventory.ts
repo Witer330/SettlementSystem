@@ -46,6 +46,18 @@ export interface InventoryLogParams {
   endDate?: string
 }
 
+export interface ProductStockItem {
+  productId: number
+  productCode: string
+  productName: string
+  category: string
+  specification?: string
+  unit: string
+  quantity: number
+  lastUpdated: string | null
+  stockStatus: 'normal' | 'empty'
+}
+
 export const inventoryApi = {
   // 获取库存列表
   getList: (params?: InventoryListParams) =>
@@ -61,5 +73,13 @@ export const inventoryApi = {
 
   // 手动调整库存
   adjust: (data: { materialId: number; quantity: number; type: 'in' | 'out'; remark?: string }) =>
-    api.post('/inventory/adjust', data)
+    api.post('/inventory/adjust', data),
+
+  // 成品库存列表
+  getProductStockList: (params?: InventoryListParams) =>
+    api.get<{ list: ProductStockItem[]; total: number }>('/inventory/products/list', { params }),
+
+  // 成品库存调整
+  adjustProductStock: (data: { productId: number; quantity: number; type: 'in' | 'out'; remark?: string }) =>
+    api.post('/inventory/products/adjust', data)
 }

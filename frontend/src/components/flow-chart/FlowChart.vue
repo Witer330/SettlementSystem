@@ -7,8 +7,8 @@
       :min-zoom="0.3"
       :max-zoom="2"
       :nodes-draggable="false"
-      :no-wheel-class-name="'flow-chart__no-wheel'"
       fit-view-on-init
+      :fit-view-options="{ padding: 0.12, maxZoom: 1.2 }"
     >
       <template #node-custom="nodeProps">
         <FlowNode
@@ -147,8 +147,7 @@ const edges = computed(() => {
 .flow-chart-wrapper {
   background: var(--bg-elevated, #1e1e2e);
   border-radius: var(--radius-lg, 8px);
-  height: 500px;
-  width: 100%;
+  height: 470px;
 }
 .flow-chart-wrapper .vue-flow { border-radius: inherit; }
 .flow-chart-wrapper .vue-flow__controls { display: none; }

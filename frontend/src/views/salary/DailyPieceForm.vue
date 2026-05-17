@@ -12,6 +12,9 @@
           <el-form-item label="员工" prop="employeeId">
             <el-select v-model="formData.employeeId" placeholder="请选择员工" style="width: 100%" filterable>
               <el-option v-for="e in employees" :key="e.id" :label="e.name" :value="e.id" />
+              <template #empty>
+                <div class="select-empty-tip">暂无计件员工，请先在员工管理中添加</div>
+              </template>
             </el-select>
           </el-form-item>
         </el-col>
@@ -100,7 +103,7 @@ const formRules: FormRules = {
 
 const handleProductChange = (val: number, item: { unitPrice: number }) => {
   const p = props.products.find(x => x.id === val)
-  if (p && item.unitPrice === 0) item.unitPrice = p.price || 0
+  if (p && item.unitPrice === 0) item.unitPrice = p.unitPrice || 0
 }
 
 const addItem = () => formData.items.push({ productId: undefined, quantity: 1, unitPrice: 0 })

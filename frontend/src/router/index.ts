@@ -36,7 +36,17 @@ const routes: RouteRecordRaw[] = [
           {
             path: 'daily-records',
             name: 'DailyPieceRecord',
-            component: () => import('@/views/spec/DailyPieceRecord.vue')
+            component: () => import('@/views/salary/DailyPieceRecord.vue')
+          },
+          {
+            path: 'work-logs',
+            name: 'WorkLogRecord',
+            component: () => import('@/views/salary/WorkLogRecord.vue')
+          },
+          {
+            path: 'other-salaries',
+            name: 'OtherSalaryList',
+            component: () => import('@/views/salary/OtherSalaryList.vue')
           }
         ]
       },
@@ -105,6 +115,18 @@ const routes: RouteRecordRaw[] = [
         ]
       },
       {
+        path: 'production',
+        name: 'Production',
+        redirect: '/dashboard/production/orders',
+        children: [
+          {
+            path: 'orders',
+            name: 'ProductionOrder',
+            component: () => import('@/views/production/ProductionOrder.vue')
+          }
+        ]
+      },
+      {
         path: 'system',
         name: 'System',
         redirect: '/dashboard/system/users',
@@ -146,18 +168,15 @@ const router = createRouter({
 })
 
 // Navigation guards
-router.beforeEach((to, _from, next) => {
+router.beforeEach((to) => {
   const token = tokenManager.getToken()
   const requiresAuth = to.path !== '/login'
 
   if (requiresAuth && !token) {
-    // 需要认证但没有 token，跳转到登录页
-    next('/login')
-  } else if (to.path === '/login' && token) {
-    // 已登录用户访问登录页，跳转到首页
-    next('/dashboard')
-  } else {
-    next()
+    return '/login'
+  }
+  if (to.path === '/login' && token) {
+    return '/dashboard'
   }
 })
 

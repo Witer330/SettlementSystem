@@ -74,7 +74,7 @@
           </template>
         </el-table-column>
         <el-table-column prop="remark" label="备注" width="150" show-overflow-tooltip />
-        <el-table-column label="操作" width="150" fixed="right">
+        <el-table-column label="操作" width="150">
           <template #default="{ row }">
             <el-button link type="primary" :icon="Edit" @click="handleEdit(row)">编辑</el-button>
             <el-button link type="danger" :icon="Delete" @click="handleDelete(row)">删除</el-button>
@@ -165,7 +165,7 @@ const loadRecordList = async () => {
 const loadEmployees = async () => {
   try {
     const response = await employeeApi.getList({ page: 1, pageSize: 1000, status: 'active' })
-    employees.value = response.list.filter((emp: any) => emp.payType === 'piece')
+    employees.value = response.list
   } catch (error: any) {
     ElMessage.error(error.message || '加载员工列表失败')
   }

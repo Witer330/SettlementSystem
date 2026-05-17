@@ -1,7 +1,10 @@
 import { Router } from 'express'
 import * as dailyPieceController from '../controllers/dailyPiece.controller'
+import { authenticate } from '../middleware/auth.middleware'
 
 const router = Router()
+
+router.use(authenticate)
 
 // 每日计件记录管理
 router.post('/', dailyPieceController.createDailyRecord)

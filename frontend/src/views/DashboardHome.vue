@@ -178,6 +178,7 @@ const nodeQueryParams: Record<string, Record<string, string>> = {
 }
 
 let pollTimer: ReturnType<typeof setInterval> | null = null
+let isMounted = false
 
 const iconMap: Record<string, typeof User> = {
   User, Document, Money, Warning, TrendCharts, Top, Edit, Box, Search,
@@ -247,6 +248,7 @@ function handleFlowNavigate(nodeId: string, link: string) {
 
 // ── 待办轮询 ──
 async function pollTodoCounts() {
+  if (!isMounted) return
   try {
     const [draftSO, pendingPO, confirmedPO] = await Promise.all([
       api.get<{ total: number }>('/sales-orders', { params: { page: 1, pageSize: 1, status: 'draft' } }),
@@ -271,19 +273,19 @@ async function pollTodoCounts() {
 
 // ── 生命周期 ──
 onMounted(async () => {
+  isMounted = true
   try { quickActions.value = await workflowApi.getQuickActions() } catch {}
   try { flowStatus.value = await workflowApi.getFlowStatus() } catch {}
   try {
     const data = await api.get<typeof stats>('/dashboard/stats')
     Object.assign(stats, data)
   } catch { /* empty */ }
-  // 初始加载待办数
   pollTodoCounts()
-  // 每 5 秒轮询
   pollTimer = setInterval(pollTodoCounts, 5000)
 })
 
 onUnmounted(() => {
+  isMounted = false
   if (pollTimer) {
     clearInterval(pollTimer)
     pollTimer = null

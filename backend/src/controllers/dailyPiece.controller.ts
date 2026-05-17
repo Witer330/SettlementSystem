@@ -11,7 +11,7 @@ export const createDailyRecord = async (req: Request, res: Response) => {
       if (!product) {
         return res.status(404).json({ code: 404, message: `产品ID ${item.productId} 不存在`, data: null })
       }
-      const unitPrice = item.unitPrice ?? product.price
+      const unitPrice = item.unitPrice ?? product.unitPrice
       item.unitPrice = unitPrice
       item.amount = item.quantity * unitPrice
       totalAmount += item.amount
@@ -90,31 +90,53 @@ export const updateDailyRecord = async (req: Request, res: Response) => {
     const id = Number(req.params.id)
     const { items, remark } = req.body
 
-    await prisma.dailyPieceRecordItem.deleteMany({ where: { recordId: id } })
-
-    let totalAmount = 0
-    for (const item of items) {
-      const product = await prisma.product.findUnique({ where: { id: item.productId } })
-      const unitPrice = item.unitPrice ?? product?.price ?? 0
-      const amount = item.quantity * unitPrice
-      totalAmount += amount
+    const existing = await prisma.dailyPieceRecord.findUnique({ where: { id } })
+    if (!existing) {
+      res.status(404).json({ code: 404, message: '记录不存在', data: null })
+      return
     }
 
-    const record = await prisma.dailyPieceRecord.update({
-      where: { id },
-      data: {
-        totalAmount,
-        remark,
-        items: {
-          create: items.map((item: any) => ({
-            productId: item.productId,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice ?? 0,
-            amount: item.quantity * (item.unitPrice ?? 0)
-          }))
-        }
-      },
-      include: { employee: true, items: { include: { product: true } } }
+    // 检查是否已被已审核/已发放的工资单锁定
+    const lockedDetail = await prisma.salaryBillDetail.findFirst({
+      where: {
+        type: 'piece',
+        sourceRecordId: id,
+        bill: { status: { in: ['approved', 'issued'] } }
+      }
+    })
+    if (lockedDetail) {
+      res.status(400).json({ code: 400, message: '该记录已被审核/发放的工资单锁定，请先反审工资单', data: null })
+      return
+    }
+
+    // 事务：先删后建，保证原子性
+    const record = await prisma.$transaction(async (tx) => {
+      await tx.dailyPieceRecordItem.deleteMany({ where: { recordId: id } })
+
+      let totalAmount = 0
+      const createItems = []
+      for (const item of items) {
+        const product = await tx.product.findUnique({ where: { id: item.productId } })
+        const unitPrice = item.unitPrice ?? product?.unitPrice ?? 0
+        const amount = item.quantity * unitPrice
+        totalAmount += amount
+        createItems.push({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitPrice,
+          amount
+        })
+      }
+
+      return tx.dailyPieceRecord.update({
+        where: { id },
+        data: {
+          totalAmount,
+          remark,
+          items: { create: createItems }
+        },
+        include: { employee: true, items: { include: { product: true } } }
+      })
     })
 
     res.json({ code: 0, message: '更新成功', data: record })
@@ -125,7 +147,28 @@ export const updateDailyRecord = async (req: Request, res: Response) => {
 
 export const deleteDailyRecord = async (req: Request, res: Response) => {
   try {
-    await prisma.dailyPieceRecord.delete({ where: { id: Number(req.params.id) } })
+    const id = Number(req.params.id)
+
+    const existing = await prisma.dailyPieceRecord.findUnique({ where: { id } })
+    if (!existing) {
+      res.status(404).json({ code: 404, message: '记录不存在', data: null })
+      return
+    }
+
+    // 检查是否已被已审核/已发放的工资单锁定
+    const lockedDetail = await prisma.salaryBillDetail.findFirst({
+      where: {
+        type: 'piece',
+        sourceRecordId: id,
+        bill: { status: { in: ['approved', 'issued'] } }
+      }
+    })
+    if (lockedDetail) {
+      res.status(400).json({ code: 400, message: '该记录已被审核/发放的工资单锁定，请先反审工资单', data: null })
+      return
+    }
+
+    await prisma.dailyPieceRecord.delete({ where: { id } })
     res.json({ code: 0, message: '删除成功', data: null })
   } catch (error: any) {
     res.status(500).json({ code: 500, message: error.message || '删除失败', data: null })

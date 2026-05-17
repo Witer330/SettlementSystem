@@ -38,9 +38,6 @@
         <el-menu-item index="/dashboard/inventory/material-requirements">
           物料需求
         </el-menu-item>
-        <el-menu-item index="/dashboard/inventory/return-orders">
-          退货管理
-        </el-menu-item>
         <el-menu-item index="/dashboard/inventory/purchase-orders">
           采购管理
         </el-menu-item>
@@ -48,6 +45,19 @@
           库存查询
         </el-menu-item>
       </el-sub-menu>
+
+      <el-sub-menu index="production">
+        <template #title>
+          <el-icon>
+            <Tools />
+          </el-icon>
+          <span>生产管理</span>
+        </template>
+        <el-menu-item index="/dashboard/production/orders">
+          生产工单
+        </el-menu-item>
+      </el-sub-menu>
+
       <el-sub-menu index="salary">
         <template #title>
           <el-icon>
@@ -57,6 +67,12 @@
         </template>
         <el-menu-item index="/dashboard/salary/daily-records">
           计件录入
+        </el-menu-item>
+        <el-menu-item index="/dashboard/salary/work-logs">
+          工时录入
+        </el-menu-item>
+        <el-menu-item index="/dashboard/salary/other-salaries">
+          其他工资
         </el-menu-item>
         <el-menu-item index="/dashboard/salary/salary-calculation">
           工资计算
@@ -116,7 +132,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { House, Money, Box, Setting, Briefcase } from '@element-plus/icons-vue'
+import { House, Money, Box, Setting, Briefcase, Tools } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 
 const props = defineProps<{

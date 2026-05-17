@@ -8,10 +8,14 @@ export interface SalaryBill {
   hourlyAmount: number
   pieceAmount: number
   pieceCount: number
+  otherAmount: number
+  otherCount: number
   totalAmount: number
-  status: string
+  status: string  // pending / approved / issued
   approvedBy?: number | null
   approvedAt?: string | null
+  issuedAt?: string | null
+  dataHash?: string | null
   remark?: string | null
   createdAt: string
   updatedAt: string
@@ -19,7 +23,6 @@ export interface SalaryBill {
     id: number
     name: string
     code: string
-    payType: string
   }
   details?: SalaryBillDetail[]
 }
@@ -30,18 +33,13 @@ export interface SalaryBillDetail {
   type: 'hourly' | 'piece'
   date: string
   productId?: number | null
-  processId?: number | null
   quantity: number
   unitPrice: number
   amount: number
+  sourceRecordId?: number | null
   remark?: string | null
   createdAt: string
   product?: {
-    id: number
-    name: string
-    code: string
-  }
-  process?: {
     id: number
     name: string
     code: string
@@ -60,11 +58,12 @@ export interface CalculateSalaryResult {
   employeeId: number
   employeeName: string
   period: string
-  payType: string
   hourlyHours: number
   hourlyAmount: number
   pieceCount: number
   pieceAmount: number
+  otherCount: number
+  otherAmount: number
   total: number
   amount: number
   billId: number
@@ -100,5 +99,25 @@ export const salaryApi = {
   // 审核工资单
   async approveSalaryBill(id: number, remark?: string): Promise<void> {
     return await api.put<void>(`/salary/bills/${id}/approve`, { remark })
+  },
+
+  // 反审工资单
+  async revokeSalaryBill(id: number): Promise<void> {
+    return await api.put<void>(`/salary/bills/${id}/revoke`)
+  },
+
+  // 发放工资单
+  async issueSalaryBill(id: number): Promise<SalaryBill> {
+    return await api.put<SalaryBill>(`/salary/bills/${id}/issue`)
+  },
+
+  // 删除工资单
+  async deleteSalaryBill(id: number): Promise<void> {
+    return await api.delete<void>(`/salary/bills/${id}`)
+  },
+
+  // 验证工资单数据完整性
+  async verifySalaryBill(id: number): Promise<{ verified: boolean; storedHash: string; currentHash: string }> {
+    return await api.get<{ verified: boolean; storedHash: string; currentHash: string }>(`/salary/bills/${id}/verify`)
   }
 }
