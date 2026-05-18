@@ -13,11 +13,11 @@
         <el-descriptions-item label="结算周期">{{ bill.period }}</el-descriptions-item>
         <el-descriptions-item label="总工时">{{ bill.hourlyHours }}小时</el-descriptions-item>
         <el-descriptions-item label="总件数">{{ bill.pieceCount }}件</el-descriptions-item>
-        <el-descriptions-item label="时薪金额">¥{{ bill.hourlyAmount.toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="计件金额">¥{{ bill.pieceAmount.toFixed(2) }}</el-descriptions-item>
-        <el-descriptions-item label="其他工资" v-if="(bill.otherAmount ?? 0) > 0">{{ bill.otherCount }}项 / ¥{{ (bill.otherAmount ?? 0).toFixed(2) }}</el-descriptions-item>
+        <el-descriptions-item label="时薪金额"><span class="clickable-amount" @click="toggleItemReveal(bill.id, 'hourly')">{{ maskAmount(bill.hourlyAmount, { visible: docReveal.revealed.value || itemRevealed[`${bill.id}-hourly`] }) }}</span></el-descriptions-item>
+        <el-descriptions-item label="计件金额"><span class="clickable-amount" @click="toggleItemReveal(bill.id, 'piece')">{{ maskAmount(bill.pieceAmount, { visible: docReveal.revealed.value || itemRevealed[`${bill.id}-piece`] }) }}</span></el-descriptions-item>
+        <el-descriptions-item label="其他工资" v-if="(bill.otherAmount ?? 0) > 0">{{ bill.otherCount }}项 / <span class="clickable-amount" @click="toggleItemReveal(bill.id, 'other')">{{ maskAmount(bill.otherAmount ?? 0, { visible: docReveal.revealed.value || itemRevealed[`${bill.id}-other`] }) }}</span></el-descriptions-item>
         <el-descriptions-item label="总金额" :span="2">
-          <span class="total-amount">¥{{ bill.totalAmount.toFixed(2) }}</span>
+          <span class="total-amount clickable-amount" @click="toggleItemReveal(bill.id, 'total')">{{ maskAmount(bill.totalAmount, { visible: docReveal.revealed.value || itemRevealed[`${bill.id}-total`] }) }}</span>
         </el-descriptions-item>
         <el-descriptions-item v-if="bill.status === 'issued'" label="发放时间" :span="2">
           {{ bill.issuedAt ? new Date(bill.issuedAt).toLocaleString('zh-CN') : '-' }}
@@ -68,17 +68,23 @@
           </template>
         </el-table-column>
         <el-table-column prop="unitPrice" label="单价" width="100">
-          <template #default="{ row }"> ¥{{ row.unitPrice.toFixed(2) }} </template>
+          <template #default="{ row }"> <span class="clickable-amount" @click="toggleItemReveal(row.id, 'unitPrice')">{{ maskAmount(row.unitPrice, { visible: docReveal.revealed.value || itemRevealed[`${row.id}-unitPrice`] }) }}</span> </template>
         </el-table-column>
         <el-table-column prop="amount" label="金额" width="120">
           <template #default="{ row }">
-            <span class="amount">¥{{ row.amount.toFixed(2) }}</span>
+            <span class="amount clickable-amount" @click="toggleItemReveal(row.id, 'amount')">{{ maskAmount(row.amount, { visible: docReveal.revealed.value || itemRevealed[`${row.id}-amount`] }) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="remark" label="备注" show-overflow-tooltip />
       </el-table>
     </div>
     <template #footer>
+      <el-button
+        :icon="docReveal.revealed.value ? View : Hide"
+        @click="docReveal.toggle()"
+      >
+        {{ docReveal.revealed.value ? '隐藏金额' : '显示金额' }}
+      </el-button>
       <el-button @click="$emit('update:modelValue', false)">关闭</el-button>
       <el-button
         v-if="bill?.status === 'pending'"
@@ -106,9 +112,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
+import { View, Hide } from '@element-plus/icons-vue'
 import { salaryApi, type SalaryBill } from '../../api/salary'
+import { useAmountPrivacy, useReveal } from '@/composables/useAmountPrivacy'
 
 const props = defineProps<{
   modelValue: boolean
@@ -122,8 +130,18 @@ defineEmits<{
   issue: [bill: SalaryBill]
 }>()
 
+const { maskAmount } = useAmountPrivacy()
+const docReveal = useReveal()
+
 const verifying = ref(false)
 const verifyResult = ref<boolean | null>(null)
+
+// 明细级揭示（key = `${detailId}-${field}`）
+const itemRevealed = reactive<Record<string, boolean>>({})
+const toggleItemReveal = (id: number, field: string) => {
+  const key = `${id}-${field}`
+  itemRevealed[key] = !itemRevealed[key]
+}
 
 const typeLabel = (t: string) => ({ hourly: '时薪', piece: '计件', other: '其他' } as Record<string, string>)[t] || t
 const typeTagType = (t: string) => ({ hourly: 'warning', piece: 'success', other: 'primary' } as Record<string, string>)[t] || 'info'
@@ -186,5 +204,16 @@ const handleVerify = async () => {
   font-size: 11px;
   color: var(--color-text-secondary);
   word-break: break-all;
+}
+
+.clickable-amount {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s;
+  display: inline-block;
+}
+.clickable-amount:hover {
+  background-color: var(--el-fill-color-light);
 }
 </style>

@@ -38,7 +38,7 @@
           <el-input-number v-model="record.pieceQuantity" :min="1" style="width: 100%" />
         </el-form-item>
         <el-form-item label="计件单价" class="piece-record-field" v-if="record.employeeId">
-          <span>¥{{ pieceUnitPrice.toFixed(2) }}</span>
+          <span class="clickable-amount" @click="toggleItemReveal()">{{ maskAmount(pieceUnitPrice, { visible: itemRevealed['price'] }) }}</span>
           <span class="price-hint">（来自产品计件单价）</span>
         </el-form-item>
         <el-button
@@ -67,6 +67,7 @@ import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { productionOrderApi, type ProductionOrder } from '@/api/productionOrder'
 import { employeeApi } from '@/api/employee'
+import { useAmountPrivacy } from '@/composables/useAmountPrivacy'
 
 interface PieceRecord {
   employeeId: number | undefined
@@ -90,6 +91,13 @@ watch(visible, (v) => { emit('update:modelValue', v) })
 const submitting = ref(false)
 const formRef = ref<FormInstance>()
 const pieceEmployees = ref<any[]>([])
+
+const { maskAmount } = useAmountPrivacy()
+
+const itemRevealed = reactive<Record<string, boolean>>({})
+const toggleItemReveal = () => {
+  itemRevealed['price'] = !itemRevealed['price']
+}
 
 const form = reactive({
   quantity: 1,

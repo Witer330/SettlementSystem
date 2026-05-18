@@ -2,7 +2,7 @@
   <div>
     <el-dialog
       v-model="visible"
-      :title="isEdit ? '编辑销售单' : '新增销售单'"
+      :title="readonly ? '查看销售单' : (isEdit ? '编辑销售单' : '新增销售单')"
       width="720px"
       @closed="onClosed"
     >
@@ -21,6 +21,7 @@
             placeholder="请选择客户"
             filterable
             style="width:100%"
+            :disabled="readonly"
           >
             <el-option
               v-for="c in customers"
@@ -34,10 +35,14 @@
           <el-input
             v-model="form.remark"
             placeholder="可选"
+            :disabled="readonly"
           />
         </el-form-item>
         <el-form-item label="占用库存">
-          <el-checkbox v-model="form.reserveInventory">
+          <el-checkbox
+            v-model="form.reserveInventory"
+            :disabled="readonly"
+          >
             草稿商品占用库存，避免超卖
           </el-checkbox>
         </el-form-item>
@@ -71,6 +76,7 @@
               filterable
               size="small"
               style="width:100%"
+              :disabled="readonly"
               @change="onProductChange($event, row)"
             >
               <el-option
@@ -93,6 +99,7 @@
               size="small"
               style="width:100%"
               controls-position="right"
+              :disabled="readonly"
             />
           </template>
         </el-table-column>
@@ -109,6 +116,7 @@
                 size="small"
                 style="width:100%"
                 controls-position="right"
+                :disabled="readonly"
               />
               <el-tag
                 v-if="row.productId > 0 && row.price === 0"
@@ -126,10 +134,17 @@
           width="100"
         >
           <template #default="{ row }">
-            <span :style="{ color: row.productId > 0 && row.price === 0 ? 'var(--color-danger)' : '' }">¥{{ ((row.quantity||0)*(row.price||0)).toFixed(2) }}</span>
+            <span
+              :style="{ color: docReveal.revealed.value && row.productId > 0 && row.price === 0 ? 'var(--color-danger)' : '' }"
+              class="clickable-amount"
+              @click="docReveal.toggle()"
+            >{{ maskAmount((row.quantity||0)*(row.price||0), { visible: docReveal.revealed.value }) }}</span>
           </template>
         </el-table-column>
-        <el-table-column width="70">
+        <el-table-column
+          v-if="!readonly"
+          width="70"
+        >
           <template #default="{ row }">
             <el-button
               link
@@ -142,7 +157,10 @@
           </template>
         </el-table-column>
       </el-table>
-      <div style="display:flex;gap:8px;margin-top:8px;">
+      <div
+        v-if="!readonly"
+        style="display:flex;gap:8px;margin-top:8px;"
+      >
         <el-button
           size="small"
           @click="addItemRow"
@@ -157,11 +175,25 @@
         </el-button>
       </div>
       <div style="text-align:right;margin-top:8px;font-size:16px">
-        合计：<b>¥{{ totalAmount.toFixed(2) }}</b>
+        合计：<b
+          class="clickable-amount"
+          @click="docReveal.toggle()"
+        >{{ maskAmount(totalAmount, { visible: docReveal.revealed.value }) }}</b>
       </div>
 
       <template #footer>
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div
+          v-if="readonly"
+          style="text-align:right"
+        >
+          <el-button @click="visible = false">
+            关闭
+          </el-button>
+        </div>
+        <div
+          v-else
+          style="display:flex;align-items:center;gap:8px;"
+        >
           <span
             v-if="draft.isDraft.value"
             style="color:var(--color-text-muted);font-size:12px;margin-right:auto;"
@@ -199,8 +231,9 @@ import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { salesOrderApi, type SalesOrder } from '@/api/salesOrder'
 import { useDraftAutoSave } from '@/composables/useDraftAutoSave'
+import { useAmountPrivacy, useReveal } from '@/composables/useAmountPrivacy'
 
-const props = defineProps<{ modelValue: boolean; isEdit: boolean; editId: number; row?: SalesOrder | null; customers: any[]; products: any[] }>()
+const props = defineProps<{ modelValue: boolean; isEdit: boolean; editId: number; row?: SalesOrder | null; customers: any[]; products: any[]; readonly?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [v: boolean]; success: [] }>()
 
 const visible = computed({ get: () => props.modelValue, set: (v) => emit('update:modelValue', v) })
@@ -214,6 +247,8 @@ const form = reactive({ customerId: 0, remark: '', reserveInventory: true, items
 const rules: FormRules = { customerId: [{ required: true, message: '请选择客户', trigger: 'change' }] }
 const totalAmount = computed(() => form.items.reduce((s: number, i: any) => s + i.quantity * i.price, 0))
 const draft = useDraftAutoSave(salesOrderApi as any, form as any, 'customerId', 'productId')
+const { maskAmount } = useAmountPrivacy()
+const docReveal = useReveal()
 
 watch(() => props.modelValue, (val) => {
   if (val) {

@@ -2,7 +2,7 @@
   <div>
     <el-dialog
       v-model="visible"
-      :title="isEdit ? '编辑采购单' : '新增采购单'"
+      :title="readonly ? '查看采购单' : (isEdit ? '编辑采购单' : '新增采购单')"
       width="720px"
       @closed="onClosed"
     >
@@ -21,6 +21,7 @@
             placeholder="请选择供应商"
             filterable
             style="width:100%"
+            :disabled="readonly"
           >
             <el-option
               v-for="s in suppliers"
@@ -34,10 +35,14 @@
           <el-input
             v-model="form.remark"
             placeholder="可选"
+            :disabled="readonly"
           />
         </el-form-item>
         <el-form-item label="占用库存">
-          <el-checkbox v-model="form.reserveInventory">
+          <el-checkbox
+            v-model="form.reserveInventory"
+            :disabled="readonly"
+          >
             草稿物料占用库存，避免重复采购
           </el-checkbox>
         </el-form-item>
@@ -115,10 +120,16 @@
           width="100"
         >
           <template #default="{ row }">
-            ¥{{ ((row.quantity||0)*(row.price||0)).toFixed(2) }}
+            <span
+              class="clickable-amount"
+              @click="docReveal.toggle()"
+            >{{ maskAmount((row.quantity||0)*(row.price||0), { visible: docReveal.revealed.value }) }}</span>
           </template>
         </el-table-column>
-        <el-table-column width="70">
+        <el-table-column
+          v-if="!readonly"
+          width="70"
+        >
           <template #default="{ row }">
             <el-button
               link
@@ -131,7 +142,10 @@
           </template>
         </el-table-column>
       </el-table>
-      <div style="display:flex;gap:8px;margin-top:8px;">
+      <div
+        v-if="!readonly"
+        style="display:flex;gap:8px;margin-top:8px;"
+      >
         <el-button
           size="small"
           @click="addItemRow"
@@ -146,11 +160,25 @@
         </el-button>
       </div>
       <div style="text-align:right;margin-top:8px;font-size:16px">
-        合计：<b>¥{{ totalAmount.toFixed(2) }}</b>
+        合计：<b
+          class="clickable-amount"
+          @click="docReveal.toggle()"
+        >{{ maskAmount(totalAmount, { visible: docReveal.revealed.value }) }}</b>
       </div>
 
       <template #footer>
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div
+          v-if="readonly"
+          style="text-align:right"
+        >
+          <el-button @click="visible = false">
+            关闭
+          </el-button>
+        </div>
+        <div
+          v-else
+          style="display:flex;align-items:center;gap:8px;"
+        >
           <span
             v-if="draft.isDraft.value"
             style="color:var(--color-text-muted);font-size:12px;margin-right:auto;"
@@ -217,8 +245,9 @@ import { ref, reactive, computed, watch } from 'vue'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { purchaseOrderApi, type PurchaseOrder } from '@/api/purchaseOrder'
 import { useDraftAutoSave } from '@/composables/useDraftAutoSave'
+import { useAmountPrivacy, useReveal } from '@/composables/useAmountPrivacy'
 
-const props = defineProps<{ modelValue: boolean; isEdit: boolean; editId: number; row?: PurchaseOrder | null; suppliers: any[]; materials: any[] }>()
+const props = defineProps<{ modelValue: boolean; isEdit: boolean; editId: number; row?: PurchaseOrder | null; suppliers: any[]; materials: any[]; readonly?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [v: boolean]; success: [] }>()
 
 const visible = computed({ get: () => props.modelValue, set: (v) => emit('update:modelValue', v) })
@@ -229,6 +258,8 @@ const form = reactive({ supplierId: 0, remark: '', reserveInventory: true, items
 const rules: FormRules = { supplierId: [{ required: true, message: '请选择供应商', trigger: 'change' }] }
 const totalAmount = computed(() => form.items.reduce((s: number, i: any) => s + i.quantity * i.price, 0))
 const draft = useDraftAutoSave(purchaseOrderApi as any, form as any, 'supplierId', 'materialId')
+const { maskAmount } = useAmountPrivacy()
+const docReveal = useReveal()
 
 watch(() => props.modelValue, (val) => {
   if (val) {

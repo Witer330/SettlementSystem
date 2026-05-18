@@ -34,7 +34,12 @@ export const getSalesOrders = async (req: Request, res: Response) => {
     const [orders, total] = await Promise.all([
       prisma.salesOrder.findMany({
         where, skip, take, orderBy: { createdAt: 'desc' },
-        include: { customer: true, items: { include: { product: true } }, returnOrders: { include: { items: true } } }
+        include: {
+          customer: true,
+          items: { include: { product: true } },
+          returnOrders: { include: { items: true } },
+          receivableItems: { include: { receivable: { select: { id: true, orderNo: true, status: true } } } }
+        }
       }),
       prisma.salesOrder.count({ where })
     ])
@@ -125,6 +130,18 @@ export const updateSalesOrder = async (req: Request, res: Response) => {
       return
     }
 
+    // 检查是否被应收单锁定
+    const lockedItem = await prisma.receivableItem.findFirst({
+      where: {
+        salesOrderId: id,
+        receivable: { status: { in: ['pending', 'approved'] } }
+      }
+    })
+    if (lockedItem) {
+      res.status(400).json({ code: 400, message: '该销售单已被应收单锁定，请先反审并删除关联的应收单', data: null })
+      return
+    }
+
     // 草稿转正式：生成正式单号
     const isDraftToPending = existing.status === 'draft' && status === 'pending'
     const finalOrderNo = isDraftToPending ? await generateOrderNo() : undefined
@@ -172,6 +189,17 @@ export const deleteSalesOrder = async (req: Request, res: Response) => {
       return
     }
 
+    const lockedItem = await prisma.receivableItem.findFirst({
+      where: {
+        salesOrderId: id,
+        receivable: { status: { in: ['pending', 'approved'] } }
+      }
+    })
+    if (lockedItem) {
+      res.status(400).json({ code: 400, message: '该销售单已被应收单锁定，请先反审并删除关联的应收单', data: null })
+      return
+    }
+
     await prisma.salesOrder.delete({ where: { id } })
     res.json({ code: 0, message: '删除成功' })
   } catch (error: any) {
@@ -190,6 +218,19 @@ export const updateSalesOrderStatus = async (req: Request, res: Response) => {
       include: { items: true }
     })
     if (!existing) { res.status(404).json({ code: 404, message: '销售单不存在' }); return }
+
+    // 锁定状态下仅禁止回退（如 completed→confirmed, confirmed→pending）
+    const statusOrder = ['draft', 'pending', 'confirmed', 'completed']
+    const lockedItem = await prisma.receivableItem.findFirst({
+      where: {
+        salesOrderId: id,
+        receivable: { status: { in: ['pending', 'approved'] } }
+      }
+    })
+    if (lockedItem && statusOrder.indexOf(status) < statusOrder.indexOf(existing.status)) {
+      res.status(400).json({ code: 400, message: '该销售单已被应收单锁定，不能回退状态', data: null })
+      return
+    }
 
     // completed → 扣减成品库存
     if (status === 'completed' && existing.status !== 'completed') {

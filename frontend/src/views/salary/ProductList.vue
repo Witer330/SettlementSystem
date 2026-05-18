@@ -31,15 +31,15 @@
         <el-table-column prop="unit" label="单位" width="80" />
         <el-table-column label="售价" width="100">
           <template #default="{ row }">
-            <span :style="{ color: row.price > 0 ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }">
-              {{ row.price > 0 ? `¥${row.price.toFixed(2)}` : '未设置' }}
+            <span :style="{ color: row.price > 0 ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }" class="clickable-amount" @click="toggleItemReveal(row.id, 'price')">
+              {{ row.price > 0 ? maskAmount(row.price, { visible: itemRevealed[`${row.id}-price`] }) : '未设置' }}
             </span>
           </template>
         </el-table-column>
         <el-table-column label="计件单价" width="100">
           <template #default="{ row }">
-            <span :style="{ color: row.unitPrice > 0 ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }">
-              {{ row.unitPrice > 0 ? `¥${row.unitPrice.toFixed(2)}` : '未设置' }}
+            <span :style="{ color: row.unitPrice > 0 ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }" class="clickable-amount" @click="toggleItemReveal(row.id, 'unitPrice')">
+              {{ row.unitPrice > 0 ? maskAmount(row.unitPrice, { visible: itemRevealed[`${row.id}-unitPrice`] }) : '未设置' }}
             </span>
           </template>
         </el-table-column>
@@ -112,6 +112,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { productApi, type Product } from '@/api/product'
+import { useAmountPrivacy } from '@/composables/useAmountPrivacy'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -192,6 +193,14 @@ const handleSubmit = async () => {
   }
 }
 
+const { maskAmount } = useAmountPrivacy()
+
+const itemRevealed = reactive<Record<string, boolean>>({})
+const toggleItemReveal = (id: number, field: string) => {
+  const key = `${id}-${field}`
+  itemRevealed[key] = !itemRevealed[key]
+}
+
 const handleDelete = async (row: Product) => {
   await ElMessageBox.confirm(`确定要删除产品"${row.name}"吗？`, '确认删除', { type: 'warning' })
   await productApi.delete(row.id)
@@ -221,5 +230,16 @@ onMounted(() => loadData())
   display: flex;
   gap: var(--space-3);
   margin-bottom: var(--space-4);
+}
+
+.clickable-amount {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s;
+  display: inline-block;
+}
+.clickable-amount:hover {
+  background-color: var(--el-fill-color-light);
 }
 </style>

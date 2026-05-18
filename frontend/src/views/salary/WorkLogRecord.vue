@@ -83,6 +83,11 @@
         stripe
         style="width: 100%"
       >
+        <el-table-column width="50" align="center">
+          <template #default="{ row }">
+            <el-button link :icon="rowRevealed[row.id] ? View : Hide" @click="toggleRowReveal(row.id)" />
+          </template>
+        </el-table-column>
         <el-table-column
           label="日期"
           width="120"
@@ -115,7 +120,7 @@
           width="100"
         >
           <template #default="{ row }">
-            ¥{{ row.employee?.hourlyRate?.toFixed(2) || '-' }}
+            <span class="clickable-amount" @click="toggleItemReveal(row.id, 'rate')">{{ maskAmount(row.employee?.hourlyRate, { visible: rowRevealed[row.id] || itemRevealed[`${row.id}-rate`] }) }}</span>
           </template>
         </el-table-column>
         <el-table-column
@@ -124,7 +129,7 @@
         >
           <template #default="{ row }">
             <span class="subtotal">
-              ¥{{ ((row.hours || 0) * (row.employee?.hourlyRate || 0)).toFixed(2) }}
+              <span class="clickable-amount" @click="toggleItemReveal(row.id, 'subtotal')">{{ maskAmount((row.hours || 0) * (row.employee?.hourlyRate || 0), { visible: rowRevealed[row.id] || itemRevealed[`${row.id}-subtotal`] }) }}</span>
             </span>
           </template>
         </el-table-column>
@@ -270,6 +275,10 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { Plus, Search, Refresh, Edit, Delete } from '@element-plus/icons-vue'
 import { workLogApi, type WorkLog } from '@/api/workLog'
 import { employeeApi } from '@/api/employee'
+import { useAmountPrivacy } from '@/composables/useAmountPrivacy'
+import { View, Hide } from '@element-plus/icons-vue'
+
+const { maskAmount } = useAmountPrivacy()
 
 const loading = ref(false)
 const recordList = ref<WorkLog[]>([])
@@ -299,6 +308,15 @@ const rules: FormRules = {
 }
 
 const formatDate = (date: string) => new Date(date).toLocaleDateString('zh-CN')
+
+// 单据级 + 明细级揭示
+const rowRevealed = reactive<Record<number, boolean>>({})
+const toggleRowReveal = (id: number) => { rowRevealed[id] = !rowRevealed[id] }
+const itemRevealed = reactive<Record<string, boolean>>({})
+const toggleItemReveal = (logId: number, field: string) => {
+  const key = `${logId}-${field}`
+  itemRevealed[key] = !itemRevealed[key]
+}
 
 const loadRecordList = async () => {
   try {
@@ -435,4 +453,15 @@ onMounted(() => {
   color: var(--color-primary);
 }
 .pagination { display: flex; justify-content: flex-end; margin-top: var(--space-6); }
+
+.clickable-amount {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s;
+  display: inline-block;
+}
+.clickable-amount:hover {
+  background-color: var(--el-fill-color-light);
+}
 </style>

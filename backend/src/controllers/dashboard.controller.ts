@@ -4,30 +4,25 @@ import { prisma } from '../lib/prisma'
 export const getDashboardStats = async (_req: Request, res: Response) => {
   try {
     const now = new Date()
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    const lastMonth = now.getMonth() === 0
-      ? `${now.getFullYear() - 1}-12`
-      : `${now.getFullYear()}-${String(now.getMonth()).padStart(2, '0')}`
+    const curStart = new Date(now.getFullYear(), now.getMonth(), 1)
+    const curEnd = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    const prevStart = new Date(now.getFullYear(), now.getMonth() - 1, 1)
 
-    const employeeCount = await prisma.employee.count({ where: { status: 'active' } })
-    const lastMonthEmployeeCount = await prisma.employee.count({
-      where: { status: 'active', createdAt: { lt: new Date(now.getFullYear(), now.getMonth(), 1) } }
-    })
+    // ── 销售/采购（本月 vs 上月） ──
+    const [curSales, prevSales, curPurchase, prevPurchase] = await Promise.all([
+      prisma.salesOrder.aggregate({ where: { status: 'completed', createdAt: { gte: curStart, lt: curEnd } }, _sum: { totalAmount: true } }),
+      prisma.salesOrder.aggregate({ where: { status: 'completed', createdAt: { gte: prevStart, lt: curStart } }, _sum: { totalAmount: true } }),
+      prisma.purchaseOrder.aggregate({ where: { status: 'completed', createdAt: { gte: curStart, lt: curEnd } }, _sum: { totalAmount: true } }),
+      prisma.purchaseOrder.aggregate({ where: { status: 'completed', createdAt: { gte: prevStart, lt: curStart } }, _sum: { totalAmount: true } })
+    ])
 
-    // 本月报工
-    const pieceRecordCount = await prisma.dailyPieceRecord.count({
-      where: { date: { gte: new Date(now.getFullYear(), now.getMonth(), 1), lt: new Date(now.getFullYear(), now.getMonth() + 1, 1) } }
-    })
+    // ── 应收/应付（未完成订单） ──
+    const [receivable, payable] = await Promise.all([
+      prisma.salesOrder.aggregate({ where: { status: { not: 'completed' } }, _sum: { totalAmount: true } }),
+      prisma.purchaseOrder.aggregate({ where: { status: { not: 'completed' } }, _sum: { totalAmount: true } })
+    ])
 
-    const lastMonthPieceCount = await prisma.dailyPieceRecord.count({
-      where: { date: { gte: new Date(now.getFullYear(), now.getMonth() - 1, 1), lt: new Date(now.getFullYear(), now.getMonth(), 1) } }
-    })
-
-    const salaryResult = await prisma.salaryBill.aggregate({ where: { period: currentMonth }, _sum: { totalAmount: true } })
-    const currentSalary = salaryResult._sum.totalAmount || 0
-    const lastSalaryResult = await prisma.salaryBill.aggregate({ where: { period: lastMonth }, _sum: { totalAmount: true } })
-    const lastSalary = lastSalaryResult._sum.totalAmount || 0
-
+    // ── 库存预警 ──
     const lowStockMaterials = await prisma.material.findMany({
       where: { status: 'active', safeStock: { gt: 0 } }, include: { inventory: true }
     })
@@ -36,10 +31,13 @@ export const getDashboardStats = async (_req: Request, res: Response) => {
     res.json({
       code: 0, message: '获取成功',
       data: {
-        employeeCount, employeeTrend: employeeCount - lastMonthEmployeeCount,
-        pieceRecordCount,
-        pieceRecordTrend: lastMonthPieceCount > 0 ? Math.round(((pieceRecordCount - lastMonthPieceCount) / lastMonthPieceCount) * 100) : 0,
-        currentSalary, lastSalary, lowStockCount
+        currentMonthSales: curSales._sum.totalAmount || 0,
+        lastMonthSales: prevSales._sum.totalAmount || 0,
+        currentMonthPurchase: curPurchase._sum.totalAmount || 0,
+        lastMonthPurchase: prevPurchase._sum.totalAmount || 0,
+        receivableAmount: receivable._sum.totalAmount || 0,
+        payableAmount: payable._sum.totalAmount || 0,
+        lowStockCount
       }
     })
   } catch (error: any) {

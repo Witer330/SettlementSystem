@@ -67,7 +67,7 @@
         </el-table-column>
         <el-table-column label="时薪标准" width="120" align="right" show-overflow-tooltip>
           <template #default="{ row }">
-            <span>{{ row.hourlyRate ? `¥${row.hourlyRate.toFixed(2)}` : '-' }}</span>
+            <span class="clickable-amount" @click="toggleItemReveal(row.id)">{{ maskAmount(row.hourlyRate, { visible: itemRevealed[`${row.id}`] }) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="状态" width="90" align="center" show-overflow-tooltip>
@@ -131,6 +131,7 @@ import { Plus, Search, Refresh } from '@element-plus/icons-vue'
 import { employeeApi, type Employee } from '../../api/employee'
 import { departmentApi, type Department } from '../../api/department'
 import { jobTypeApi, type JobType } from '../../api/jobType'
+import { useAmountPrivacy } from '@/composables/useAmountPrivacy'
 import EmployeeForm from './EmployeeForm.vue'
 
 // Data
@@ -257,6 +258,14 @@ const formatDate = (date: string) => {
   })
 }
 
+const { maskAmount } = useAmountPrivacy()
+
+const itemRevealed = reactive<Record<string, boolean>>({})
+const toggleItemReveal = (id: number) => {
+  const key = `${id}`
+  itemRevealed[key] = !itemRevealed[key]
+}
+
 // Lifecycle
 onMounted(() => {
   loadDepartmentList()
@@ -334,5 +343,16 @@ onMounted(() => {
   justify-content: flex-end;
   margin-top: var(--space-4);
   padding: var(--space-4);
+}
+
+.clickable-amount {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s;
+  display: inline-block;
+}
+.clickable-amount:hover {
+  background-color: var(--el-fill-color-light);
 }
 </style>

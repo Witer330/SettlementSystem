@@ -51,6 +51,8 @@ import productionOrderRoutes from './routes/productionOrder.routes'
 import workLogRoutes from './routes/workLog.routes'
 import returnOrderRoutes from './routes/returnOrder.routes'
 import otherSalaryRoutes from './routes/otherSalary.routes'
+import receivableRoutes from './routes/receivable.routes'
+import payableRoutes from './routes/payable.routes'
 
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/employees', employeeRoutes)
@@ -73,6 +75,8 @@ app.use('/api/v1/reports', reportRoutes)
 app.use('/api/v1/work-logs', workLogRoutes)
 app.use('/api/v1/other-salaries', otherSalaryRoutes)
 app.use('/api/v1/return-orders', returnOrderRoutes)
+app.use('/api/v1/receivables', receivableRoutes)
+app.use('/api/v1/payables', payableRoutes)
 
 // Static file serving (production: serve frontend build)
 const frontendDist = path.join(__dirname, '../../frontend/dist')

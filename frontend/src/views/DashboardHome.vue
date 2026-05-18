@@ -1,101 +1,21 @@
 <template>
   <div class="dashboard-home">
-    <div class="welcome-section">
-      <h1 class="text-display">
-        欢迎使用结算系统
-      </h1>
-      <p class="text-h3-light">
-        工资核算 · 进销存 · 一体化管理
-      </p>
+    <!-- 1. 问候栏 -->
+    <div class="greeting-bar">
+      <span class="greeting-text">{{ greeting }}，{{ userName }}</span>
+      <span class="greeting-date">{{ todayLabel }}</span>
     </div>
 
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-header">
-          <span class="stat-label">员工总数</span>
-          <el-icon class="stat-icon">
-            <User />
-          </el-icon>
-        </div>
-        <div class="stat-value">
-          {{ stats.employeeCount }}
-        </div>
-        <div
-          class="stat-trend"
-          :class="stats.employeeTrend >= 0 ? 'positive' : 'negative'"
-        >
-          <el-icon><TrendCharts /></el-icon>
-          <span>较上月 {{ stats.employeeTrend >= 0 ? '+' : '' }}{{ stats.employeeTrend }}</span>
-        </div>
-      </div>
+    <!-- 2. KPI 卡片 -->
+    <DashboardKpiCards :stats="stats" />
 
-      <div class="stat-card">
-        <div class="stat-header">
-          <span class="stat-label">本月报工</span>
-          <el-icon class="stat-icon">
-            <Document />
-          </el-icon>
-        </div>
-        <div class="stat-value">
-          {{ stats.pieceRecordCount }}
-        </div>
-        <div
-          class="stat-trend"
-          :class="stats.pieceRecordTrend >= 0 ? 'positive' : 'negative'"
-        >
-          <el-icon><TrendCharts /></el-icon>
-          <span>较上月 {{ stats.pieceRecordTrend >= 0 ? '+' : '' }}{{ stats.pieceRecordTrend }}%</span>
-        </div>
-      </div>
+    <!-- 3. 经营分析图表 -->
+    <DashboardCharts />
 
-      <div class="stat-card">
-        <div class="stat-header">
-          <span class="stat-label">本月工资</span>
-          <el-icon class="stat-icon">
-            <Money />
-          </el-icon>
-        </div>
-        <div class="stat-value">
-          ¥{{ formatMoney(stats.currentSalary) }}
-        </div>
-        <div
-          class="stat-trend"
-          :class="stats.currentSalary >= stats.lastSalary ? 'positive' : 'negative'"
-        >
-          <el-icon><TrendCharts /></el-icon>
-          <span>较上月 {{ formatSalaryTrend() }}</span>
-        </div>
-      </div>
-
-      <div class="stat-card">
-        <div class="stat-header">
-          <span class="stat-label">库存预警</span>
-          <el-icon
-            class="stat-icon"
-            :class="{ warning: stats.lowStockCount > 0 }"
-          >
-            <Warning />
-          </el-icon>
-        </div>
-        <div class="stat-value">
-          {{ stats.lowStockCount }}
-        </div>
-        <div
-          class="stat-trend"
-          :class="stats.lowStockCount > 0 ? 'negative' : 'positive'"
-        >
-          <el-icon><Top /></el-icon>
-          <span>{{ stats.lowStockCount > 0 ? '需要及时处理' : '库存充足' }}</span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 操作流程 -->
+    <!-- 4. 操作流程 -->
     <div class="workflow-section">
       <div class="workflow-header">
-        <h2 class="text-h3">
-          操作流程
-        </h2>
+        <h2 class="text-h3">操作流程</h2>
         <el-button
           link
           type="primary"
@@ -113,11 +33,10 @@
       />
     </div>
 
+    <!-- 5. 快速操作 -->
     <div class="quick-actions">
       <div class="quick-actions-header">
-        <h2 class="text-h3">
-          快速操作
-        </h2>
+        <h2 class="text-h3">快速操作</h2>
         <el-button
           link
           type="primary"
@@ -154,15 +73,27 @@ import {
 import { workflowApi, type QuickAction, type FlowStepStatus } from '@/api/workflow'
 import { api } from '@/api/request'
 import { FlowChart, type FlowNodeData } from '@/components/flow-chart'
+import { useUserStore } from '@/stores/user'
+import DashboardKpiCards from '@/components/DashboardKpiCards.vue'
+import type { DashboardStats } from '@/components/DashboardKpiCards.vue'
+import DashboardCharts from '@/components/DashboardCharts.vue'
 
 const router = useRouter()
+const userStore = useUserStore()
 const quickActions = ref<QuickAction[]>([])
 const flowStatus = ref<Record<string, FlowStepStatus>>({})
+
+// ── 问候语 ──
+const userName = userStore.userInfo?.name || userStore.userInfo?.username || '管理员'
+const hour = new Date().getHours()
+const greeting = hour < 12 ? '早上好' : hour < 18 ? '下午好' : '晚上好'
+const todayLabel = new Date().toLocaleDateString('zh-CN', {
+  year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+})
 
 // ── 待办数量 ──
 const todoCounts = ref<Record<string, number>>({})
 
-// 节点 ID → 路由 query 参数映射
 const nodeQueryParams: Record<string, Record<string, string>> = {
   salesOrder: { status: 'draft' },
   purchaseSuggest: { status: 'pending' },
@@ -215,26 +146,15 @@ const nodeIconMap: Record<string, typeof User> = {
 }
 
 // ── 统计数据 ──
-const stats = reactive({
-  employeeCount: 0,
-  employeeTrend: 0,
-  pieceRecordCount: 0,
-  pieceRecordTrend: 0,
-  currentSalary: 0,
-  lastSalary: 0,
+const stats = reactive<DashboardStats>({
+  currentMonthSales: 0,
+  lastMonthSales: 0,
+  currentMonthPurchase: 0,
+  lastMonthPurchase: 0,
+  receivableAmount: 0,
+  payableAmount: 0,
   lowStockCount: 0
 })
-
-const formatMoney = (v: number) => {
-  if (v === 0) return '0'
-  return v.toLocaleString('zh-CN', { minimumFractionDigits: 0, maximumFractionDigits: 0 })
-}
-
-const formatSalaryTrend = () => {
-  if (stats.lastSalary === 0) return stats.currentSalary > 0 ? '+100%' : '持平'
-  const pct = ((stats.currentSalary - stats.lastSalary) / stats.lastSalary * 100).toFixed(0)
-  return `${Number(pct) >= 0 ? '+' : ''}${pct}%`
-}
 
 // ── 流程图导航处理 ──
 function handleFlowNavigate(nodeId: string, link: string) {
@@ -277,7 +197,7 @@ onMounted(async () => {
   try { quickActions.value = await workflowApi.getQuickActions() } catch {}
   try { flowStatus.value = await workflowApi.getFlowStatus() } catch {}
   try {
-    const data = await api.get<typeof stats>('/dashboard/stats')
+    const data = await api.get<DashboardStats>('/dashboard/stats')
     Object.assign(stats, data)
   } catch { /* empty */ }
   pollTodoCounts()
@@ -298,94 +218,27 @@ onUnmounted(() => {
   padding: 0;
 }
 
-.welcome-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 50%, #ff6b6b 100%);
-  padding: var(--space-14) var(--space-8);
-  border-radius: var(--radius-lg);
-  margin-bottom: var(--space-8);
-  text-align: center;
-  color: var(--color-white);
-}
-
-.welcome-section h1 {
-  font-weight: var(--font-weight-700);
-  line-height: var(--line-height-tight);
-  letter-spacing: var(--letter-display);
-  margin-bottom: var(--space-4);
-}
-
-.welcome-section p {
-  font-weight: var(--font-weight-340);
-  line-height: var(--line-subheading);
-  letter-spacing: var(--letter-subheading);
-  opacity: 0.9;
-}
-
-/* ── Stats Grid ── */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: var(--space-6);
-  margin-bottom: var(--space-8);
-}
-
-.stat-card {
-  background-color: var(--color-white);
-  border-radius: var(--radius-lg);
-  padding: var(--space-6);
-  box-shadow: var(--shadow-sm);
-  transition: all var(--transition-base);
-}
-
-.stat-card:hover {
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
-}
-
-.stat-header {
+/* ── 问候栏 ── */
+.greeting-bar {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: var(--space-3);
+  align-items: baseline;
+  margin-bottom: var(--space-6);
+  padding: var(--space-4) 0;
+  border-bottom: 1px solid var(--el-border-color-light);
 }
 
-.stat-label {
-  font-size: var(--font-size-small);
-  font-weight: var(--font-weight-450);
-  letter-spacing: var(--letter-body);
-  text-transform: uppercase;
-  color: var(--el-text-color-secondary);
-}
-
-.stat-icon {
-  width: 24px;
-  height: 24px;
-  color: var(--el-text-color-secondary);
-}
-
-.stat-icon.warning {
-  color: var(--color-warning);
-}
-
-.stat-value {
-  font-size: var(--font-size-h1);
+.greeting-text {
+  font-size: var(--font-size-h4);
   font-weight: var(--font-weight-700);
-  line-height: var(--line-heading);
-  letter-spacing: var(--letter-heading);
-  color: var(--color-black);
-  margin-bottom: var(--space-3);
+  letter-spacing: var(--letter-body);
 }
 
-.stat-trend {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
+.greeting-date {
   font-size: var(--font-size-small);
   font-weight: var(--font-weight-330);
+  color: var(--el-text-color-secondary);
 }
-
-.stat-trend.positive { color: var(--color-success); }
-.stat-trend.negative { color: var(--color-warning); }
 
 /* ── Workflow Section ── */
 .workflow-section {
@@ -462,12 +315,9 @@ onUnmounted(() => {
 
 /* ── 响应式 ── */
 @media (max-width: 768px) {
-  .welcome-section {
-    padding: var(--space-10) var(--space-6);
-  }
-
-  .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+  .greeting-bar {
+    flex-direction: column;
+    gap: var(--space-2);
   }
 
   .actions-grid {
@@ -476,10 +326,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 560px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
   .actions-grid {
     grid-template-columns: 1fr;
   }

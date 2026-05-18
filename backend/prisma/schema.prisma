@@ -209,6 +209,62 @@ model ProductionPickingItem {
   material Material        @relation(fields: [materialId], references: [id])
 }
 
+// ============ 应收应付 ============
+
+model Receivable {
+  id          Int      @id @default(autoincrement())
+  orderNo     String   @unique
+  customerId  Int
+  totalAmount Float
+  status      String   @default("pending")  // pending / approved
+  approvedBy  Int?
+  approvedAt  DateTime?
+  remark      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customer Customer         @relation(fields: [customerId], references: [id])
+  items    ReceivableItem[]
+}
+
+model ReceivableItem {
+  id            Int      @id @default(autoincrement())
+  receivableId  Int
+  salesOrderId  Int
+  amount        Float
+  createdAt     DateTime @default(now())
+
+  receivable Receivable @relation(fields: [receivableId], references: [id], onDelete: Cascade)
+  salesOrder SalesOrder @relation(fields: [salesOrderId], references: [id])
+}
+
+model Payable {
+  id          Int      @id @default(autoincrement())
+  orderNo     String   @unique
+  supplierId  Int
+  totalAmount Float
+  status      String   @default("pending")  // pending / approved
+  approvedBy  Int?
+  approvedAt  DateTime?
+  remark      String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  supplier Supplier      @relation(fields: [supplierId], references: [id])
+  items    PayableItem[]
+}
+
+model PayableItem {
+  id              Int      @id @default(autoincrement())
+  payableId       Int
+  purchaseOrderId Int
+  amount          Float
+  createdAt       DateTime @default(now())
+
+  payable       Payable       @relation(fields: [payableId], references: [id], onDelete: Cascade)
+  purchaseOrder PurchaseOrder @relation(fields: [purchaseOrderId], references: [id])
+}
+
 // ============ 进销存 ============
 
 model Supplier {
@@ -223,6 +279,7 @@ model Supplier {
   updatedAt DateTime @updatedAt
 
   purchaseOrders PurchaseOrder[]
+  payables       Payable[]
 }
 
 model Customer {
@@ -237,7 +294,8 @@ model Customer {
   createdAt   DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  salesOrders SalesOrder[]
+  salesOrders      SalesOrder[]
+  receivables      Receivable[]
 }
 
 model Material {
@@ -275,6 +333,7 @@ model PurchaseOrder {
   supplier   Supplier?    @relation(fields: [supplierId], references: [id])
   salesOrder SalesOrder?  @relation(fields: [salesOrderId], references: [id])
   items      PurchaseItem[]
+  payableItems PayableItem[]
 }
 
 model PurchaseItem {
@@ -306,6 +365,7 @@ model SalesOrder {
   purchaseOrders    PurchaseOrder[]
   returnOrders      ReturnOrder[]
   items             SalesItem[]
+  receivableItems   ReceivableItem[]
 }
 
 model SalesItem {

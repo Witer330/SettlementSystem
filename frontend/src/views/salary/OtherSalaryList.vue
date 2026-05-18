@@ -58,7 +58,7 @@
         </el-table-column>
         <el-table-column label="金额" width="130">
           <template #default="{ row }">
-            <span class="amount">¥{{ row.amount.toFixed(2) }}</span>
+            <span class="amount clickable-amount" @click="toggleItemReveal(row.id)">{{ maskAmount(row.amount, { visible: itemRevealed[`${row.id}`] }) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="remark" label="备注" min-width="200" show-overflow-tooltip />
@@ -123,8 +123,18 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { Plus, Search, Refresh, Edit, Delete } from '@element-plus/icons-vue'
 import { otherSalaryApi, type OtherSalary } from '@/api/otherSalary'
 import { employeeApi } from '@/api/employee'
+import { useAmountPrivacy } from '@/composables/useAmountPrivacy'
 
 const loading = ref(false)
+
+const { maskAmount } = useAmountPrivacy()
+
+// 明细级揭示
+const itemRevealed = reactive<Record<string, boolean>>({})
+const toggleItemReveal = (id: number) => {
+  const key = `${id}`
+  itemRevealed[key] = !itemRevealed[key]
+}
 const recordList = ref<OtherSalary[]>([])
 const employees = ref<any[]>([])
 const dialogVisible = ref(false)
@@ -248,4 +258,15 @@ onMounted(() => { loadEmployees(); loadRecords() })
 .search-card, .table-card { margin-bottom: var(--space-6); }
 .amount { font-weight: var(--font-weight-600); color: var(--color-primary); }
 .pagination { display: flex; justify-content: flex-end; margin-top: var(--space-6); }
+
+.clickable-amount {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s;
+  display: inline-block;
+}
+.clickable-amount:hover {
+  background-color: var(--el-fill-color-light);
+}
 </style>

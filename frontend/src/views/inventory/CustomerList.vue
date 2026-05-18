@@ -31,7 +31,8 @@
         <el-table-column prop="address" label="地址" min-width="180" show-overflow-tooltip />
         <el-table-column prop="creditLimit" label="信用额度" width="100">
           <template #default="{ row }">
-            {{ row.creditLimit > 0 ? row.creditLimit.toFixed(2) : '-' }}
+            <span v-if="row.creditLimit > 0" class="clickable-amount" @click="toggleItemReveal(row.id)">{{ maskAmount(row.creditLimit, { visible: itemRevealed[`${row.id}`] }) }}</span>
+            <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="80">
@@ -100,11 +101,21 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { customerApi, type Customer } from '@/api/customer'
+import { useAmountPrivacy } from '@/composables/useAmountPrivacy'
 
 const loading = ref(false)
 const submitting = ref(false)
 const tableData = ref<Customer[]>([])
 const total = ref(0)
+
+const { maskAmount } = useAmountPrivacy()
+
+const itemRevealed = reactive<Record<string, boolean>>({})
+const toggleItemReveal = (id: number) => {
+  const key = `${id}`
+  itemRevealed[key] = !itemRevealed[key]
+}
+
 const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref(0)

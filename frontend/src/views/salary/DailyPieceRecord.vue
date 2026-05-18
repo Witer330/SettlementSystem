@@ -47,6 +47,11 @@
     <!-- Data Table -->
     <el-card class="table-card" shadow="never">
       <el-table v-loading="loading" :data="recordList" stripe style="width: 100%">
+        <el-table-column width="50" align="center">
+          <template #default="{ row }">
+            <el-button link :icon="rowRevealed[row.id] ? View : Hide" @click="toggleRowReveal(row.id)" />
+          </template>
+        </el-table-column>
         <el-table-column prop="date" label="日期" width="120">
           <template #default="{ row }">
             {{ formatDate(row.date) }}
@@ -63,14 +68,14 @@
               <div v-for="item in row.items" :key="item.id" class="detail-item">
                 <span class="spec-name">{{ item.product?.name || `产品#${item.productId}` }}</span>
                 <span class="spec-quantity">{{ item.quantity }}件</span>
-                <span class="spec-amount">¥{{ item.amount.toFixed(2) }}</span>
+                <span class="spec-amount clickable-amount" @click="toggleItemReveal(row.id, `item-${item.id}`)">{{ maskAmount(item.amount, { visible: rowRevealed[row.id] || itemRevealed[`${row.id}-item-${item.id}`] }) }}</span>
               </div>
             </div>
           </template>
         </el-table-column>
         <el-table-column label="总金额" width="120">
           <template #default="{ row }">
-            <span class="total-amount">¥{{ row.totalAmount.toFixed(2) }}</span>
+            <span class="total-amount clickable-amount" @click="toggleItemReveal(row.id, 'total')">{{ maskAmount(row.totalAmount, { visible: rowRevealed[row.id] || itemRevealed[`${row.id}-total`] }) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="remark" label="备注" width="150" show-overflow-tooltip />
@@ -117,6 +122,8 @@ import { dailyPieceApi, type DailyPieceRecord } from '../../api/dailyPiece'
 import { employeeApi } from '../../api/employee'
 import { productApi, type Product } from '../../api/product'
 import DailyPieceForm from './DailyPieceForm.vue'
+import { useAmountPrivacy } from '@/composables/useAmountPrivacy'
+import { View, Hide } from '@element-plus/icons-vue'
 
 const loading = ref(false)
 const recordList = ref<DailyPieceRecord[]>([])
@@ -140,6 +147,17 @@ const pagination = reactive({
 
 const formatDate = (date: string) => {
   return new Date(date).toLocaleDateString('zh-CN')
+}
+
+const { maskAmount } = useAmountPrivacy()
+
+// 单据级 + 明细级揭示
+const rowRevealed = reactive<Record<number, boolean>>({})
+const toggleRowReveal = (id: number) => { rowRevealed[id] = !rowRevealed[id] }
+const itemRevealed = reactive<Record<string, boolean>>({})
+const toggleItemReveal = (recordId: number, field: string) => {
+  const key = `${recordId}-${field}`
+  itemRevealed[key] = !itemRevealed[key]
 }
 
 const loadRecordList = async () => {
@@ -310,5 +328,16 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: var(--space-6);
+}
+
+.clickable-amount {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s;
+  display: inline-block;
+}
+.clickable-amount:hover {
+  background-color: var(--el-fill-color-light);
 }
 </style>

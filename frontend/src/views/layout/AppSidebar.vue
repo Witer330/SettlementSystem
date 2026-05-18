@@ -46,6 +46,21 @@
         </el-menu-item>
       </el-sub-menu>
 
+      <el-sub-menu index="finance">
+        <template #title>
+          <el-icon>
+            <Wallet />
+          </el-icon>
+          <span>应收应付</span>
+        </template>
+        <el-menu-item index="/dashboard/finance/receivables">
+          应收管理
+        </el-menu-item>
+        <el-menu-item index="/dashboard/finance/payables">
+          应付管理
+        </el-menu-item>
+      </el-sub-menu>
+
       <el-sub-menu index="production">
         <template #title>
           <el-icon>
@@ -132,7 +147,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import { House, Money, Box, Setting, Briefcase, Tools } from '@element-plus/icons-vue'
+import { House, Money, Box, Setting, Briefcase, Tools, Wallet } from '@element-plus/icons-vue'
 import { useRoute } from 'vue-router'
 
 const props = defineProps<{

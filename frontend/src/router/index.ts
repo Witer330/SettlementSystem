@@ -115,6 +115,23 @@ const routes: RouteRecordRaw[] = [
         ]
       },
       {
+        path: 'finance',
+        name: 'Finance',
+        redirect: '/dashboard/finance/receivables',
+        children: [
+          {
+            path: 'receivables',
+            name: 'ReceivableList',
+            component: () => import('@/views/finance/ReceivableList.vue')
+          },
+          {
+            path: 'payables',
+            name: 'PayableList',
+            component: () => import('@/views/finance/PayableList.vue')
+          }
+        ]
+      },
+      {
         path: 'production',
         name: 'Production',
         redirect: '/dashboard/production/orders',

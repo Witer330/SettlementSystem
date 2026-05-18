@@ -34,7 +34,11 @@ export const getPurchaseOrders = async (req: Request, res: Response) => {
     const [orders, total] = await Promise.all([
       prisma.purchaseOrder.findMany({
         where, skip, take, orderBy: { createdAt: 'desc' },
-        include: { supplier: true, items: { include: { material: true } } }
+        include: {
+          supplier: true,
+          items: { include: { material: true } },
+          payableItems: { include: { payable: { select: { id: true, orderNo: true, status: true } } } }
+        }
       }),
       prisma.purchaseOrder.count({ where })
     ])
@@ -125,6 +129,18 @@ export const updatePurchaseOrder = async (req: Request, res: Response) => {
       return
     }
 
+    // 检查是否被应付单锁定
+    const lockedItem = await prisma.payableItem.findFirst({
+      where: {
+        purchaseOrderId: id,
+        payable: { status: { in: ['pending', 'approved'] } }
+      }
+    })
+    if (lockedItem) {
+      res.status(400).json({ code: 400, message: '该采购单已被应付单锁定，请先反审并删除关联的应付单', data: null })
+      return
+    }
+
     // 草稿转正式：生成正式单号
     const isDraftToPending = existing.status === 'draft' && status === 'pending'
     const finalOrderNo = isDraftToPending ? await generateOrderNo() : undefined
@@ -172,6 +188,17 @@ export const deletePurchaseOrder = async (req: Request, res: Response) => {
       return
     }
 
+    const lockedItem = await prisma.payableItem.findFirst({
+      where: {
+        purchaseOrderId: id,
+        payable: { status: { in: ['pending', 'approved'] } }
+      }
+    })
+    if (lockedItem) {
+      res.status(400).json({ code: 400, message: '该采购单已被应付单锁定，请先反审并删除关联的应付单', data: null })
+      return
+    }
+
     await prisma.purchaseOrder.delete({ where: { id } })
     res.json({ code: 0, message: '删除成功' })
   } catch (error: any) {
@@ -185,6 +212,25 @@ export const updatePurchaseOrderStatus = async (req: Request, res: Response) => 
     const id = Number(req.params.id)
     const { status } = req.body
 
+    const existing = await prisma.purchaseOrder.findUnique({ where: { id } })
+    if (!existing) {
+      res.status(404).json({ code: 404, message: '采购单不存在' })
+      return
+    }
+
+    // 锁定状态下仅禁止回退（如 completed→confirmed, confirmed→pending）
+    const statusOrder = ['draft', 'pending', 'confirmed', 'completed']
+    const lockedItem = await prisma.payableItem.findFirst({
+      where: {
+        purchaseOrderId: id,
+        payable: { status: { in: ['pending', 'approved'] } }
+      }
+    })
+    if (lockedItem && statusOrder.indexOf(status) < statusOrder.indexOf(existing.status)) {
+      res.status(400).json({ code: 400, message: '该采购单已被应付单锁定，不能回退状态', data: null })
+      return
+    }
+
     const order = await prisma.purchaseOrder.update({
       where: { id },
       data: { status }
@@ -196,7 +242,7 @@ export const updatePurchaseOrderStatus = async (req: Request, res: Response) => 
   }
 }
 
-// 采购入库
+// 采购入库（不受应付单锁定影响）
 export const receivePurchaseOrder = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id)

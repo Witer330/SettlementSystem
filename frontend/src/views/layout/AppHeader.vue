@@ -13,6 +13,16 @@
     </div>
 
     <div class="header-right">
+      <el-tooltip
+        :content="privacyStore.amountVisible ? '隐藏金额' : '显示金额'"
+        placement="bottom"
+      >
+        <el-button
+          class="privacy-toggle-btn"
+          :icon="privacyStore.amountVisible ? View : Hide"
+          @click="privacyStore.toggleAmountVisibility()"
+        />
+      </el-tooltip>
       <div class="user-info">
         <span class="text-body">{{ userName }}</span>
         <el-button link type="primary" :icon="Lock" @click="showPasswordDialog = true">
@@ -76,7 +86,8 @@
 
 <script setup lang="ts">
 import { ref, computed, reactive } from 'vue'
-import { Fold, Expand, Lock } from '@element-plus/icons-vue'
+import { Fold, Expand, Lock, View, Hide } from '@element-plus/icons-vue'
+import { usePrivacyStore } from '@/stores/privacy'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { authApi, tokenManager } from '../../api/auth'
@@ -93,6 +104,8 @@ const router = useRouter()
 const route = useRoute()
 
 const userName = computed(() => tokenManager.getUser()?.name || '管理员')
+
+const privacyStore = usePrivacyStore()
 
 const showPasswordDialog = ref(false)
 const passwordFormRef = ref<FormInstance>()
@@ -206,7 +219,8 @@ const handleLogout = async () => {
   gap: var(--space-4);
 }
 
-.collapse-btn {
+.collapse-btn,
+.privacy-toggle-btn {
   width: 36px;
   height: 36px;
   padding: 0;

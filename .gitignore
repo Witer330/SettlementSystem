@@ -87,3 +87,6 @@ dist/installer/
 
 # Release artifacts (EXE files)
 release/
+
+# plan
+plan/

@@ -39,7 +39,7 @@
               <el-option v-for="p in products" :key="p.id" :label="`${p.code} - ${p.name}`" :value="p.id" />
             </el-select>
             <el-input-number v-model="item.quantity" :min="1" placeholder="数量" style="width:150px" />
-            <span class="item-unit-price" v-if="item.unitPrice">¥{{ item.unitPrice.toFixed(2) }}/件</span>
+            <span class="item-unit-price clickable-amount" v-if="item.unitPrice" @click="toggleItemReveal(index)">{{ maskAmount(item.unitPrice, { suffix: '/件', visible: itemRevealed[`${index}`] }) }}</span>
             <el-button type="danger" :icon="Delete" circle @click="removeItem(index)" />
           </div>
           <el-button type="primary" :icon="Plus" size="small" @click="addItem">添加明细</el-button>
@@ -63,6 +63,7 @@ import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { Plus, Delete } from '@element-plus/icons-vue'
 import { dailyPieceApi, type DailyPieceRecord } from '../../api/dailyPiece'
 import { type Product } from '../../api/product'
+import { useAmountPrivacy } from '@/composables/useAmountPrivacy'
 
 const props = defineProps<{
   modelValue: boolean
@@ -131,6 +132,14 @@ const initForm = () => {
 
 watch(() => props.modelValue, (val) => { if (val) initForm() })
 
+const { maskAmount } = useAmountPrivacy()
+
+const itemRevealed = reactive<Record<string, boolean>>({})
+const toggleItemReveal = (idx: number) => {
+  const key = `${idx}`
+  itemRevealed[key] = !itemRevealed[key]
+}
+
 const handleSubmit = async () => {
   if (!formRef.value) return
   try {
@@ -155,4 +164,15 @@ const handleSubmit = async () => {
 .items-container { display: flex; flex-direction: column; gap: var(--space-3); width: 100%; }
 .item-row { display: flex; align-items: center; gap: var(--space-3); }
 .item-unit-price { color: var(--color-primary); font-weight: var(--font-weight-550); min-width: 80px; }
+
+.clickable-amount {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s;
+  display: inline-block;
+}
+.clickable-amount:hover {
+  background-color: var(--el-fill-color-light);
+}
 </style>

@@ -1,15 +1,21 @@
 <template>
   <el-dialog
     :model-value="modelValue"
-    @update:model-value="$emit('update:modelValue', $event)"
     :title="title"
     width="960px"
     top="5vh"
     destroy-on-close
+    @update:model-value="$emit('update:modelValue', $event)"
   >
-    <div v-loading="loading" class="report-body">
+    <div
+      v-loading="loading"
+      class="report-body"
+    >
       <!-- 日期范围筛选 -->
-      <div class="report-filter" v-if="reportType !== 'inventory'">
+      <div
+        v-if="reportType !== 'inventory'"
+        class="report-filter"
+      >
         <el-date-picker
           v-model="dateRange"
           type="daterange"
@@ -23,97 +29,221 @@
       </div>
 
       <!-- 汇总卡片 -->
-      <div class="summary-row" v-if="summary">
-        <div class="summary-item" v-if="summary.totalAmount !== undefined">
+      <div
+        v-if="summary"
+        class="summary-row"
+      >
+        <div
+          v-if="summary.totalAmount !== undefined"
+          class="summary-item"
+        >
           <span class="summary-label">总金额</span>
-          <span class="summary-value">¥{{ formatNum(summary.totalAmount) }}</span>
+          <span
+            class="summary-value clickable-amount"
+            @click="docReveal.toggle()"
+          >{{ maskAmount(summary.totalAmount, { visible: docReveal.revealed.value }) }}</span>
         </div>
-        <div class="summary-item" v-if="summary.totalOrders !== undefined">
+        <div
+          v-if="summary.totalOrders !== undefined"
+          class="summary-item"
+        >
           <span class="summary-label">订单数</span>
           <span class="summary-value">{{ summary.totalOrders }}</span>
         </div>
-        <div class="summary-item" v-if="summary.totalMaterials !== undefined">
+        <div
+          v-if="summary.totalMaterials !== undefined"
+          class="summary-item"
+        >
           <span class="summary-label">物料总数</span>
           <span class="summary-value">{{ summary.totalMaterials }}</span>
         </div>
-        <div class="summary-item" v-if="summary.normalCount !== undefined">
+        <div
+          v-if="summary.normalCount !== undefined"
+          class="summary-item"
+        >
           <span class="summary-label">正常</span>
-          <span class="summary-value" style="color: var(--color-success)">{{ summary.normalCount }}</span>
+          <span
+            class="summary-value"
+            style="color: var(--color-success)"
+          >{{ summary.normalCount }}</span>
         </div>
-        <div class="summary-item" v-if="summary.lowStockCount !== undefined">
+        <div
+          v-if="summary.lowStockCount !== undefined"
+          class="summary-item"
+        >
           <span class="summary-label">偏低</span>
-          <span class="summary-value" style="color: var(--color-warning)">{{ summary.lowStockCount }}</span>
+          <span
+            class="summary-value"
+            style="color: var(--color-warning)"
+          >{{ summary.lowStockCount }}</span>
         </div>
-        <div class="summary-item" v-if="summary.emptyStockCount !== undefined">
+        <div
+          v-if="summary.emptyStockCount !== undefined"
+          class="summary-item"
+        >
           <span class="summary-label">缺货</span>
-          <span class="summary-value" style="color: var(--color-danger)">{{ summary.emptyStockCount }}</span>
+          <span
+            class="summary-value"
+            style="color: var(--color-danger)"
+          >{{ summary.emptyStockCount }}</span>
         </div>
-        <div class="summary-item" v-if="summary.totalHourly !== undefined">
+        <div
+          v-if="summary.totalHourly !== undefined"
+          class="summary-item"
+        >
           <span class="summary-label">计时工资</span>
-          <span class="summary-value">¥{{ formatNum(summary.totalHourly) }}</span>
+          <span
+            class="summary-value clickable-amount"
+            @click="docReveal.toggle()"
+          >{{ maskAmount(summary.totalHourly, { visible: docReveal.revealed.value }) }}</span>
         </div>
-        <div class="summary-item" v-if="summary.totalPiece !== undefined">
+        <div
+          v-if="summary.totalPiece !== undefined"
+          class="summary-item"
+        >
           <span class="summary-label">计件工资</span>
-          <span class="summary-value">¥{{ formatNum(summary.totalPiece) }}</span>
+          <span
+            class="summary-value clickable-amount"
+            @click="docReveal.toggle()"
+          >{{ maskAmount(summary.totalPiece, { visible: docReveal.revealed.value }) }}</span>
         </div>
       </div>
 
       <!-- 图表区域 -->
-      <div class="chart-grid" v-if="hasData">
+      <div
+        v-if="hasData"
+        class="chart-grid"
+      >
         <!-- 采购报表 -->
         <template v-if="reportType === 'purchase'">
           <div class="chart-cell">
-            <ReportCharts type="line" :data="trend" title="月度采购趋势" x-field="month" y-field="total" />
+            <ReportCharts
+              type="line"
+              :data="trend"
+              title="月度采购趋势"
+              x-field="month"
+              y-field="total"
+            />
           </div>
           <div class="chart-cell">
-            <ReportCharts type="pie" :data="breakdown" title="供应商采购占比" />
+            <ReportCharts
+              type="pie"
+              :data="breakdown"
+              title="供应商采购占比"
+            />
           </div>
           <div class="chart-cell">
-            <ReportCharts type="ring" :data="statusDistribution" title="采购状态分布" />
+            <ReportCharts
+              type="ring"
+              :data="statusDistribution"
+              title="采购状态分布"
+            />
           </div>
         </template>
 
         <!-- 销售报表 -->
         <template v-if="reportType === 'sales'">
           <div class="chart-cell">
-            <ReportCharts type="line" :data="trend" title="月度销售趋势" x-field="month" y-field="total" />
+            <ReportCharts
+              type="line"
+              :data="trend"
+              title="月度销售趋势"
+              x-field="month"
+              y-field="total"
+            />
           </div>
           <div class="chart-cell">
-            <ReportCharts type="pie" :data="breakdown" title="客户销售占比" />
+            <ReportCharts
+              type="pie"
+              :data="breakdown"
+              title="客户销售占比"
+            />
           </div>
-          <div class="chart-cell" style="grid-column: 1 / -1">
-            <ReportCharts type="horizontal-bar" :data="productRanking" title="产品销售排行" x-field="name" y-field="amount" :height="300" />
+          <div
+            class="chart-cell"
+            style="grid-column: 1 / -1"
+          >
+            <ReportCharts
+              type="horizontal-bar"
+              :data="productRanking"
+              title="产品销售排行"
+              x-field="name"
+              y-field="amount"
+              :height="300"
+            />
           </div>
         </template>
 
         <!-- 库存报表 -->
         <template v-if="reportType === 'inventory'">
           <div class="chart-cell">
-            <ReportCharts type="bar" :data="categoryOverview" title="各分类库存总览" x-field="name" y-field="totalQuantity" />
+            <ReportCharts
+              type="bar"
+              :data="categoryOverview"
+              title="各分类库存总览"
+              x-field="name"
+              y-field="totalQuantity"
+            />
           </div>
           <div class="chart-cell">
-            <ReportCharts type="ring" :data="statusDistribution" title="库存状态分布" />
+            <ReportCharts
+              type="ring"
+              :data="statusDistribution"
+              title="库存状态分布"
+            />
           </div>
-          <div class="chart-cell" style="grid-column: 1 / -1">
-            <ReportCharts type="line" :data="movementTrend" title="出入库趋势" x-field="month" y-field="inflow" :height="260" />
+          <div
+            class="chart-cell"
+            style="grid-column: 1 / -1"
+          >
+            <ReportCharts
+              type="line"
+              :data="movementTrend"
+              title="出入库趋势"
+              x-field="month"
+              y-field="inflow"
+              :height="260"
+            />
           </div>
         </template>
 
         <!-- 工资报表 -->
         <template v-if="reportType === 'salary'">
           <div class="chart-cell">
-            <ReportCharts type="line" :data="trend" title="月度工资趋势" x-field="period" y-field="total" />
+            <ReportCharts
+              type="line"
+              :data="trend"
+              title="月度工资趋势"
+              x-field="period"
+              y-field="total"
+            />
           </div>
           <div class="chart-cell">
-            <ReportCharts type="pie" :data="breakdown" title="部门工资占比" />
+            <ReportCharts
+              type="pie"
+              :data="breakdown"
+              title="部门工资占比"
+            />
           </div>
-          <div class="chart-cell" style="grid-column: 1 / -1">
-            <ReportCharts type="bar" :data="trend" title="计时/计件构成" x-field="period" :height="260" />
+          <div
+            class="chart-cell"
+            style="grid-column: 1 / -1"
+          >
+            <ReportCharts
+              type="bar"
+              :data="trend"
+              title="计时/计件构成"
+              x-field="period"
+              :height="260"
+            />
           </div>
         </template>
       </div>
 
-      <el-empty v-else-if="!loading" description="暂无数据" />
+      <el-empty
+        v-else-if="!loading"
+        description="暂无数据"
+      />
     </div>
   </el-dialog>
 </template>
@@ -122,6 +252,7 @@
 import { ref, computed, watch } from 'vue'
 import ReportCharts from './ReportCharts.vue'
 import { reportApi, type ReportSummary } from '@/api/report'
+import { useAmountPrivacy, useReveal } from '@/composables/useAmountPrivacy'
 
 const props = defineProps<{
   modelValue: boolean
@@ -147,7 +278,8 @@ const hasData = computed(() => {
     categoryOverview.value.length > 0 || statusDistribution.value.length > 0
 })
 
-const formatNum = (v: number) => v?.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'
+const { maskAmount } = useAmountPrivacy()
+const docReveal = useReveal()
 
 const resetData = () => {
   trend.value = []

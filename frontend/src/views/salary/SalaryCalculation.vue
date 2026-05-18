@@ -26,6 +26,15 @@
       </div>
 
       <el-table :data="salaryBills" v-loading="loadingBills" stripe>
+        <el-table-column width="50" align="center">
+          <template #default="{ row }">
+            <el-button
+              link
+              :icon="rowRevealed[row.id] ? View : Hide"
+              @click="toggleRowReveal(row.id)"
+            />
+          </template>
+        </el-table-column>
         <el-table-column prop="period" label="结算周期" width="120" />
         <el-table-column label="员工" width="150">
           <template #default="{ row }">
@@ -36,7 +45,7 @@
           <template #default="{ row }">
             <div v-if="(row.hourlyAmount ?? 0) > 0">
               <div>{{ row.hourlyHours }}小时</div>
-              <div class="amount">¥{{ (row.hourlyAmount ?? 0).toFixed(2) }}</div>
+              <div class="amount clickable-amount" @click="toggleItemReveal(row.id, 'hourly')">{{ maskAmount(row.hourlyAmount ?? 0, { visible: rowRevealed[row.id] || itemRevealed[`${row.id}-hourly`] }) }}</div>
             </div>
             <span v-else>-</span>
           </template>
@@ -45,7 +54,7 @@
           <template #default="{ row }">
             <div v-if="(row.pieceAmount ?? 0) > 0">
               <div>{{ row.pieceCount }}件</div>
-              <div class="amount">¥{{ (row.pieceAmount ?? 0).toFixed(2) }}</div>
+              <div class="amount clickable-amount" @click="toggleItemReveal(row.id, 'piece')">{{ maskAmount(row.pieceAmount ?? 0, { visible: rowRevealed[row.id] || itemRevealed[`${row.id}-piece`] }) }}</div>
             </div>
             <span v-else>-</span>
           </template>
@@ -54,14 +63,14 @@
           <template #default="{ row }">
             <div v-if="(row.otherAmount ?? 0) > 0">
               <div>{{ row.otherCount }}项</div>
-              <div class="amount">¥{{ (row.otherAmount ?? 0).toFixed(2) }}</div>
+              <div class="amount clickable-amount" @click="toggleItemReveal(row.id, 'other')">{{ maskAmount(row.otherAmount ?? 0, { visible: rowRevealed[row.id] || itemRevealed[`${row.id}-other`] }) }}</div>
             </div>
             <span v-else>-</span>
           </template>
         </el-table-column>
         <el-table-column label="总金额" width="120">
           <template #default="{ row }">
-            <span class="total-amount">¥{{ (row.totalAmount ?? 0).toFixed(2) }}</span>
+            <span class="total-amount clickable-amount" @click="toggleItemReveal(row.id, 'total')">{{ maskAmount(row.totalAmount ?? 0, { visible: rowRevealed[row.id] || itemRevealed[`${row.id}-total`] }) }}</span>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100">
@@ -134,8 +143,9 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { DataAnalysis } from '@element-plus/icons-vue'
+import { DataAnalysis, View, Hide } from '@element-plus/icons-vue'
 import { salaryApi, type SalaryBill } from '../../api/salary'
+import { useAmountPrivacy } from '@/composables/useAmountPrivacy'
 import SalaryCalcForm from './SalaryCalcForm.vue'
 import SalaryBillDetail from './SalaryBillDetail.vue'
 import ReportDialog from '@/components/ReportDialog.vue'
@@ -143,6 +153,19 @@ import ReportDialog from '@/components/ReportDialog.vue'
 const showReport = ref(false)
 const calculating = ref(false)
 const loadingBills = ref(false)
+
+const { maskAmount } = useAmountPrivacy()
+
+// 单据级：每行一个揭示状态（key = bill.id）
+const rowRevealed = reactive<Record<number, boolean>>({})
+const toggleRowReveal = (id: number) => { rowRevealed[id] = !rowRevealed[id] }
+
+// 明细级：每个金额一个揭示状态（key = `${bill.id}-${field}`）
+const itemRevealed = reactive<Record<string, boolean>>({})
+const toggleItemReveal = (id: number, field: string) => {
+  const key = `${id}-${field}`
+  itemRevealed[key] = !itemRevealed[key]
+}
 
 const calcForm = reactive({
   period: ''
@@ -418,5 +441,16 @@ const deleteBill = async (bill: SalaryBill) => {
   display: flex;
   justify-content: flex-end;
   margin-top: var(--space-4);
+}
+
+.clickable-amount {
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: background-color 0.15s;
+  display: inline-block;
+}
+.clickable-amount:hover {
+  background-color: var(--el-fill-color-light);
 }
 </style>
