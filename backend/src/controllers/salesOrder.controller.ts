@@ -60,7 +60,14 @@ export const getSalesOrder = async (req: Request, res: Response) => {
     const id = Number(req.params.id)
     const order = await prisma.salesOrder.findUnique({
       where: { id },
-      include: { customer: true, items: { include: { product: true } } }
+      include: {
+        customer: true,
+        items: { include: { product: true } },
+        productionOrders: { select: { id: true, orderNo: true, status: true } },
+        purchaseOrders: { select: { id: true, orderNo: true, status: true } },
+        returnOrders: { select: { id: true, returnNo: true, status: true } },
+        receivableItems: { include: { receivable: { select: { id: true, orderNo: true, status: true } } } }
+      }
     })
     if (!order) {
       res.status(404).json({ code: 404, message: '销售单不存在' })
@@ -75,7 +82,10 @@ export const getSalesOrder = async (req: Request, res: Response) => {
 // 创建销售单
 export const createSalesOrder = async (req: Request, res: Response) => {
   try {
-    const { customerId, items, remark, status: reqStatus, reserveInventory } = req.body
+    const { customerId, items, remark, status: reqStatus, reserveInventory,
+      orderDate, businessType, deliveryMethod, salesperson, deliveryPerson,
+      returnDate, paymentMethod, contactInfo, wholeDiscount, usePrepayment, shippingAddress
+    } = req.body
     const isDraft = reqStatus === 'draft'
 
     // 草稿：跳过必填校验
@@ -99,6 +109,17 @@ export const createSalesOrder = async (req: Request, res: Response) => {
         status: isDraft ? 'draft' : 'pending',
         remark,
         reserveInventory: reserveInventory !== undefined ? reserveInventory : true,
+        ...(orderDate && { orderDate: new Date(orderDate) }),
+        ...(businessType !== undefined && { businessType }),
+        ...(deliveryMethod !== undefined && { deliveryMethod }),
+        ...(salesperson !== undefined && { salesperson }),
+        ...(deliveryPerson !== undefined && { deliveryPerson }),
+        ...(returnDate && { returnDate: new Date(returnDate) }),
+        ...(paymentMethod !== undefined && { paymentMethod }),
+        ...(contactInfo !== undefined && { contactInfo }),
+        ...(wholeDiscount !== undefined && { wholeDiscount }),
+        ...(usePrepayment !== undefined && { usePrepayment }),
+        ...(shippingAddress !== undefined && { shippingAddress }),
         ...(items && items.length > 0 && {
           items: {
             create: items.map((item: any) => ({
@@ -122,7 +143,10 @@ export const createSalesOrder = async (req: Request, res: Response) => {
 export const updateSalesOrder = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id)
-    const { customerId, items, remark, status, reserveInventory } = req.body
+    const { customerId, items, remark, status, reserveInventory,
+      orderDate, businessType, deliveryMethod, salesperson, deliveryPerson,
+      returnDate, paymentMethod, contactInfo, wholeDiscount, usePrepayment, shippingAddress
+    } = req.body
 
     const existing = await prisma.salesOrder.findUnique({ where: { id } })
     if (!existing) {
@@ -159,6 +183,17 @@ export const updateSalesOrder = async (req: Request, res: Response) => {
         remark,
         ...(reserveInventory !== undefined && { reserveInventory }),
         ...(status && { status }),
+        ...(orderDate !== undefined && { orderDate: orderDate ? new Date(orderDate) : null }),
+        ...(businessType !== undefined && { businessType }),
+        ...(deliveryMethod !== undefined && { deliveryMethod }),
+        ...(salesperson !== undefined && { salesperson }),
+        ...(deliveryPerson !== undefined && { deliveryPerson }),
+        ...(returnDate !== undefined && { returnDate: returnDate ? new Date(returnDate) : null }),
+        ...(paymentMethod !== undefined && { paymentMethod }),
+        ...(contactInfo !== undefined && { contactInfo }),
+        ...(wholeDiscount !== undefined && { wholeDiscount }),
+        ...(usePrepayment !== undefined && { usePrepayment }),
+        ...(shippingAddress !== undefined && { shippingAddress }),
         ...(items && {
           items: {
             deleteMany: {},

@@ -8,7 +8,7 @@
         </el-button>
         <el-button
           type="primary"
-          @click="openDialogEdit()"
+          @click="openTabNew()"
         >
           <el-icon><Plus /></el-icon>新增采购单
         </el-button>
@@ -61,7 +61,7 @@
               <el-button
                 size="small"
                 type="primary"
-                @click="openDialogEdit(d)"
+                @click="openTabEdit(d)"
               >
                 继续编辑
               </el-button>
@@ -192,7 +192,7 @@
               <el-tooltip :content="`已被应付单 ${getLockedPayableNo(row)} 锁定`" placement="top">
                 <span style="margin-right:4px"><el-tag type="danger" size="small">锁定</el-tag></span>
               </el-tooltip>
-              <el-button link type="primary" @click="openDialogView(row)">查看</el-button>
+              <el-button link type="primary" @click="openTabView(row)">查看</el-button>
               <el-button v-if="row.status !== 'completed'" link type="success" @click="openReceiveDialog(row)">入库</el-button>
               <el-button v-if="row.status === 'pending'" link type="warning" @click="handleConfirm(row)">确认</el-button>
               <el-button link type="info" @click="openFlowDialog(row)"><el-icon style="margin-right:2px"><Connection /></el-icon>流转</el-button>
@@ -201,7 +201,7 @@
             <el-button
               link
               type="primary"
-              @click="openDialogEdit(row)"
+              @click="openTabEdit(row)"
             >
               编辑
             </el-button>
@@ -358,40 +358,51 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, DataAnalysis, Document, Connection } from '@element-plus/icons-vue'
 import { purchaseOrderApi, type PurchaseOrder } from '@/api/purchaseOrder'
-import { supplierApi, type Supplier } from '@/api/supplier'
-import { materialApi, type Material } from '@/api/material'
 import ReportDialog from '@/components/ReportDialog.vue'
 import PurchaseOrderForm from '@/components/PurchaseOrderForm.vue'
 import { useStatusHelpers } from '@/composables/useStatusHelpers'
 import { useAmountPrivacy } from '@/composables/useAmountPrivacy'
+import { useTabStore } from '@/stores/tabs'
 
 const showReport = ref(false); const loading = ref(false); const submitting = ref(false)
 const tableData = ref<PurchaseOrder[]>([]); const total = ref(0)
 const dialogVisible = ref(false); const receiveDialogVisible = ref(false)
+const suppliers = ref<any[]>([]); const materials = ref<any[]>([])
 const isEdit = ref(false); const editId = ref(0); const currentRow = ref<PurchaseOrder | null>(null)
-const suppliers = ref<Supplier[]>([]); const materials = ref<Material[]>([])
 const currentReceiveOrderId = ref(0)
 const receiveItems = ref<Array<{ itemId: number; materialName: string; quantity: number; receivedQuantity: number; receiveQty: number }>>([])
 const queryParams = reactive({ page: 1, pageSize: 20, keyword: '', status: '' })
 const { statusLabel, statusType } = useStatusHelpers()
 const { maskAmount } = useAmountPrivacy()
 
+const route = useRoute()
+const router = useRouter()
+const tabStore = useTabStore()
+
 const rowRevealed = reactive<Record<number, boolean>>({})
 const toggleRowReveal = (id: number) => { rowRevealed[id] = !rowRevealed[id] }
 const formatDate = (d: string) => new Date(d).toLocaleDateString('zh-CN')
-const router = useRouter()
+
 const isOrderLocked = (row: any) => row.payableItems?.some((pi: any) => ['pending', 'approved'].includes(pi.payable?.status))
 const getLockedPayableNo = (row: any) => row.payableItems?.find((pi: any) => ['pending', 'approved'].includes(pi.payable?.status))?.payable?.orderNo || ''
 
 const formReadonly = ref(false)
 
-const openDialogView = (row: PurchaseOrder) => { formReadonly.value = true; currentRow.value = row; isEdit.value = false; editId.value = row.id; dialogVisible.value = true }
-const openDialogEdit = (row?: PurchaseOrder) => { formReadonly.value = false; currentRow.value = row || null; isEdit.value = !!row && row.status !== 'draft'; editId.value = row?.id || 0; dialogVisible.value = true }
+// ── Tab 方式打开单据 ──
+function openTabNew() { tabStore.addTab('purchase-order', '采购单 - 新建', {}) }
+function openTabEdit(row: PurchaseOrder) { tabStore.addTab('purchase-order', '采购单 - ' + row.orderNo, { orderId: row.id, isEdit: true }) }
+function openTabView(row: PurchaseOrder) { tabStore.addTab('purchase-order', '采购单 - ' + row.orderNo, { orderId: row.id, readonly: true }) }
+
+// 从 tab 返回时自动刷新列表
+watch(
+  () => ({ path: route.path, activeTabId: tabStore.activeTabId }),
+  () => { if (route.path === '/dashboard/inventory/purchase-orders' && !tabStore.activeTabId) loadData() }
+)
 
 const flowDialogVisible = ref(false)
 const flowOrder = ref<PurchaseOrder | null>(null)
@@ -417,7 +428,7 @@ async function openReceiveDialog(row: PurchaseOrder) { currentReceiveOrderId.val
 
 async function handleReceive() { const toReceive = receiveItems.value.filter(i => i.receiveQty > 0); if (toReceive.length === 0) { ElMessage.warning('请填写入库数量'); return }; submitting.value = true; try { await purchaseOrderApi.receive(currentReceiveOrderId.value, toReceive.map(i => ({ itemId: i.itemId, receivedQuantity: i.receivedQuantity + i.receiveQty }))); ElMessage.success('入库成功'); receiveDialogVisible.value = false; loadData() } catch (e: any) { ElMessage.error(e.message) } finally { submitting.value = false } }
 
-onMounted(() => { loadData(); loadDrafts(); supplierApi.getList({ page:1, pageSize:1000, status:'active' }).then(r => suppliers.value = r.list).catch(() => {}); materialApi.getList({ page:1, pageSize:1000 }).then(r => materials.value = r.list).catch(() => {}) })
+onMounted(() => { loadData(); loadDrafts() })
 </script>
 
 <style scoped>

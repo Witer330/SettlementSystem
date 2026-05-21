@@ -1,0 +1,116 @@
+/* ── 三区域工作台布局 ── */
+/* 注意：DocHeader/DocDetail/DocFooter 有各自的 scoped 样式。
+   此文件仅提供：整体 grid 布局 + 表格深度样式 + 通用工具类 */
+
+/* 工作台容器：表头 → 明细(1fr,可滚动) → 表尾 */
+.ws-form {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  overflow: hidden;
+  padding-top: 20px;
+  background: var(--bg-canvas, #f6f8fa);
+  box-sizing: border-box;
+}
+
+/* 单据标题 */
+.ws-title {
+  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-text-primary, #061b31);
+  padding: 14px 20px 8px;
+  letter-spacing: 8px;
+  user-select: none;
+}
+
+/* ── 明细区表格（在 DocDetail 的 dd-body 内渲染为 el-table） ── */
+.ws-form .el-table {
+  --el-table-border-color: var(--border-color, #e3e8ee);
+  font-size: 14px;
+  height: auto !important;
+}
+.ws-form .el-table__body-wrapper { height: auto !important; max-height: none !important; min-height: 360px; }
+.ws-form .el-table .el-table__cell { padding: 8px 0; }
+.ws-form .el-table__header-wrapper { position: sticky; top: 0; z-index: 10; background: #f0f2f5; }
+.ws-form .el-table .el-table__header th { padding: 8px 0; font-weight: 500; font-size: 13px; color: var(--color-text-secondary, #425466); background: #f0f2f5; }
+.ws-form .el-table .el-table__body tr:nth-child(even) > td { background: rgba(0,0,0,0.015); }
+.ws-form .el-table .el-table__body tr:hover > td { background: rgba(83,58,253,0.05) !important; }
+
+/* ── 可编辑单元格聚焦高亮 ── */
+.ws-form .el-input.is-focus .el-input__wrapper,
+.ws-form .el-select.is-focus .el-input__wrapper,
+.ws-form .el-input-number.is-focus .el-input__wrapper {
+  box-shadow: 0 0 0 2px var(--color-primary, #533afd);
+}
+.ws-form .el-input-number .el-input__inner:focus,
+.ws-form .el-input.is-focus .el-input__inner { user-select: all; }
+
+/* ── 通用工具类 ── */
+.ws-price-warn { font-size: 12px; color: #e6a23c; margin-left: 4px; white-space: nowrap; }
+.clickable-amount { cursor: pointer; padding: 2px 4px; border-radius: 3px; transition: background-color 0.1s; display: inline-block; }
+.clickable-amount:hover { background-color: var(--el-fill-color-light); }
+
+/* 表头往来单位详情行（slot 内容） */
+.dh-detail-row { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: var(--color-text-secondary, #425466); padding-top: 2px; }
+.dh-detail-row span { white-space: nowrap; }
+
+/* ── 下划线填写式表头字段 ── */
+.dh-row { display: grid; gap: 12px 18px; align-items: center; }
+.dh-row--full { display: flex; }
+.dh-cell { display: flex; align-items: baseline; gap: 4px; min-width: 0; }
+.dh-cell .dh-label { font-size: 13px; color: var(--color-text-secondary, #425466); flex-shrink: 0; }
+.dh-cell .dh-line {
+  display: inline-block;
+  min-width: 80px;
+  border-bottom: 1px solid var(--border-color, #c0c4cc);
+  padding: 0 4px 2px;
+  font-size: 14px;
+  color: var(--color-text-primary, #061b31);
+  line-height: 1.6;
+}
+.dh-cell .dh-line--lg { min-width: 120px; }
+.dh-cell .dh-line--xl { min-width: 160px; }
+.dh-cell .dh-line--fill { flex: 1; min-width: 200px; }
+
+/* ── 统一的下划线控件样式：el-input / el-select / el-date-picker / el-input-number ── */
+.dh-cell .el-input__wrapper {
+  box-shadow: none !important;
+  border: none !important;
+  border-bottom: 1px solid var(--border-color, #c0c4cc) !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  padding: 0 4px 2px !important;
+}
+.dh-cell .el-input__wrapper:hover {
+  border-bottom-color: var(--color-primary, #533afd) !important;
+}
+.dh-cell .el-input.is-focus .el-input__wrapper,
+.dh-cell .el-select.is-focus .el-input__wrapper,
+.dh-cell .el-input-number.is-focus .el-input__wrapper {
+  border-bottom-color: var(--color-primary, #533afd) !important;
+  box-shadow: none !important;
+}
+/* 下拉框额外：内部 input 透明 + 后缀箭头颜色跟随 */
+.dh-cell .el-select .el-input__inner {
+  background: transparent !important;
+  color: var(--color-text-primary, #303133);
+}
+.dh-cell .el-select .el-select__caret {
+  color: var(--color-text-muted, #8898aa) !important;
+  font-size: 12px;
+}
+/* el-input / el-select / el-date-picker / el-input-number 宽度撑满 */
+.dh-cell .el-input,
+.dh-cell .el-select,
+.dh-cell .el-input-number {
+  width: 100% !important;
+}
+.dh-cell .el-date-editor {
+  width: 100% !important;
+}
+.dh-cell .el-checkbox { margin-right: 0; flex-shrink: 0; }
+
+/* 客户选择不设固定宽，由网格控制 */
+.dh-cell--partner .el-select { width: 100% !important; }

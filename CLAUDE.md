@@ -14,6 +14,21 @@ SettlementSystem is a small industrial/trade enterprise settlement management sy
 - **Validation**: Zod (available but not yet used in controllers)
 - **Language**: TypeScript throughout
 
+## Context Gathering Strategy
+
+We use **GitNexus** as a structural map. Choose the context tool wisely based on the task scope to balance precision, token usage, and latency:
+
+### WHEN TO USE STANDARD TOOLS (Skip GitNexus):
+1. **Local Fixes & Implementation Details**: If the task is inside a known file (e.g., bug fixing, writing local unit tests, modifying a function body). Just use standard `view_file` or `grep`.
+2. **Text-Exact Search**: If you are looking for a specific string literal, log message, or unique variable name in the workspace.
+
+### WHEN TO USE GITNEXUS (Mandatory):
+1. **Architectural / High-Level Queries**: When asked "How does the auth flow work?" or "Explain the data pipeline structure."
+2. **Impact / Blast Radius Analysis**: BEFORE changing a core shared utility, database schema, or exported interface. You MUST call `gitnexus_get_callers` or `gitnexus_get_dependencies` to ensure you don't break other modules.
+3. **Cross-Module Tracing**: When tracing how a request flows from the router down to the database layers across multiple files.
+4. **Vague / Semantic Code Search**: When searching for concepts rather than exact text (e.g., "where do we handle token expiration?"), use `gitnexus_search`.
+
+
 ## Development Commands
 
 ### Backend (`backend/`)
@@ -108,6 +123,7 @@ Strict line limits enforced to keep code maintainable and agent-friendly:
 3. For Rust, split into separate modules under `src-tauri/src/`
 4. For backend controllers, extract shared helpers to `backend/src/services/`
 
+
 **Refactoring checklist:**
 - [ ] Can the `<script>` logic be extracted to a composable?
 - [ ] Can any `<el-dialog>` be extracted to its own component?
@@ -127,3 +143,47 @@ Use the `/simplify` skill to auto-review and refactor oversized files.
 5. **错误提示**：`ElMessage` / `ElMessageBox` 的文本均为中文
 6. **注释和变量名**：代码注释用中文，变量名/函数名保持英文（TypeScript 规范）
 7. **新增页面/组件**：从创建之初就使用中文，不要先写英文再翻译
+
+<!-- gitnexus:start -->
+# GitNexus — Code Intelligence
+
+This project is indexed by GitNexus as **SettlementSystem** (3428 symbols, 4735 relationships, 44 execution flows). Use the GitNexus MCP tools to understand code, assess impact, and navigate safely.
+
+> If any GitNexus tool warns the index is stale, run `npx gitnexus analyze` in terminal first.
+
+## Always Do
+
+- **MUST run impact analysis before editing any symbol.** Before modifying a function, class, or method, run `gitnexus_impact({target: "symbolName", direction: "upstream"})` and report the blast radius (direct callers, affected processes, risk level) to the user.
+- **MUST run `gitnexus_detect_changes()` before committing** to verify your changes only affect expected symbols and execution flows.
+- **MUST warn the user** if impact analysis returns HIGH or CRITICAL risk before proceeding with edits.
+- When exploring unfamiliar code, use `gitnexus_query({query: "concept"})` to find execution flows instead of grepping. It returns process-grouped results ranked by relevance.
+- When you need full context on a specific symbol — callers, callees, which execution flows it participates in — use `gitnexus_context({name: "symbolName"})`.
+
+## Never Do
+
+- NEVER edit a function, class, or method without first running `gitnexus_impact` on it.
+- NEVER ignore HIGH or CRITICAL risk warnings from impact analysis.
+- NEVER rename symbols with find-and-replace — use `gitnexus_rename` which understands the call graph.
+- NEVER commit changes without running `gitnexus_detect_changes()` to check affected scope.
+
+## Resources
+
+| Resource | Use for |
+|----------|---------|
+| `gitnexus://repo/SettlementSystem/context` | Codebase overview, check index freshness |
+| `gitnexus://repo/SettlementSystem/clusters` | All functional areas |
+| `gitnexus://repo/SettlementSystem/processes` | All execution flows |
+| `gitnexus://repo/SettlementSystem/process/{name}` | Step-by-step execution trace |
+
+## CLI
+
+| Task | Read this skill file |
+|------|---------------------|
+| Understand architecture / "How does X work?" | `.claude/skills/gitnexus/gitnexus-exploring/SKILL.md` |
+| Blast radius / "What breaks if I change X?" | `.claude/skills/gitnexus/gitnexus-impact-analysis/SKILL.md` |
+| Trace bugs / "Why is X failing?" | `.claude/skills/gitnexus/gitnexus-debugging/SKILL.md` |
+| Rename / extract / split / refactor | `.claude/skills/gitnexus/gitnexus-refactoring/SKILL.md` |
+| Tools, resources, schema reference | `.claude/skills/gitnexus/gitnexus-guide/SKILL.md` |
+| Index, status, clean, wiki CLI commands | `.claude/skills/gitnexus/gitnexus-cli/SKILL.md` |
+
+<!-- gitnexus:end -->

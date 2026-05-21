@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 5173",
+    "dev": "vite",
     "build": "vue-tsc --noEmit && vite build",
     "preview": "vite preview"
   },
@@ -25,6 +25,7 @@
     "vue": "^3.5.0",
     "vue-echarts": "^8.0.1",
     "vue-router": "^5.0.4",
+    "vuedraggable": "^4.1.0",
     "vxe-pc-ui": "^4.14.12",
     "vxe-table": "^4.18.13"
   }

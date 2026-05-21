@@ -59,7 +59,12 @@ export const getPurchaseOrder = async (req: Request, res: Response) => {
     const id = Number(req.params.id)
     const order = await prisma.purchaseOrder.findUnique({
       where: { id },
-      include: { supplier: true, items: { include: { material: true } } }
+      include: {
+        supplier: true,
+        items: { include: { material: true } },
+        salesOrder: { select: { id: true, orderNo: true, status: true } },
+        payableItems: { include: { payable: { select: { id: true, orderNo: true, status: true } } } }
+      }
     })
     if (!order) {
       res.status(404).json({ code: 404, message: '采购单不存在' })

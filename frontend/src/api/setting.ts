@@ -44,15 +44,20 @@ export const settingApi = {
     return await api.get<Setting[]>('/settings', { params })
   },
 
-  // 获取单个设置（返回解析后的值）
-  async getTyped<T = any>(key: string): Promise<T> {
-    const data = await api.get<{ key: string; value: any }>(`/settings/${key}`)
-    return data.value as T
+  // 获取单个设置（返回解析后的值，不存在则返回 null）
+  async getTyped<T = any>(key: string): Promise<T | null> {
+    try {
+      const data = await api.get<{ key: string; value: any }>(`/settings/${key}`)
+      return data.value as T
+    } catch (e: any) {
+      if (e?.response?.status === 404) return null
+      throw e
+    }
   },
 
   // 更新设置
-  async updateSetting(key: string, value: string, remark?: string): Promise<void> {
-    await api.put(`/settings/${key}`, { value, remark })
+  async updateSetting(key: string, value: string, remark?: string, type?: string): Promise<void> {
+    await api.put(`/settings/${key}`, { value, remark, type })
   },
 
   // 批量更新设置

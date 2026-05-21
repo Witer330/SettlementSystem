@@ -20,6 +20,17 @@ export interface SalesOrder {
   status: string
   remark?: string
   reserveInventory?: boolean
+  orderDate?: string
+  businessType?: string
+  deliveryMethod?: string
+  salesperson?: string
+  deliveryPerson?: string
+  returnDate?: string
+  paymentMethod?: string
+  contactInfo?: string
+  wholeDiscount?: number
+  usePrepayment?: boolean
+  shippingAddress?: string
   items: SalesOrderItem[]
   createdAt: string
   updatedAt: string
@@ -56,7 +67,10 @@ export const salesOrderApi = {
   getDetail: (id: number) =>
     api.get<SalesOrder>(`/sales-orders/${id}`),
 
-  create: (data: { customerId?: number; items?: SalesOrderItem[]; remark?: string; status?: string }) =>
+  create: (data: { customerId?: number; items?: SalesOrderItem[]; remark?: string; status?: string;
+    orderDate?: string; businessType?: string; deliveryMethod?: string; salesperson?: string;
+    deliveryPerson?: string; returnDate?: string; paymentMethod?: string; contactInfo?: string;
+    wholeDiscount?: number; usePrepayment?: boolean; shippingAddress?: string }) =>
     api.post<SalesOrder>('/sales-orders', data),
 
   update: (id: number, data: Partial<SalesOrder>) =>

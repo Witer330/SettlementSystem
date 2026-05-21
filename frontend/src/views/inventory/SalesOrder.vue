@@ -5,7 +5,7 @@
       <div class="page-header-actions">
         <el-button @click="showReport = true"><el-icon><DataAnalysis /></el-icon>查看报表</el-button>
         <el-button @click="router.push('/dashboard/inventory/return-orders')"><el-icon><RefreshLeft /></el-icon>退货管理</el-button>
-        <el-button type="primary" @click="openDialogEdit()"><el-icon><Plus /></el-icon>新增销售单</el-button>
+        <el-button type="primary" @click="openTabNew()"><el-icon><Plus /></el-icon>新增销售单</el-button>
       </div>
     </div>
 
@@ -34,7 +34,7 @@
               <span class="draft-card-meta">{{ d.items?.length || 0 }} 项明细 · <span class="clickable-amount" @click.stop="toggleRowReveal(d.id)">{{ maskAmount(d.totalAmount || 0, { visible: rowRevealed[d.id] }) }}</span> · {{ formatDraftTime(d.updatedAt) }}</span>
             </div>
             <div class="draft-card-actions">
-              <el-button size="small" type="primary" @click="openDialogEdit(d)">继续编辑</el-button>
+              <el-button size="small" type="primary" @click="openTabEdit(d)">继续编辑</el-button>
               <el-button size="small" @click="deleteDraft(d)">删除</el-button>
             </div>
           </div>
@@ -72,7 +72,7 @@
               <el-tooltip :content="`已被应收单 ${getLockedReceivableNo(row)} 锁定`" placement="top">
                 <span style="margin-right:4px"><el-tag type="danger" size="small">锁定</el-tag></span>
               </el-tooltip>
-              <el-button link type="primary" @click="openDialogView(row)">查看</el-button>
+              <el-button link type="primary" @click="openTabView(row)">查看</el-button>
               <el-button v-if="row.status === 'pending'" link type="warning" @click="handleConfirm(row)">确认<el-tooltip placement="top" :content="statusHelp.confirm"><el-icon :size="12" style="margin-left:2px;"><QuestionFilled /></el-icon></el-tooltip></el-button>
               <el-button v-if="row.status === 'confirmed'" link type="success" @click="handleComplete(row)">完成<el-tooltip placement="top" :content="statusHelp.complete"><el-icon :size="12" style="margin-left:2px;"><QuestionFilled /></el-icon></el-tooltip></el-button>
               <el-button v-if="row.status === 'confirmed' || row.status === 'completed'" link type="danger" @click="openReturnDialog(row)">退货</el-button>
@@ -80,7 +80,7 @@
               <el-button link type="info" @click="openFlowDialog(row)"><el-icon style="margin-right:2px"><Connection /></el-icon>流转</el-button>
             </template>
             <template v-else>
-            <el-button link type="primary" @click="openDialogEdit(row)">编辑</el-button>
+            <el-button link type="primary" @click="openTabEdit(row)">编辑</el-button>
             <el-button v-if="row.status === 'pending'" link type="warning" @click="handleConfirm(row)">确认<el-tooltip placement="top" :content="statusHelp.confirm"><el-icon :size="12" style="margin-left:2px;"><QuestionFilled /></el-icon></el-tooltip></el-button>
             <el-button v-if="row.status === 'confirmed'" link type="success" @click="handleComplete(row)">完成<el-tooltip placement="top" :content="statusHelp.complete"><el-icon :size="12" style="margin-left:2px;"><QuestionFilled /></el-icon></el-tooltip></el-button>
             <el-button v-if="row.status === 'confirmed' || row.status === 'completed'" link type="danger" @click="openReturnDialog(row)">退货<el-tooltip placement="top" :content="statusHelp.returned"><el-icon :size="12" style="margin-left:2px;"><QuestionFilled /></el-icon></el-tooltip></el-button>
@@ -145,21 +145,22 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, reactive, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, DataAnalysis, Document, QuestionFilled, RefreshLeft, Connection } from '@element-plus/icons-vue'
 import { salesOrderApi, type SalesOrder } from '@/api/salesOrder'
-import { productApi, type Product } from '@/api/product'
-import { customerApi } from '@/api/customer'
 import { returnOrderApi } from '@/api/returnOrder'
 import ReportDialog from '@/components/ReportDialog.vue'
 import SalesOrderForm from '@/components/SalesOrderForm.vue'
 import { useStatusHelpers } from '@/composables/useStatusHelpers'
 import { useAmountPrivacy } from '@/composables/useAmountPrivacy'
+import { useTabStore } from '@/stores/tabs'
 
 const showReport = ref(false)
 const router = useRouter()
+const route = useRoute()
+const tabStore = useTabStore()
 const loading = ref(false)
 const submitting = ref(false)
 const tableData = ref<SalesOrder[]>([])
@@ -169,7 +170,7 @@ const isEdit = ref(false)
 const editId = ref(0)
 const currentRow = ref<SalesOrder | null>(null)
 const customers = ref<any[]>([])
-const products = ref<Product[]>([])
+const products = ref<any[]>([])
 const queryParams = reactive({ page: 1, pageSize: 20, keyword: '', status: '' })
 const { statusLabel, statusType, statusHelp } = useStatusHelpers()
 const { maskAmount } = useAmountPrivacy()
@@ -205,10 +206,17 @@ const handleConfirm = async (row: SalesOrder) => { await ElMessageBox.confirm(`�
 const handleComplete = async (row: SalesOrder) => { await ElMessageBox.confirm(`确认"${row.orderNo}"全部发货完毕？`, '完成操作', { type: 'success' }); await salesOrderApi.updateStatus(row.id, 'completed'); ElMessage.success('已完成'); loadData() }
 const goRequirements = (row: SalesOrder) => router.push({ path: '/dashboard/inventory/material-requirements', query: { orderId: row.id } })
 
-// ── 表单 ──
+// ── 表单（Tab 方式） ──
 const formReadonly = ref(false)
-const openDialogView = (row: SalesOrder) => { formReadonly.value = true; currentRow.value = row; isEdit.value = false; editId.value = row.id; dialogVisible.value = true }
-const openDialogEdit = (row?: SalesOrder) => { formReadonly.value = false; currentRow.value = row || null; isEdit.value = !!row && row.status !== 'draft'; editId.value = row?.id || 0; dialogVisible.value = true }
+function openTabNew() { tabStore.addTab('sales-order', '销货单 - 新建', {}) }
+function openTabEdit(row: SalesOrder) { tabStore.addTab('sales-order', '销货单 - ' + row.orderNo, { orderId: row.id, isEdit: true }) }
+function openTabView(row: SalesOrder) { tabStore.addTab('sales-order', '销货单 - ' + row.orderNo, { orderId: row.id, readonly: true }) }
+
+watch(
+  () => ({ path: route.path, activeTabId: tabStore.activeTabId }),
+  () => { if (route.path === '/dashboard/inventory/sales-orders' && !tabStore.activeTabId) loadData() }
+)
+
 function onFormSuccess() { formReadonly.value = false; loadData(); loadDrafts() }
 
 // ── 退货 ──
@@ -230,7 +238,7 @@ const flowOrder = ref<SalesOrder | null>(null)
 const openFlowDialog = (row: SalesOrder) => { flowOrder.value = row; flowDialogVisible.value = true }
 const goToReceivableFromFlow = (id: number) => { if (id) { flowDialogVisible.value = false; router.push(`/dashboard/finance/receivables`) } }
 
-onMounted(async () => { loadData(); loadDrafts(); try { products.value = (await productApi.getList({ page:1, pageSize:1000 })).list } catch {}; try { customers.value = ((await customerApi.getList({ page:1, pageSize:1000 })) as any).list || [] } catch {} })
+onMounted(async () => { loadData(); loadDrafts() })
 </script>
 
 <style scoped>

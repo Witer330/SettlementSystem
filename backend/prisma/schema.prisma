@@ -357,6 +357,17 @@ model SalesOrder {
   status           String   @default("pending")
   remark           String?
   reserveInventory Boolean  @default(true)
+  orderDate        DateTime?
+  businessType     String?
+  deliveryMethod   String?
+  salesperson      String?
+  deliveryPerson   String?
+  returnDate       DateTime?
+  paymentMethod    String?
+  contactInfo      String?
+  wholeDiscount    Float    @default(100)
+  usePrepayment    Boolean  @default(false)
+  shippingAddress  String?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
