@@ -59,12 +59,10 @@
         partner-label="供应商"
         :partners="suppliers"
         :remark="form.remark"
-        :reserve-inventory="form.reserveInventory"
         :upstream-doc="upstreamOrder"
         default-title="新采购单"
         @update:partner-id="form.supplierId = $event"
         @update:remark="form.remark = $event"
-        @update:reserve-inventory="form.reserveInventory = $event"
         @partner-change="onPartnerChange"
         @open-upstream="(id) => emit('toolbarAction', 'open-order:' + id)"
       >
@@ -104,7 +102,7 @@
           </div>
         </template>
         <template #actions>
-          <DocToolbar v-if="orderId && !readonly" order-type="purchase-order" :status="orderStatus" :order-id="orderId" :is-locked="orderIsLocked" :readonly="readonly" mode="flat" @action="(key) => emit('toolbarAction', key)" />
+          <DocToolbar v-if="orderId && !readonly" order-type="purchase-order" :status="orderStatus" :order-id="orderId" :is-locked="orderIsLocked" :readonly="readonly" mode="flat" @action="handleToolbarAction" />
         </template>
       </DocHeader>
 
@@ -120,6 +118,7 @@
         :locked="orderIsLocked"
         @add-row="addItemRow"
         @remove-row="removeItem"
+        @batch-remove="batchRemoveItems"
       >
         <template #priceTag="{ row: r }">
           <span v-if="r.materialId > 0 && r.price === 0" class="ws-price-warn">待定价</span>
@@ -143,7 +142,6 @@
         </template>
         <template #actions>
           <el-button link size="small" @click="handleCancel">取消</el-button>
-          <el-button size="small" @click="addItemRow">+ 添加行</el-button>
           <el-button size="small" @click="batchSelectMaterials">批量</el-button>
           <el-button size="small" :loading="draft.isSaving.value" @click="handleSaveDraft">草稿</el-button>
           <el-button size="small" type="primary" :loading="submitting" @click="handleSubmit">提交</el-button>
@@ -207,7 +205,7 @@ const hasRelatedDocs = computed(() => upstreamOrder.value !== null || downstream
 const suppliers = ref<any[]>(props.suppliers || [])
 const materials = ref<any[]>(props.materials || [])
 const selSupplier = computed(() => suppliers.value.find((s: any) => s.id === form.supplierId) || null)
-const form = reactive({ supplierId: 0, remark: '', reserveInventory: true, items: [] as Array<{ materialId: number; quantity: number; price: number }> })
+const form = reactive({ supplierId: 0, remark: '', reserveInventory: true, items: [] as Array<{ materialId: number; quantity: number; price: number; _fresh?: boolean }> })
 const rules: FormRules = { supplierId: [{ required: true, message: '请选择供应商', trigger: 'change' }] }
 const totalAmount = computed(() => form.items.reduce((s: number, i: any) => s + i.quantity * i.price, 0))
 const draft = useDraftAutoSave(purchaseOrderApi as any, form as any, 'supplierId', 'materialId')
@@ -236,6 +234,21 @@ function onPartnerChange() {
     .then(() => { form.items = [{ materialId: 0, quantity: 1, price: 0 }] })
     .catch(() => {})
 }
+async function handleToolbarAction(key: string) {
+  if (key === 'delete' && orderId.value) {
+    try { await ElMessageBox.confirm('确定删除该单据？删除后无法恢复。', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }) }
+    catch { return }
+    try {
+      await purchaseOrderApi.delete(orderId.value)
+      ElMessage.success('已删除')
+      draft.stopAutoSave()
+      emit('cancel')
+    } catch (e: any) { ElMessage.error(e.message || '删除失败') }
+    return
+  }
+  emit('toolbarAction', key)
+}
+
 function onWsKeydown(e: KeyboardEvent) {
   if (e.ctrlKey && e.key === 's') { e.preventDefault(); handleSaveDraft() }
   else if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); handleSubmit() }
@@ -273,8 +286,21 @@ watch(() => props.modelValue, (val) => { if (!props.inline && val) initDialogFor
 onMounted(() => { if (props.inline) { loadRefData(); loadOrderDetail().then(() => { if (!props.editId) draft.initAutoSave(null) }) } })
 watch(() => ({ s: form.supplierId, r: form.remark, len: form.items.length }), () => { if (props.inline) emit('dirty', form.supplierId > 0 || form.remark.trim() !== '' || form.items.some((i: any) => i.materialId > 0)) }, { deep: true, immediate: false })
 function onClosed() { draft.stopAutoSave(); if (draft.draftId.value && !draft.hasMeaningfulContent()) draft.discardDraft() }
-function addItemRow() { form.items.push({ materialId: 0, quantity: 1, price: 0 }) }
-async function removeItem(row: any) { try { await ElMessageBox.confirm('确定删除该行明细？', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }) } catch { return }; const i = form.items.indexOf(row); if (i >= 0) form.items.splice(i, 1) }
+function addItemRow() { form.items.push({ materialId: 0, quantity: 1, price: 0, _fresh: true }) }
+async function removeItem(row: any) {
+  if (!row._fresh) {
+    try { await ElMessageBox.confirm('确定删除该行明细？', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }) } catch { return }
+  }
+  const i = form.items.indexOf(row); if (i >= 0) form.items.splice(i, 1)
+}
+
+function batchRemoveItems(rows: any[]) {
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const idx = form.items.indexOf(rows[i])
+    if (idx >= 0) form.items.splice(idx, 1)
+  }
+  if (form.items.length === 0) addItemRow()
+}
 async function handleSaveDraft() { try { await draft.saveAsDraft(); ElMessage.success('草稿已保存'); if (!props.inline) visible.value = false } catch (e: any) { ElMessage.error(e.message) } }
 async function handleSubmit() {
   await formRef.value?.validate()

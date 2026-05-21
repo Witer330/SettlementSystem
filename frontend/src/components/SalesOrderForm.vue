@@ -62,11 +62,9 @@
         partner-label="客户"
         :partners="customers"
         :remark="form.remark"
-        :reserve-inventory="form.reserveInventory"
         default-title="新销货单"
         @update:partner-id="form.customerId = $event"
         @update:remark="form.remark = $event"
-        @update:reserve-inventory="form.reserveInventory = $event"
         @partner-change="onPartnerChange"
       >
         <template #fields>
@@ -128,7 +126,7 @@
         </template>
 
         <template #actions>
-          <DocToolbar v-if="orderId && !readonly" order-type="sales-order" :status="orderStatus" :order-id="orderId" :is-locked="orderIsLocked" :readonly="readonly" mode="flat" @action="(key) => emit('toolbarAction', key)" />
+          <DocToolbar v-if="orderId && !readonly" order-type="sales-order" :status="orderStatus" :order-id="orderId" :is-locked="orderIsLocked" :readonly="readonly" mode="flat" @action="(key) => handleToolbarAction(key)" />
           <el-button v-if="!readonly" size="small" :icon="Setting" @click="configDrawerVisible = true" title="表头字段配置" />
         </template>
       </DocHeader>
@@ -145,6 +143,7 @@
         :locked="orderIsLocked"
         @add-row="addItemRow"
         @remove-row="removeItem"
+        @batch-remove="batchRemoveItems"
         @item-select="(v, r) => onProductChange(v, r)"
       >
         <template #priceTag="{ row: r }">
@@ -161,6 +160,18 @@
         :show-actions="!readonly"
         @stat-click="onStatClick"
       >
+        <template #info>
+          <span class="df-info-label">备注</span>
+          <el-input v-model="form.remark" placeholder="" size="small" :disabled="readonly || orderIsLocked" clearable style="width:200px" />
+          <span class="df-info-label">客户备注</span>
+          <el-input v-model="form.customerRemark" placeholder="" size="small" :disabled="readonly || orderIsLocked" clearable style="width:200px" />
+          <span class="df-info-label">制单人</span>
+          <el-input :model-value="form.creator" disabled size="small" style="width:100px" />
+          <span class="df-info-label">制单日期</span>
+          <span class="df-info-value">{{ orderCreatedAt || '—' }}</span>
+          <span class="df-info-label">最近修改</span>
+          <span class="df-info-value">{{ orderUpdatedAt || '—' }}</span>
+        </template>
         <template #statsExtra>
           <template v-if="downstreamDocs.length > 0">
             <span class="df-related-label">关联</span>
@@ -169,7 +180,6 @@
         </template>
         <template #actions>
           <el-button link size="small" @click="handleCancel">取消</el-button>
-          <el-button size="small" @click="addItemRow">+ 添加行</el-button>
           <el-button size="small" @click="batchSelectProducts">批量</el-button>
           <el-button size="small" :loading="draft.isSaving.value" @click="handleSaveDraft">草稿</el-button>
           <el-button size="small" type="primary" :loading="submitting" @click="handleSubmit">提交</el-button>
@@ -190,6 +200,15 @@
 
     <!-- 表头字段配置抽屉 -->
     <HeaderFieldConfig v-model="configDrawerVisible" :fields="headerFields" @save="saveHeaderConfig" @reset="resetHeaderFields" />
+
+    <!-- 草稿保存确认弹窗 -->
+    <el-dialog v-model="draftSaveVisible" title="保存草稿" width="380px" :append-to-body="true">
+      <el-checkbox v-model="draftReserveInventory" :disabled="readonly">占用库存（占用后其他单据将无法使用此库存）</el-checkbox>
+      <template #footer>
+        <el-button @click="draftSaveVisible = false">取消操作</el-button>
+        <el-button type="primary" :loading="draft.isSaving.value" @click="doSaveDraft">确认保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -208,6 +227,7 @@ import { customerApi } from '@/api/customer'
 import { useDraftAutoSave } from '@/composables/useDraftAutoSave'
 import { useAmountPrivacy, useReveal } from '@/composables/useAmountPrivacy'
 import { useHeaderFields, type HeaderFieldDef } from '@/composables/useHeaderFields'
+import { useUserStore } from '@/stores/user'
 
 const props = defineProps<{
   modelValue?: boolean; isEdit: boolean; editId: number; row?: SalesOrder | null
@@ -229,17 +249,18 @@ const orderId = ref(0)
 const orderStatus = ref('draft')
 const orderIsLocked = ref(false)
 const orderCreatedAt = ref('')
+const orderUpdatedAt = ref('')
 const downstreamDocs = ref<Array<{ id: number; orderNo: string; docType: string; status: string; statusLabel: string }>>([])
 const inlineLoading = ref(false)
 const customers = ref<any[]>(props.customers || [])
 const products = ref<any[]>(props.products || [])
 const selCustomer = computed(() => customers.value.find((c: any) => c.id === form.customerId) || null)
 const form = reactive({
-  customerId: 0, remark: '', reserveInventory: true,
+  customerId: 0, remark: '', customerRemark: '', reserveInventory: true,
   orderDate: '', businessType: '', deliveryMethod: '', salesperson: '',
   deliveryPerson: '', returnDate: '', paymentMethod: '', contactInfo: '',
-  wholeDiscount: 100, usePrepayment: false, shippingAddress: '',
-  items: [] as Array<{ productId: number; quantity: number; price: number }>
+  wholeDiscount: 100, usePrepayment: false, shippingAddress: '', creator: '',
+  items: [] as Array<{ productId: number; quantity: number; price: number; _fresh?: boolean }>
 })
 const rules: FormRules = { customerId: [{ required: true, message: '请选择客户', trigger: 'change' }] }
 const totalAmount = computed(() => form.items.reduce((s: number, i: any) => s + i.quantity * i.price, 0))
@@ -248,6 +269,8 @@ const { maskAmount } = useAmountPrivacy()
 const docReveal = useReveal()
 const { fields: headerFields, fieldGroups, loadConfig: loadHeaderConfig, saveConfig: saveHeaderConfig, resetToDefault: resetHeaderFields } = useHeaderFields()
 const configDrawerVisible = ref(false)
+const draftSaveVisible = ref(false)
+const draftReserveInventory = ref(true)
 
 function fieldValue(field: HeaderFieldDef): string {
   if (field.key === 'orderNo') return orderNo.value || '—'
@@ -279,6 +302,21 @@ function onPartnerChange() {
     .then(() => { form.items = [{ productId: 0, quantity: 1, price: 0 }] })
     .catch(() => {})
 }
+async function handleToolbarAction(key: string) {
+  if (key === 'delete' && orderId.value) {
+    try { await ElMessageBox.confirm('确定删除该单据？删除后无法恢复。', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }) }
+    catch { return }
+    try {
+      await salesOrderApi.delete(orderId.value)
+      ElMessage.success('已删除')
+      draft.stopAutoSave()
+      emit('cancel')
+    } catch (e: any) { ElMessage.error(e.message || '删除失败') }
+    return
+  }
+  emit('toolbarAction', key)
+}
+
 function onWsKeydown(e: KeyboardEvent) {
   if (e.ctrlKey && e.key === 's') { e.preventDefault(); handleSaveDraft() }
   else if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); handleSubmit() }
@@ -295,7 +333,7 @@ async function loadOrderDetail() {
   try {
     const detail = await salesOrderApi.getDetail(props.editId)
     form.customerId = detail.customerId || 0; form.remark = detail.remark || ''
-    form.reserveInventory = detail.reserveInventory !== undefined ? detail.reserveInventory : true
+    form.reserveInventory = detail.status === 'draft' ? (detail.reserveInventory ?? true) : true
     form.orderDate = detail.orderDate ? detail.orderDate.slice(0, 10) : ''
     form.businessType = detail.businessType || ''
     form.deliveryMethod = detail.deliveryMethod || ''
@@ -307,9 +345,12 @@ async function loadOrderDetail() {
     form.wholeDiscount = detail.wholeDiscount ?? 100
     form.usePrepayment = detail.usePrepayment ?? false
     form.shippingAddress = detail.shippingAddress || ''
+    form.customerRemark = detail.customerRemark || ''
+    form.creator = detail.creator || detail.createdBy || ''
     form.items = detail.items?.map((i: any) => ({ productId: i.productId, quantity: i.quantity, price: i.price })) || [{ productId: 0, quantity: 1, price: 0 }]
     orderNo.value = detail.orderNo || ''; orderId.value = detail.id || 0; orderStatus.value = detail.status || 'draft'
     orderCreatedAt.value = detail.createdAt ? new Date(detail.createdAt).toLocaleDateString('zh-CN') : ''
+    orderUpdatedAt.value = detail.updatedAt ? new Date(detail.updatedAt).toLocaleDateString('zh-CN') : ''
     orderIsLocked.value = (detail as any).receivableItems?.some((ri: any) => ['pending', 'approved'].includes(ri.receivable?.status)) || false
     const docs: typeof downstreamDocs.value = []
     ;((detail as any).receivableItems || []).filter((ri: any) => ri.receivable).forEach((ri: any) => docs.push({ id: ri.receivable.id, orderNo: ri.receivable.orderNo, docType: 'receivable', status: ri.receivable.status, statusLabel: ri.receivable.status === 'approved' ? '已审核' : '待审核' }))
@@ -324,17 +365,39 @@ async function loadOrderDetail() {
 function initDialogForm() {
   form.customerId = props.row?.customerId || 0; form.remark = props.row?.remark || ''
   form.reserveInventory = props.row?.reserveInventory !== undefined ? props.row.reserveInventory : true
+  form.creator = props.row?.creator || useUserStore().userInfo?.name || ''
   form.items = props.row?.items?.map((i: any) => ({ productId: i.productId, quantity: i.quantity, price: i.price })) || [{ productId: 0, quantity: 1, price: 0 }]
   if (props.row?.status === 'draft' || !props.row) draft.initAutoSave(props.row || null); else draft.stopAutoSave()
 }
 watch(() => props.modelValue, (val) => { if (!props.inline && val) initDialogForm() })
-onMounted(() => { if (props.inline) { loadRefData(); loadHeaderConfig(); loadOrderDetail().then(() => { if (!props.editId) draft.initAutoSave(null) }) } })
+onMounted(() => { if (props.inline) { form.creator = useUserStore().userInfo?.name || ''; loadRefData(); loadHeaderConfig(); loadOrderDetail().then(() => { if (!props.editId) { if (form.items.length === 0) form.items.push({ productId: 0, quantity: 1, price: 0 }); draft.initAutoSave(null) } }) } })
 watch(() => ({ c: form.customerId, r: form.remark, len: form.items.length, bt: form.businessType, sp: form.salesperson, dp: form.deliveryPerson, sa: form.shippingAddress }), () => { if (props.inline) emit('dirty', form.customerId > 0 || form.remark.trim() !== '' || form.items.some((i: any) => i.productId > 0) || form.businessType !== '' || form.salesperson !== '' || form.deliveryPerson !== '' || form.shippingAddress !== '') }, { deep: true, immediate: false })
 function onClosed() { draft.stopAutoSave(); if (draft.draftId.value && !draft.hasMeaningfulContent()) draft.discardDraft() }
-function onProductChange(v: number, row: any) { const p = products.value.find((x: any) => x.id === v); if (p && row.price === 0) row.price = p.price || 0 }
-function addItemRow() { form.items.push({ productId: 0, quantity: 1, price: 0 }) }
-async function removeItem(row: any) { try { await ElMessageBox.confirm('确定删除该行明细？', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }) } catch { return }; const i = form.items.indexOf(row); if (i >= 0) form.items.splice(i, 1) }
-async function handleSaveDraft() { try { await draft.saveAsDraft(); ElMessage.success('草稿已保存'); if (!props.inline) visible.value = false } catch (e: any) { ElMessage.error(e.message) } }
+function onProductChange(v: number, row: any) { row._fresh = false; const p = products.value.find((x: any) => x.id === v); if (p && row.price === 0) row.price = p.price || 0 }
+function addItemRow() { form.items.push({ productId: 0, quantity: 1, price: 0, _fresh: true }) }
+async function removeItem(row: any) {
+  if (!row._fresh) {
+    try { await ElMessageBox.confirm('确定删除该行明细？', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }) } catch { return }
+  }
+  const i = form.items.indexOf(row); if (i >= 0) form.items.splice(i, 1)
+}
+
+function batchRemoveItems(rows: any[]) {
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const idx = form.items.indexOf(rows[i])
+    if (idx >= 0) form.items.splice(idx, 1)
+  }
+  if (form.items.length === 0) addItemRow()
+}
+function handleSaveDraft() {
+  draftReserveInventory.value = true
+  draftSaveVisible.value = true
+}
+async function doSaveDraft() {
+  form.reserveInventory = draftReserveInventory.value
+  draftSaveVisible.value = false
+  try { await draft.saveAsDraft(); ElMessage.success('草稿已保存'); if (!props.inline) visible.value = false } catch (e: any) { ElMessage.error(e.message) }
+}
 const giftLines = () => form.items.map((i: any, idx: number) => ({ ...i, rowNo: idx + 1 })).filter((i: any) => i.productId > 0 && i.price === 0)
 async function handleSubmit() {
   await formRef.value?.validate()
@@ -351,7 +414,7 @@ async function handleSubmit() {
     let resultOrderNo = ''
     if (draft.isDraft.value) { const r = await draft.submitDraft(); resultOrderNo = r?.orderNo || ''; ElMessage.success('创建成功') }
     else if (props.isEdit) { await salesOrderApi.update(props.editId, { ...form } as any); ElMessage.success('更新成功') }
-    else { const r = await salesOrderApi.create({ customerId: form.customerId, items: form.items, remark: form.remark, orderDate: form.orderDate, businessType: form.businessType, deliveryMethod: form.deliveryMethod, salesperson: form.salesperson, deliveryPerson: form.deliveryPerson, returnDate: form.returnDate, paymentMethod: form.paymentMethod, contactInfo: form.contactInfo, wholeDiscount: form.wholeDiscount, usePrepayment: form.usePrepayment, shippingAddress: form.shippingAddress }); resultOrderNo = r?.orderNo || ''; ElMessage.success('创建成功') }
+    else { const r = await salesOrderApi.create({ customerId: form.customerId, items: form.items, remark: form.remark, customerRemark: form.customerRemark, reserveInventory: true, creator: form.creator, orderDate: form.orderDate, businessType: form.businessType, deliveryMethod: form.deliveryMethod, salesperson: form.salesperson, deliveryPerson: form.deliveryPerson, returnDate: form.returnDate, paymentMethod: form.paymentMethod, contactInfo: form.contactInfo, wholeDiscount: form.wholeDiscount, usePrepayment: form.usePrepayment, shippingAddress: form.shippingAddress }); resultOrderNo = r?.orderNo || ''; ElMessage.success('创建成功') }
     if (props.inline) emit('success', resultOrderNo || orderNo.value); else { visible.value = false; emit('success') }
   } catch (e: any) { ElMessage.error(e.message || '操作失败') } finally { submitting.value = false }
 }

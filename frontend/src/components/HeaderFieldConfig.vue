@@ -49,7 +49,7 @@ const localFields = ref<HeaderFieldDef[]>([])
 const saving = ref(false)
 
 watch(() => props.modelValue, (v) => {
-  if (v) localFields.value = structuredClone(props.fields)
+  if (v) localFields.value = JSON.parse(JSON.stringify(props.fields))
 })
 
 async function handleSave() {

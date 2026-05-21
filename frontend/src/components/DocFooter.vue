@@ -11,6 +11,11 @@
       <slot name="statsExtra" />
     </div>
 
+    <!-- 备注信息行 -->
+    <div class="df-info">
+      <slot name="info" />
+    </div>
+
     <!-- 操作行 -->
     <div v-if="showActions" class="df-actions">
       <slot name="actionsLeft" />
@@ -56,5 +61,6 @@ defineEmits<{
 .df-stat--primary .df-stat-value { font-size: 20px; font-weight: 600; }
 .df-spacer { flex: 1; }
 .df-draft-hint { font-size: 12px; color: var(--color-text-muted, #8898aa); }
+.df-info { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 .df-actions { display: flex; align-items: center; gap: 8px; }
 </style>

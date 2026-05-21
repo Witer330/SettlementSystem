@@ -28,6 +28,8 @@ export interface SalesOrder {
   returnDate?: string
   paymentMethod?: string
   contactInfo?: string
+  customerRemark?: string
+  creator?: string
   wholeDiscount?: number
   usePrepayment?: boolean
   shippingAddress?: string

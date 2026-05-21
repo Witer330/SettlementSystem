@@ -25,15 +25,13 @@
   user-select: none;
 }
 
-/* ── 明细区表格（在 DocDetail 的 dd-body 内渲染为 el-table） ── */
+/* ── 明细区表格 ── */
 .ws-form .el-table {
   --el-table-border-color: var(--border-color, #e3e8ee);
   font-size: 14px;
-  height: auto !important;
 }
-.ws-form .el-table__body-wrapper { height: auto !important; max-height: none !important; min-height: 360px; }
+.ws-form .el-table__header-wrapper { background: #f0f2f5; }
 .ws-form .el-table .el-table__cell { padding: 8px 0; }
-.ws-form .el-table__header-wrapper { position: sticky; top: 0; z-index: 10; background: #f0f2f5; }
 .ws-form .el-table .el-table__header th { padding: 8px 0; font-weight: 500; font-size: 13px; color: var(--color-text-secondary, #425466); background: #f0f2f5; }
 .ws-form .el-table .el-table__body tr:nth-child(even) > td { background: rgba(0,0,0,0.015); }
 .ws-form .el-table .el-table__body tr:hover > td { background: rgba(83,58,253,0.05) !important; }
@@ -111,6 +109,10 @@
   width: 100% !important;
 }
 .dh-cell .el-checkbox { margin-right: 0; flex-shrink: 0; }
+
+/* 表尾信息行标签 */
+.df-info-label { font-size: 13px; color: var(--color-text-muted, #8898aa); white-space: nowrap; }
+.df-info-value { font-size: 13px; color: var(--color-text-primary, #061b31); white-space: nowrap; }
 
 /* 客户选择不设固定宽，由网格控制 */
 .dh-cell--partner .el-select { width: 100% !important; }

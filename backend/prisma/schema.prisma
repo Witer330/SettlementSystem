@@ -365,6 +365,8 @@ model SalesOrder {
   returnDate       DateTime?
   paymentMethod    String?
   contactInfo      String?
+  customerRemark   String?
+  creator          String?
   wholeDiscount    Float    @default(100)
   usePrepayment    Boolean  @default(false)
   shippingAddress  String?

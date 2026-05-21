@@ -41,7 +41,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import {
-  Check, Close, Delete, Edit, Connection,
+  Check, Close, Delete, Connection,
   Box, Ticket, Money, Cpu, RefreshLeft
 } from '@element-plus/icons-vue'
 
@@ -79,7 +79,6 @@ const purchaseActions: ToolbarAction[] = [
   { key: 'unconfirm', label: '反确认', icon: Close, type: 'warning', group: 'audit' },
   { key: 'receive', label: '采购入库', icon: Box, type: 'success', group: 'flow' },
   { key: 'create-payable', label: '生成应付单', icon: Money, type: 'primary', group: 'flow' },
-  { key: 'edit', label: '编辑', icon: Edit, type: 'primary', group: 'data' },
   { key: 'delete', label: '删除', icon: Delete, type: 'danger', group: 'data' },
   { key: 'flow-log', label: '流转记录', icon: Connection, type: 'info', group: 'view' }
 ]
@@ -94,7 +93,6 @@ const salesActions: ToolbarAction[] = [
   { key: 'create-production', label: '生成生产工单', icon: Cpu, type: 'primary', group: 'flow' },
   { key: 'create-return', label: '退货', icon: RefreshLeft, type: 'danger', group: 'flow' },
   { key: 'material-requirements', label: '物料需求', icon: Ticket, type: 'success', group: 'flow' },
-  { key: 'edit', label: '编辑', icon: Edit, type: 'primary', group: 'data' },
   { key: 'delete', label: '删除', icon: Delete, type: 'danger', group: 'data' },
   { key: 'flow-log', label: '流转记录', icon: Connection, type: 'info', group: 'view' }
 ]
@@ -102,14 +100,14 @@ const salesActions: ToolbarAction[] = [
 // ── 状态 → 可见按钮映射 ──
 const visibilityMap: Record<string, Record<string, string[]>> = {
   'purchase-order': {
-    draft: ['edit', 'delete', 'flow-log'],
-    pending: ['confirm', 'receive', 'edit', 'delete', 'flow-log'],
+    draft: ['delete', 'flow-log'],
+    pending: ['confirm', 'receive', 'delete', 'flow-log'],
     confirmed: ['unconfirm', 'receive', 'create-payable', 'flow-log'],
     completed: ['receive', 'create-payable', 'flow-log']
   },
   'sales-order': {
-    draft: ['edit', 'delete', 'flow-log'],
-    pending: ['confirm', 'edit', 'delete', 'material-requirements', 'flow-log'],
+    draft: ['delete', 'flow-log'],
+    pending: ['confirm', 'delete', 'material-requirements', 'flow-log'],
     confirmed: ['unconfirm', 'complete', 'create-receivable', 'create-production', 'create-return', 'material-requirements', 'flow-log'],
     completed: ['create-receivable', 'create-return', 'material-requirements', 'flow-log']
   }

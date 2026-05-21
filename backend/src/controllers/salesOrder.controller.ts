@@ -84,7 +84,8 @@ export const createSalesOrder = async (req: Request, res: Response) => {
   try {
     const { customerId, items, remark, status: reqStatus, reserveInventory,
       orderDate, businessType, deliveryMethod, salesperson, deliveryPerson,
-      returnDate, paymentMethod, contactInfo, wholeDiscount, usePrepayment, shippingAddress
+      returnDate, paymentMethod, contactInfo, customerRemark, creator,
+      wholeDiscount, usePrepayment, shippingAddress
     } = req.body
     const isDraft = reqStatus === 'draft'
 
@@ -117,6 +118,8 @@ export const createSalesOrder = async (req: Request, res: Response) => {
         ...(returnDate && { returnDate: new Date(returnDate) }),
         ...(paymentMethod !== undefined && { paymentMethod }),
         ...(contactInfo !== undefined && { contactInfo }),
+        ...(customerRemark !== undefined && { customerRemark }),
+        ...(creator !== undefined && { creator }),
         ...(wholeDiscount !== undefined && { wholeDiscount }),
         ...(usePrepayment !== undefined && { usePrepayment }),
         ...(shippingAddress !== undefined && { shippingAddress }),
@@ -145,7 +148,7 @@ export const updateSalesOrder = async (req: Request, res: Response) => {
     const id = Number(req.params.id)
     const { customerId, items, remark, status, reserveInventory,
       orderDate, businessType, deliveryMethod, salesperson, deliveryPerson,
-      returnDate, paymentMethod, contactInfo, wholeDiscount, usePrepayment, shippingAddress
+      returnDate, paymentMethod, contactInfo, customerRemark, creator, wholeDiscount, usePrepayment, shippingAddress
     } = req.body
 
     const existing = await prisma.salesOrder.findUnique({ where: { id } })
@@ -191,6 +194,8 @@ export const updateSalesOrder = async (req: Request, res: Response) => {
         ...(returnDate !== undefined && { returnDate: returnDate ? new Date(returnDate) : null }),
         ...(paymentMethod !== undefined && { paymentMethod }),
         ...(contactInfo !== undefined && { contactInfo }),
+        ...(customerRemark !== undefined && { customerRemark }),
+        ...(creator !== undefined && { creator }),
         ...(wholeDiscount !== undefined && { wholeDiscount }),
         ...(usePrepayment !== undefined && { usePrepayment }),
         ...(shippingAddress !== undefined && { shippingAddress }),

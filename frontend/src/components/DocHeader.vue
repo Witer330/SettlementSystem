@@ -9,18 +9,16 @@
       <slot name="actions" />
     </div>
 
-    <!-- 行2：表头字段区（下划线填写风格） -->
+    <!-- 行2：功能栏 -->
+    <div v-if="$slots.toolbar" class="dh-toolbar">
+      <slot name="toolbar" />
+    </div>
+
+    <!-- 行3：表头字段区（下划线填写风格） -->
     <div class="dh-fields">
       <slot name="fields" />
     </div>
 
-    <!-- 行3：备注 -->
-    <div class="dh-remark">
-      <span class="dh-label">备注</span>
-      <el-input :model-value="remark" @update:model-value="$emit('update:remark', $event)" placeholder="可选" size="small" style="flex:1" :disabled="readonly || locked" clearable />
-      <el-checkbox :model-value="reserveInventory" @update:model-value="$emit('update:reserveInventory', $event)" :disabled="readonly || locked">占用库存</el-checkbox>
-      <slot name="remarkExtra" />
-    </div>
   </div>
 </template>
 
@@ -36,7 +34,6 @@ defineProps<{
   partnerLabel: string
   partners: any[]
   remark: string
-  reserveInventory: boolean
   upstreamDoc?: { id: number; orderNo: string } | null
   defaultTitle?: string
 }>()
@@ -44,7 +41,6 @@ defineProps<{
 defineEmits<{
   'update:partnerId': [v: number]
   'update:remark': [v: string]
-  'update:reserveInventory': [v: boolean]
   partnerChange: []
   openUpstream: [id: number]
 }>()
@@ -70,6 +66,9 @@ const statusLabel = (s: string) => ({ draft: '草稿', pending: '待确认', con
 .dh-status--confirmed { background: rgba(83,58,253,0.08); color: #533afd; }
 .dh-status--completed { background: rgba(21,190,83,0.12); color: #108c3d; }
 .dh-no { font-family: 'SF Mono','JetBrains Mono',monospace; font-size: 15px; color: #273951; }
+
+/* 功能栏 */
+.dh-toolbar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 
 /* 字段区容器 */
 .dh-fields { display: flex; flex-direction: column; gap: 10px; }

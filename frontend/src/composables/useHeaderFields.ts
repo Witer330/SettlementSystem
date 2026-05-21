@@ -61,10 +61,10 @@ export function useHeaderFields() {
       if (data && Array.isArray(data) && data.length > 0) {
         fields.value = data
       } else {
-        fields.value = structuredClone(SALES_ORDER_DEFAULTS)
+        fields.value = JSON.parse(JSON.stringify(SALES_ORDER_DEFAULTS))
       }
     } catch {
-      fields.value = structuredClone(SALES_ORDER_DEFAULTS)
+      fields.value = JSON.parse(JSON.stringify(SALES_ORDER_DEFAULTS))
     } finally {
       loading.value = false
     }
@@ -81,7 +81,7 @@ export function useHeaderFields() {
   }
 
   function resetToDefault() {
-    fields.value = structuredClone(SALES_ORDER_DEFAULTS)
+    fields.value = JSON.parse(JSON.stringify(SALES_ORDER_DEFAULTS))
   }
 
   return { fields, fieldGroups, loading, loadConfig, saveConfig, resetToDefault }
