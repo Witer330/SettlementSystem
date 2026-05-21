@@ -10,9 +10,7 @@
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="供应商" prop="supplierId">
-          <el-select v-model="form.supplierId" placeholder="请选择供应商" filterable style="width:100%" :disabled="readonly">
-            <el-option v-for="s in suppliers" :key="s.id" :label="s.name" :value="s.id" />
-          </el-select>
+          <PartnerSelect v-model="form.supplierId" role="supplier" placeholder="请选择供应商" :disabled="readonly" @change="onPartnerSelected" />
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="form.remark" placeholder="可选" :disabled="readonly" />
@@ -85,9 +83,7 @@
             </div>
             <div class="dh-cell dh-cell--partner">
               <span class="dh-label">供应商</span>
-              <el-select :model-value="form.supplierId" @update:model-value="form.supplierId = $event" placeholder="选择供应商" filterable size="small" :disabled="readonly || orderIsLocked" @change="onPartnerChange">
-                <el-option v-for="s in suppliers" :key="s.id" :label="s.name" :value="s.id" />
-              </el-select>
+              <PartnerSelect v-model="form.supplierId" role="supplier" placeholder="选择供应商" size="small" :disabled="readonly || orderIsLocked" @change="onPartnerChangeFromSelect" />
             </div>
           </div>
           <div v-if="upstreamOrder" class="dh-row">
@@ -166,7 +162,8 @@ import DocHeader from './DocHeader.vue'
 import DocDetail from './DocDetail.vue'
 import DocFooter, { type FooterStat } from './DocFooter.vue'
 import { purchaseOrderApi, type PurchaseOrder } from '@/api/purchaseOrder'
-import { supplierApi } from '@/api/supplier'
+import { partnerApi, type Partner } from '@/api/partner'
+import PartnerSelect from './PartnerSelect.vue'
 import { materialApi } from '@/api/material'
 import { useDraftAutoSave } from '@/composables/useDraftAutoSave'
 import { useAmountPrivacy, useReveal } from '@/composables/useAmountPrivacy'
@@ -200,7 +197,7 @@ const receivedTotal = computed(() => form.items.reduce((s: number, i: any) => s 
 const hasRelatedDocs = computed(() => upstreamOrder.value !== null || downstreamDocs.value.length > 0)
 const suppliers = ref<any[]>(props.suppliers || [])
 const materials = ref<any[]>(props.materials || [])
-const selSupplier = computed(() => suppliers.value.find((s: any) => s.id === form.supplierId) || null)
+const selSupplier = ref<Partner | null>(null)
 const form = reactive({ supplierId: 0, remark: '', reserveInventory: true, items: [] as Array<{ materialId: number; quantity: number; price: number; _fresh?: boolean }> })
 const rules: FormRules = { supplierId: [{ required: true, message: '请选择供应商', trigger: 'change' }] }
 const totalAmount = computed(() => form.items.reduce((s: number, i: any) => s + i.quantity * i.price, 0))
@@ -223,12 +220,20 @@ const draftHint = computed(() => {
 })
 
 function onStatClick(label: string) { if (label === '合计') docReveal.toggle() }
-function onPartnerChange() {
+function onPartnerSelected(partner: Partner | null) {
+  selSupplier.value = partner
+}
+function onPartnerChangeFromSelect(partner: Partner | null) {
+  selSupplier.value = partner
   const hasData = form.items.some((i: any) => i.materialId > 0)
   if (!hasData) return
   ElMessageBox.confirm('切换供应商将清空已有明细，是否继续？', '确认切换', { type: 'warning' })
     .then(() => { form.items = [{ materialId: 0, quantity: 1, price: 0 }] })
     .catch(() => {})
+}
+function onPartnerChange() {
+  if (!form.supplierId) { selSupplier.value = null; return }
+  partnerApi.getDetail(form.supplierId).then(p => { selSupplier.value = p }).catch(() => {})
 }
 async function handleToolbarAction(key: string) {
   if (key === 'new') { emit('cancel'); return }
@@ -256,7 +261,7 @@ function onWsKeydown(e: KeyboardEvent) {
 
 async function loadRefData() {
   if (!props.inline) return
-  try { const [s, m] = await Promise.all([supplierApi.getList({ page: 1, pageSize: 1000, status: 'active' }), materialApi.getList({ page: 1, pageSize: 1000 })]); suppliers.value = s.list; materials.value = m.list } catch { /* 忽略 */ }
+  try { const m = await materialApi.getList({ page: 1, pageSize: 1000 }); materials.value = m.list } catch { /* 忽略 */ }
 }
 async function loadOrderDetail() {
   if (!props.inline || !props.editId) return

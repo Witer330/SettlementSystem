@@ -47,7 +47,7 @@
       <el-table v-loading="loading" :data="tableData" stripe>
         <el-table-column prop="orderNo" label="单号" width="180" />
         <el-table-column label="客户" min-width="120">
-          <template #default="{ row }">{{ row.customer?.name || '' }}</template>
+          <template #default="{ row }">{{ row.partner?.name || '' }}</template>
         </el-table-column>
         <el-table-column label="总金额" width="130">
           <template #default="{ row }">
@@ -124,7 +124,7 @@
                 <template #default="{ row }">{{ row.salesOrder?.orderNo }}</template>
               </el-table-column>
               <el-table-column label="客户" min-width="120">
-                <template #default="{ row }">{{ row.salesOrder?.customer?.name }}</template>
+                <template #default="{ row }">{{ row.salesOrder?.partner?.name }}</template>
               </el-table-column>
               <el-table-column label="金额" width="130">
                 <template #default="{ row }">
@@ -174,7 +174,7 @@
         <el-table-column type="selection" width="50" />
         <el-table-column label="单号" width="180" prop="orderNo" />
         <el-table-column label="客户" min-width="120">
-          <template #default="{ row }">{{ row.customer?.name }}</template>
+          <template #default="{ row }">{{ row.partner?.name }}</template>
         </el-table-column>
         <el-table-column label="金额" width="130">
           <template #default="{ row }">{{ maskAmount(row.totalAmount, { visible: revealed[row.id] }) }}</template>
@@ -201,7 +201,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { receivableApi, type Receivable } from '@/api/receivable'
-import { customerApi, type Customer } from '@/api/customer'
+import { partnerApi, type Partner } from '@/api/partner'
 import type { SalesOrder } from '@/api/salesOrder'
 import { useStatusHelpers } from '@/composables/useStatusHelpers'
 import { useAmountPrivacy } from '@/composables/useAmountPrivacy'
@@ -210,7 +210,7 @@ const loading = ref(false); const submitting = ref(false)
 const tableData = ref<Receivable[]>([]); const total = ref(0)
 const dialogVisible = ref(false); const selectDialogVisible = ref(false)
 const isEdit = ref(false); const editId = ref(0)
-const customers = ref<Customer[]>([])
+const customers = ref<Partner[]>([])
 const availableOrders = ref<SalesOrder[]>([])
 const selectedOrders = ref<SalesOrder[]>([])
 const selectLoading = ref(false); const selectKeyword = ref('')
@@ -274,7 +274,7 @@ function openEdit(row: Receivable) {
   }
   isEdit.value = true
   editId.value = row.id
-  form.customerId = row.customerId
+  form.customerId = (row as any).partnerId ?? row.customerId
   form.remark = row.remark || ''
   form.items = (row.items || []).map(i => ({
     salesOrderId: i.salesOrderId,
@@ -368,7 +368,7 @@ async function handleDelete(row: Receivable) {
 
 onMounted(() => {
   loadData()
-  customerApi.getList({ page: 1, pageSize: 1000, status: 'active' }).then(r => customers.value = r.list)
+  partnerApi.getList({ page: 1, pageSize: 1000, status: 'active', isCustomer: true }).then(r => customers.value = r.list)
 })
 </script>
 

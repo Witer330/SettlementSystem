@@ -19,6 +19,7 @@ export interface MaterialListParams {
   keyword?: string
   category?: string
   status?: string
+  includeArchived?: boolean | string
 }
 
 export const materialApi = {
@@ -35,5 +36,8 @@ export const materialApi = {
     api.put<Material>(`/materials/${id}`, data),
 
   delete: (id: number) =>
-    api.delete(`/materials/${id}`)
+    api.delete(`/materials/${id}`),
+
+  restore: (id: number) =>
+    api.patch<Material>(`/materials/${id}/restore`)
 }

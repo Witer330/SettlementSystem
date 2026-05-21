@@ -23,38 +23,27 @@ export interface Employee {
 }
 
 export const departmentApi = {
-  // 获取部门列表
-  async getList(includeDeleted?: boolean): Promise<Department[]> {
-    return await api.get<Department[]>('/departments', {
-      params: { includeDeleted }
-    })
+  async getList(params?: { includeArchived?: boolean | string; includeDeleted?: boolean | string }): Promise<Department[]> {
+    return await api.get<Department[]>('/departments', { params })
   },
 
-  // 获取部门详情
   async getDetail(id: number): Promise<Department> {
     return await api.get<Department>(`/departments/${id}`)
   },
 
-  // 创建部门
   async create(data: { name: string; code: string; parentId?: number }): Promise<Department> {
     return await api.post<Department>('/departments', data)
   },
 
-  // 更新部门
-  async update(
-    id: number,
-    data: {
-      name?: string
-      code?: string
-      parentId?: number
-      status?: string
-    }
-  ): Promise<Department> {
+  async update(id: number, data: { name?: string; code?: string; parentId?: number; status?: string }): Promise<Department> {
     return await api.put<Department>(`/departments/${id}`, data)
   },
 
-  // 删除部门
   async delete(id: number): Promise<void> {
     await api.delete(`/departments/${id}`)
+  },
+
+  async restore(id: number): Promise<Department> {
+    return await api.patch<Department>(`/departments/${id}/restore`)
   }
 }

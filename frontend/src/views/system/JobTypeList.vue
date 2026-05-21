@@ -7,8 +7,8 @@
         <p class="page-description">管理企业工种信息</p>
       </div>
       <div class="header-actions">
-        <el-checkbox v-model="includeDeleted" @change="loadJobTypeList">
-          显示已删除工种
+        <el-checkbox v-model="includeArchived" @change="loadJobTypeList">
+          显示已归档工种
         </el-checkbox>
         <el-button type="primary" :icon="Plus" @click="handleCreate"> 新增工种 </el-button>
       </div>
@@ -24,15 +24,10 @@
             {{ row.employees?.length || 0 }}
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="80">
+        <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag
-              :type="
-                row.status === 'active' ? 'success' : row.status === 'deleted' ? 'danger' : 'info'
-              "
-              size="small"
-            >
-              {{ row.status === 'active' ? '启用' : row.status === 'deleted' ? '已删除' : '禁用' }}
+            <el-tag :type="statusTagType(row.status)" size="small">
+              {{ statusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -41,12 +36,11 @@
             {{ formatDate(row.createdAt) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150">
+        <el-table-column label="操作" width="180">
           <template #default="{ row }">
-            <el-button link type="primary" :icon="Edit" @click="handleEdit(row)"> 编辑 </el-button>
-            <el-button link type="danger" :icon="Delete" @click="handleDelete(row)">
-              删除
-            </el-button>
+            <el-button link type="primary" :icon="Edit" @click="handleEdit(row)" :disabled="isArchived(row.status)">编辑</el-button>
+            <el-button v-if="!isArchived(row.status)" link type="danger" :icon="Delete" @click="handleArchive(row)">归档</el-button>
+            <el-button v-else link type="success" @click="handleRestore(row)">恢复</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -83,13 +77,14 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
+import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { Plus, Edit, Delete } from '@element-plus/icons-vue'
 import { jobTypeApi, type JobType } from '../../api/jobType'
+import { confirmAndArchive, confirmAndRestore } from '@/composables/useArchive'
 
 const loading = ref(false)
 const jobTypeList = ref<JobType[]>([])
-const includeDeleted = ref(false)
+const includeArchived = ref(false)
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增工种')
 const dialogMode = ref<'create' | 'edit'>('create')
@@ -106,10 +101,23 @@ const formRules: FormRules = {
   name: [{ required: true, message: '请输入工种名称', trigger: 'blur' }]
 }
 
+const isArchived = (s: string) => s === 'archived' || s === 'deleted'
+const statusLabel = (s: string) => {
+  if (s === 'active') return '启用'
+  if (s === 'inactive') return '禁用'
+  if (isArchived(s)) return '已归档'
+  return s
+}
+const statusTagType = (s: string): 'success' | 'info' | 'warning' => {
+  if (s === 'active') return 'success'
+  if (isArchived(s)) return 'warning'
+  return 'info'
+}
+
 const loadJobTypeList = async () => {
   try {
     loading.value = true
-    const jobTypes = await jobTypeApi.getList(includeDeleted.value)
+    const jobTypes = await jobTypeApi.getList({ includeArchived: includeArchived.value })
     jobTypeList.value = jobTypes
   } catch (error: any) {
     ElMessage.error(error.message || '加载工种列表失败')
@@ -147,21 +155,21 @@ const handleEdit = (row: JobType) => {
   dialogVisible.value = true
 }
 
-const handleDelete = async (row: JobType) => {
-  try {
-    await ElMessageBox.confirm(`确定要删除工种"${row.name}"吗？`, '确认删除', {
-      type: 'warning'
-    })
+const handleArchive = (row: JobType) =>
+  confirmAndArchive({
+    entityLabel: '工种',
+    entityName: row.name,
+    onArchive: () => jobTypeApi.delete(row.id),
+    onSuccess: loadJobTypeList
+  })
 
-    await jobTypeApi.delete(row.id)
-    ElMessage.success('删除成功')
-    loadJobTypeList()
-  } catch (error: any) {
-    if (error !== 'cancel') {
-      ElMessage.error(error.message || '删除失败')
-    }
-  }
-}
+const handleRestore = (row: JobType) =>
+  confirmAndRestore({
+    entityLabel: '工种',
+    entityName: row.name,
+    onRestore: () => jobTypeApi.restore(row.id),
+    onSuccess: loadJobTypeList
+  })
 
 const handleSubmit = async () => {
   if (!formRef.value) return

@@ -2,6 +2,21 @@ import axios, { type AxiosRequestConfig } from 'axios'
 
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 
+// 业务异常类型 — 携带后端返回的 code/data/blockers，便于 UI 友好提示
+export class ApiError extends Error {
+  code: number
+  data: any
+  blockers?: Array<{ type: string; count: number }>
+
+  constructor(message: string, code: number, data: any) {
+    super(message)
+    this.name = 'ApiError'
+    this.code = code
+    this.data = data
+    this.blockers = data?.blockers
+  }
+}
+
 // 创建 axios 实例
 const axiosInstance = axios.create({
   baseURL: API_BASE ? `${API_BASE}/api/v1` : '/api/v1',
@@ -25,15 +40,16 @@ axiosInstance.interceptors.response.use(
     // 后端返回格式: { code, message, data }
     const { code, message, data } = response.data
 
-    // 如果 code 不为 0，抛出错误
+    // 如果 code 不为 0，抛出业务异常
     if (code !== 0) {
-      throw new Error(message)
+      throw new ApiError(message, code, data)
     }
 
     return data
   },
   (error) => {
-    const message = error.response?.data?.message || error.message || '请求失败'
+    const respData = error.response?.data
+    const message = respData?.message || error.message || '请求失败'
 
     // Handle 401 Unauthorized - token expired or invalid
     if (error.response?.status === 401) {
@@ -47,7 +63,7 @@ axiosInstance.interceptors.response.use(
       }
     }
 
-    throw new Error(message)
+    throw new ApiError(message, respData?.code ?? error.response?.status ?? -1, respData?.data ?? null)
   }
 )
 

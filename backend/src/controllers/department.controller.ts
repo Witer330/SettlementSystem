@@ -1,199 +1,115 @@
 import { Request, Response } from 'express'
+import { z } from 'zod'
 import { prisma } from '../lib/prisma'
+import { asyncHandler } from '../lib/asyncHandler'
+import { ARCHIVED } from '../lib/archive'
+import { badRequest, notFound } from '../lib/appError'
+import { checkDepartmentReferences } from '../services/referenceCheck.service'
 
-// 获取部门列表
-export const getDepartments = async (req: Request, res: Response) => {
-  try {
-    const { includeDeleted } = req.query
+export const DepartmentCreateSchema = z.object({
+  name: z.string().min(1, '名称必填').max(50),
+  code: z.string().min(1, '编码必填').max(50),
+  parentId: z.union([z.number().int().positive(), z.string().regex(/^\d+$/).transform(Number), z.null()]).optional()
+})
 
-    const where: any = {}
-    // 默认不显示已删除的部门
-    if (includeDeleted !== 'true') {
-      where.status = 'active'
-    }
+export const DepartmentUpdateSchema = DepartmentCreateSchema.partial().extend({
+  status: z.enum(['active', 'inactive']).optional()
+})
 
-    const departments = await prisma.department.findMany({
-      where,
-      include: {
-        employees: {
-          where: { status: 'active' }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    })
+export const DepartmentListQuerySchema = z.object({
+  includeArchived: z.union([z.boolean(), z.string()]).optional(),
+  includeDeleted: z.union([z.boolean(), z.string()]).optional() // 兼容旧参数
+})
 
-    res.json({
-      code: 0,
-      message: '获取成功',
-      data: departments
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取部门列表失败',
-      data: null
-    })
+const ARCHIVED_STATUSES = ['archived', 'deleted']
+
+export const getDepartments = asyncHandler(async (req: Request, res: Response) => {
+  const { includeArchived, includeDeleted } = req.query as any
+  const showArchived =
+    includeArchived === 'true' || includeArchived === true ||
+    includeDeleted === 'true' || includeDeleted === true
+
+  const where: any = {}
+  if (!showArchived) {
+    where.status = { notIn: ARCHIVED_STATUSES }
   }
-}
 
-// 获取部门详情
-export const getDepartment = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params
+  const departments = await prisma.department.findMany({
+    where,
+    include: { employees: { where: { status: 'active' } } },
+    orderBy: { createdAt: 'desc' }
+  })
 
-    const department = await prisma.department.findUnique({
-      where: { id: parseInt(id as string) },
-      include: {
-        employees: true
-      }
-    })
+  res.json({ code: 0, message: '获取成功', data: departments })
+})
 
-    if (!department) {
-      return res.status(404).json({
-        code: 404,
-        message: '部门不存在',
-        data: null
-      })
-    }
+export const getDepartment = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const department = await prisma.department.findUnique({
+    where: { id },
+    include: { employees: true }
+  })
+  if (!department) throw notFound('部门不存在')
+  res.json({ code: 0, message: '获取成功', data: department })
+})
 
-    res.json({
-      code: 0,
-      message: '获取成功',
-      data: department
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取部门详情失败',
-      data: null
-    })
+export const createDepartment = asyncHandler(async (req: Request, res: Response) => {
+  const data = req.body as z.infer<typeof DepartmentCreateSchema>
+  const department = await prisma.department.create({
+    data: {
+      name: data.name,
+      code: data.code,
+      parentId: data.parentId ?? null,
+      status: 'active'
+    },
+    include: { employees: true }
+  })
+  res.json({ code: 0, message: '创建成功', data: department })
+})
+
+export const updateDepartment = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const data = req.body as z.infer<typeof DepartmentUpdateSchema>
+  const department = await prisma.department.update({
+    where: { id },
+    data: {
+      ...(data.name !== undefined ? { name: data.name } : {}),
+      ...(data.code !== undefined ? { code: data.code } : {}),
+      ...(data.parentId !== undefined ? { parentId: data.parentId ?? null } : {}),
+      ...(data.status !== undefined ? { status: data.status } : {})
+    },
+    include: { employees: true }
+  })
+  res.json({ code: 0, message: '更新成功', data: department })
+})
+
+export const deleteDepartment = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const existing = await prisma.department.findUnique({ where: { id } })
+  if (!existing) throw notFound('部门不存在')
+
+  const blockers = await checkDepartmentReferences(id)
+  if (blockers.length > 0) {
+    throw badRequest('部门下存在在职员工，无法归档', { blockers })
   }
-}
 
-// 创建部门
-export const createDepartment = async (req: Request, res: Response) => {
-  try {
-    const { name, code, parentId } = req.body
+  const department = await prisma.department.update({
+    where: { id },
+    data: { status: ARCHIVED }
+  })
+  res.json({ code: 0, message: '已归档', data: department })
+})
 
-    // 检查部门编码是否重复
-    const existing = await prisma.department.findUnique({
-      where: { code }
-    })
-
-    if (existing) {
-      return res.status(400).json({
-        code: 400,
-        message: '部门编码已存在',
-        data: null
-      })
-    }
-
-    const department = await prisma.department.create({
-      data: {
-        name,
-        code,
-        parentId: parentId ? parseInt(parentId) : null,
-        status: 'active'
-      },
-      include: {
-        employees: true
-      }
-    })
-
-    res.json({
-      code: 0,
-      message: '创建成功',
-      data: department
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '创建部门失败',
-      data: null
-    })
+export const restoreDepartment = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const existing = await prisma.department.findUnique({ where: { id } })
+  if (!existing) throw notFound('部门不存在')
+  if (!ARCHIVED_STATUSES.includes(existing.status)) {
+    throw badRequest('该部门未处于归档状态')
   }
-}
-
-// 更新部门
-export const updateDepartment = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params
-    const { name, code, parentId, status } = req.body
-
-    const department = await prisma.department.update({
-      where: { id: parseInt(id as string) },
-      data: {
-        name,
-        code,
-        parentId: parentId ? parseInt(parentId) : null,
-        status
-      },
-      include: {
-        employees: true
-      }
-    })
-
-    res.json({
-      code: 0,
-      message: '更新成功',
-      data: department
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '更新部门失败',
-      data: null
-    })
-  }
-}
-
-// 删除部门（软删除）
-export const deleteDepartment = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params
-
-    // 检查部门下是否有 active 状态的员工
-    const department = await prisma.department.findUnique({
-      where: { id: parseInt(id as string) },
-      include: {
-        employees: {
-          where: { status: 'active' }
-        }
-      }
-    })
-
-    if (!department) {
-      return res.status(404).json({
-        code: 404,
-        message: '部门不存在',
-        data: null
-      })
-    }
-
-    if (department.employees && department.employees.length > 0) {
-      return res.status(400).json({
-        code: 400,
-        message: '部门下存在在职员工，无法删除',
-        data: null
-      })
-    }
-
-    // 软删除：将状态改为 deleted
-    await prisma.department.update({
-      where: { id: parseInt(id as string) },
-      data: { status: 'deleted' }
-    })
-
-    res.json({
-      code: 0,
-      message: '删除成功',
-      data: null
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '删除部门失败',
-      data: null
-    })
-  }
-}
+  const department = await prisma.department.update({
+    where: { id },
+    data: { status: 'active' }
+  })
+  res.json({ code: 0, message: '已恢复', data: department })
+})

@@ -20,7 +20,7 @@ export const getReturnOrders = async (req: Request, res: Response) => {
       where.OR = [
         { returnNo: { contains: String(keyword) } },
         { salesOrder: { orderNo: { contains: String(keyword) } } },
-        { salesOrder: { customer: { name: { contains: String(keyword) } } } }
+        { salesOrder: { partner: { name: { contains: String(keyword) } } } }
       ]
     }
     if (status) where.status = String(status)
@@ -35,7 +35,7 @@ export const getReturnOrders = async (req: Request, res: Response) => {
         where, orderBy: { createdAt: 'desc' },
         skip: (Number(page) - 1) * Number(pageSize), take: Number(pageSize),
         include: {
-          salesOrder: { include: { customer: true } },
+          salesOrder: { include: { partner: true } },
           items: { include: { product: true } }
         }
       }),
@@ -54,7 +54,7 @@ export const getReturnOrder = async (req: Request, res: Response) => {
     const order = await prisma.returnOrder.findUnique({
       where: { id },
       include: {
-        salesOrder: { include: { customer: true } },
+        salesOrder: { include: { partner: true } },
         items: { include: { product: true } }
       }
     })
@@ -96,7 +96,7 @@ export const createReturnOrder = async (req: Request, res: Response) => {
         }
       },
       include: {
-        salesOrder: { include: { customer: true } },
+        salesOrder: { include: { partner: true } },
         items: { include: { product: true } }
       }
     })
@@ -137,7 +137,7 @@ export const completeReturnOrder = async (req: Request, res: Response) => {
 
     const updated = await prisma.returnOrder.findUnique({
       where: { id },
-      include: { salesOrder: { include: { customer: true } }, items: { include: { product: true } } }
+      include: { salesOrder: { include: { partner: true } }, items: { include: { product: true } } }
     })
     res.json({ code: 0, message: '退货入库完成，库存已回加', data: updated })
   } catch (e: any) {
@@ -174,7 +174,7 @@ export const cancelReturnOrder = async (req: Request, res: Response) => {
     })
 
     const updated = await prisma.returnOrder.findUnique({
-      where: { id }, include: { salesOrder: { include: { customer: true } }, items: { include: { product: true } } }
+      where: { id }, include: { salesOrder: { include: { partner: true } }, items: { include: { product: true } } }
     })
     res.json({ code: 0, message: '退货已取消，数据已回退', data: updated })
   } catch (e: any) {

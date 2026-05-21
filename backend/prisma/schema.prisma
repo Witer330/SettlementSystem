@@ -58,8 +58,8 @@ model Employee {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  department      Department?           @relation(fields: [departmentId], references: [id])
-  jobTypeRef      JobType?              @relation(fields: [jobTypeId], references: [id])
+  department      Department?           @relation(fields: [departmentId], references: [id], onDelete: Restrict)
+  jobTypeRef      JobType?              @relation(fields: [jobTypeId], references: [id], onDelete: Restrict)
   salaryBills     SalaryBill[]
   workLogs        WorkLog[]
   dailyRecords    DailyPieceRecord[]
@@ -95,8 +95,8 @@ model BillOfMaterial {
   quantity  Float
   createdAt DateTime @default(now())
 
-  product  Product  @relation(fields: [productId], references: [id])
-  material Material  @relation(fields: [materialId], references: [id])
+  product  Product  @relation(fields: [productId], references: [id], onDelete: Restrict)
+  material Material  @relation(fields: [materialId], references: [id], onDelete: Restrict)
 }
 
 // 工时记录 - 用于时薪员工
@@ -191,7 +191,7 @@ model ProductionOrder {
   updatedAt        DateTime @updatedAt
 
   salesOrder   SalesOrder?              @relation(fields: [salesOrderId], references: [id])
-  product      Product                  @relation(fields: [productId], references: [id])
+  product      Product                  @relation(fields: [productId], references: [id], onDelete: Restrict)
   pickingItems ProductionPickingItem[]
   dailyRecords DailyPieceRecord[]
 }
@@ -206,7 +206,7 @@ model ProductionPickingItem {
   createdAt  DateTime @default(now())
 
   order    ProductionOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  material Material        @relation(fields: [materialId], references: [id])
+  material Material        @relation(fields: [materialId], references: [id], onDelete: Restrict)
 }
 
 // ============ 应收应付 ============
@@ -214,7 +214,7 @@ model ProductionPickingItem {
 model Receivable {
   id          Int      @id @default(autoincrement())
   orderNo     String   @unique
-  customerId  Int
+  partnerId   Int
   totalAmount Float
   status      String   @default("pending")  // pending / approved
   approvedBy  Int?
@@ -223,8 +223,8 @@ model Receivable {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  customer Customer         @relation(fields: [customerId], references: [id])
-  items    ReceivableItem[]
+  partner Partner          @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  items   ReceivableItem[]
 }
 
 model ReceivableItem {
@@ -241,7 +241,7 @@ model ReceivableItem {
 model Payable {
   id          Int      @id @default(autoincrement())
   orderNo     String   @unique
-  supplierId  Int
+  partnerId   Int
   totalAmount Float
   status      String   @default("pending")  // pending / approved
   approvedBy  Int?
@@ -250,8 +250,8 @@ model Payable {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  supplier Supplier      @relation(fields: [supplierId], references: [id])
-  items    PayableItem[]
+  partner Partner       @relation(fields: [partnerId], references: [id], onDelete: Restrict)
+  items   PayableItem[]
 }
 
 model PayableItem {
@@ -267,35 +267,27 @@ model PayableItem {
 
 // ============ 进销存 ============
 
-model Supplier {
-  id        Int      @id @default(autoincrement())
-  name      String
-  code      String   @unique
-  contact   String?
-  phone     String?
-  address   String?
-  status    String   @default("active")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  purchaseOrders PurchaseOrder[]
-  payables       Payable[]
-}
-
-model Customer {
+model Partner {
   id          Int      @id @default(autoincrement())
   name        String
   code        String   @unique
   contact     String?
   phone       String?
   address     String?
-  creditLimit Float    @default(0)
+  isCustomer  Boolean  @default(false)
+  isSupplier  Boolean  @default(false)
+  creditLimit Float    @default(0)   // 仅 isCustomer=true 时有意义
   status      String   @default("active")
   createdAt   DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  updatedAt   DateTime @updatedAt
 
-  salesOrders      SalesOrder[]
-  receivables      Receivable[]
+  salesOrders    SalesOrder[]
+  receivables    Receivable[]
+  purchaseOrders PurchaseOrder[]
+  payables       Payable[]
+
+  @@index([isCustomer])
+  @@index([isSupplier])
 }
 
 model Material {
@@ -320,7 +312,7 @@ model Material {
 
 model PurchaseOrder {
   id               Int      @id @default(autoincrement())
-  supplierId       Int?
+  partnerId        Int?
   salesOrderId     Int?
   orderNo          String   @unique
   totalAmount      Float
@@ -330,7 +322,7 @@ model PurchaseOrder {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  supplier   Supplier?    @relation(fields: [supplierId], references: [id])
+  partner    Partner?     @relation(fields: [partnerId], references: [id], onDelete: Restrict)
   salesOrder SalesOrder?  @relation(fields: [salesOrderId], references: [id])
   items      PurchaseItem[]
   payableItems PayableItem[]
@@ -346,12 +338,12 @@ model PurchaseItem {
   createdAt       DateTime @default(now())
 
   order    PurchaseOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  material Material      @relation(fields: [materialId], references: [id])
+  material Material      @relation(fields: [materialId], references: [id], onDelete: Restrict)
 }
 
 model SalesOrder {
   id               Int      @id @default(autoincrement())
-  customerId       Int?
+  partnerId        Int?
   orderNo          String   @unique
   totalAmount      Float
   status           String   @default("pending")
@@ -373,7 +365,7 @@ model SalesOrder {
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  customer          Customer?          @relation(fields: [customerId], references: [id])
+  partner           Partner?           @relation(fields: [partnerId], references: [id], onDelete: Restrict)
   productionOrders  ProductionOrder[]
   purchaseOrders    PurchaseOrder[]
   returnOrders      ReturnOrder[]
@@ -391,7 +383,7 @@ model SalesItem {
   createdAt     DateTime @default(now())
 
   order   SalesOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product    @relation(fields: [productId], references: [id])
+  product Product    @relation(fields: [productId], references: [id], onDelete: Restrict)
 }
 
 model ReturnOrder {
@@ -418,7 +410,7 @@ model ReturnOrderItem {
   createdAt     DateTime @default(now())
 
   returnOrder ReturnOrder @relation(fields: [returnOrderId], references: [id])
-  product     Product     @relation(fields: [productId], references: [id])
+  product     Product     @relation(fields: [productId], references: [id], onDelete: Restrict)
 }
 
 model Inventory {
@@ -428,7 +420,7 @@ model Inventory {
   reserved    Float    @default(0)
   lastUpdated DateTime @default(now())
 
-  material Material @relation(fields: [materialId], references: [id])
+  material Material @relation(fields: [materialId], references: [id], onDelete: Restrict)
 }
 
 model InventoryLog {
@@ -473,7 +465,7 @@ model DailyPieceRecordItem {
   createdAt DateTime @default(now())
 
   record  DailyPieceRecord @relation(fields: [recordId], references: [id])
-  product Product          @relation(fields: [productId], references: [id])
+  product Product          @relation(fields: [productId], references: [id], onDelete: Restrict)
 }
 
 // ============ 系统设置 ============
@@ -504,4 +496,26 @@ model SettingAuditLog {
 
   @@index([settingKey])
   @@index([createdAt])
+}
+
+// 通用操作审计日志 — 由 audit.middleware 自动写入
+model OperationLog {
+  id         Int      @id @default(autoincrement())
+  module     String   // product / material / salesOrder ...
+  entityType String   // 模型名
+  entityId   String?  // 字符串以支持复合键/批量
+  action     String   // create / update / delete / archive / restore
+  method     String   // POST / PUT / PATCH / DELETE
+  path       String   // 请求路径
+  oldValue   String?  // JSON 字符串（中间件方案下通常为 null）
+  newValue   String?  // JSON 字符串（响应 data 摘要）
+  userId     Int?
+  userName   String?
+  ip         String?
+  status     Int      // HTTP 响应状态
+  createdAt  DateTime @default(now())
+
+  @@index([module, createdAt])
+  @@index([entityType, entityId])
+  @@index([userId])
 }

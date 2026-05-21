@@ -26,7 +26,7 @@ export const getPurchaseOrders = async (req: Request, res: Response) => {
     if (keyword) {
       where.OR = [
         { orderNo: { contains: String(keyword) } },
-        { supplier: { name: { contains: String(keyword) } } }
+        { partner: { name: { contains: String(keyword) } } }
       ]
     }
     if (status) where.status = String(status)
@@ -35,7 +35,7 @@ export const getPurchaseOrders = async (req: Request, res: Response) => {
       prisma.purchaseOrder.findMany({
         where, skip, take, orderBy: { createdAt: 'desc' },
         include: {
-          supplier: true,
+          partner: true,
           items: { include: { material: true } },
           payableItems: { include: { payable: { select: { id: true, orderNo: true, status: true } } } }
         }
@@ -60,7 +60,7 @@ export const getPurchaseOrder = async (req: Request, res: Response) => {
     const order = await prisma.purchaseOrder.findUnique({
       where: { id },
       include: {
-        supplier: true,
+        partner: true,
         items: { include: { material: true } },
         salesOrder: { select: { id: true, orderNo: true, status: true } },
         payableItems: { include: { payable: { select: { id: true, orderNo: true, status: true } } } }
@@ -79,11 +79,12 @@ export const getPurchaseOrder = async (req: Request, res: Response) => {
 // 创建采购单
 export const createPurchaseOrder = async (req: Request, res: Response) => {
   try {
-    const { supplierId, items, remark, status: reqStatus, reserveInventory } = req.body
+    const { supplierId, partnerId, items, remark, status: reqStatus, reserveInventory } = req.body
+    const pid = partnerId ?? supplierId
     const isDraft = reqStatus === 'draft'
 
     // 草稿：跳过必填校验
-    if (!isDraft && (!supplierId || !items || items.length === 0)) {
+    if (!isDraft && (!pid || !items || items.length === 0)) {
       res.status(400).json({ code: 400, message: '供应商和采购明细不能为空' })
       return
     }
@@ -97,7 +98,7 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
 
     const order = await prisma.purchaseOrder.create({
       data: {
-        supplierId: supplierId || null,
+        partnerId: pid || null,
         orderNo,
         totalAmount,
         status: isDraft ? 'draft' : 'pending',
@@ -113,7 +114,7 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
           }
         })
       },
-      include: { supplier: true, items: { include: { material: true } } }
+      include: { partner: true, items: { include: { material: true } } }
     })
 
     res.json({ code: 0, message: isDraft ? '草稿已保存' : '创建成功', data: order })
@@ -126,7 +127,8 @@ export const createPurchaseOrder = async (req: Request, res: Response) => {
 export const updatePurchaseOrder = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id)
-    const { supplierId, items, remark, status, reserveInventory } = req.body
+    const { supplierId, partnerId, items, remark, status, reserveInventory } = req.body
+    const pid = partnerId ?? supplierId
 
     const existing = await prisma.purchaseOrder.findUnique({ where: { id } })
     if (!existing) {
@@ -157,7 +159,7 @@ export const updatePurchaseOrder = async (req: Request, res: Response) => {
     const order = await prisma.purchaseOrder.update({
       where: { id },
       data: {
-        ...(supplierId !== undefined && { supplierId: supplierId || null }),
+        ...(pid !== undefined && { partnerId: pid || null }),
         ...(finalOrderNo && { orderNo: finalOrderNo }),
         totalAmount,
         remark,
@@ -174,7 +176,7 @@ export const updatePurchaseOrder = async (req: Request, res: Response) => {
           }
         })
       },
-      include: { supplier: true, items: { include: { material: true } } }
+      include: { partner: true, items: { include: { material: true } } }
     })
 
     res.json({ code: 0, message: '更新成功', data: order })
@@ -307,7 +309,7 @@ export const receivePurchaseOrder = async (req: Request, res: Response) => {
 
     const result = await prisma.purchaseOrder.findUnique({
       where: { id },
-      include: { supplier: true, items: { include: { material: true } } }
+      include: { partner: true, items: { include: { material: true } } }
     })
 
     res.json({ code: 0, message: '入库成功', data: result })

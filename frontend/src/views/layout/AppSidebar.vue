@@ -101,11 +101,8 @@
           </el-icon>
           <span>基础信息</span>
         </template>
-        <el-menu-item index="/dashboard/inventory/suppliers">
-          供应商管理
-        </el-menu-item>
-        <el-menu-item index="/dashboard/inventory/customers">
-          客户管理
+        <el-menu-item index="/dashboard/inventory/partners">
+          往来管理
         </el-menu-item>
         <el-menu-item index="/dashboard/inventory/materials">
           物料管理

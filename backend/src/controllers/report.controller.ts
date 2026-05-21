@@ -15,7 +15,7 @@ export const getPurchaseReport = async (req: Request, res: Response) => {
     // 月度趋势
     const orders = await prisma.purchaseOrder.findMany({
       where,
-      select: { totalAmount: true, status: true, createdAt: true, supplierId: true }
+      select: { totalAmount: true, status: true, createdAt: true, partnerId: true }
     })
 
     const trendMap = new Map<string, number>()
@@ -32,9 +32,9 @@ export const getPurchaseReport = async (req: Request, res: Response) => {
     }
 
     // 供应商占比（需要 JOIN 获取名称）
-    const supplierIds = [...new Set(orders.map(o => o.supplierId).filter(Boolean) as number[])]
-    const suppliers = await prisma.supplier.findMany({
-      where: { id: { in: supplierIds } },
+    const supplierIds = [...new Set(orders.map(o => o.partnerId).filter(Boolean) as number[])]
+    const suppliers = await prisma.partner.findMany({
+      where: { id: { in: supplierIds }, isSupplier: true },
       select: { id: true, name: true }
     })
     const supplierNameMap = new Map(suppliers.map(s => [s.id, s.name]))
@@ -42,8 +42,8 @@ export const getPurchaseReport = async (req: Request, res: Response) => {
     // 重新计算供应商占比
     const supplierMap2 = new Map<string, number>()
     for (const order of orders) {
-      if (!order.supplierId) continue
-      const name = supplierNameMap.get(order.supplierId) || '未知'
+      if (!order.partnerId) continue
+      const name = supplierNameMap.get(order.partnerId) || '未知'
       supplierMap2.set(name, (supplierMap2.get(name) || 0) + order.totalAmount)
     }
 
@@ -84,7 +84,7 @@ export const getSalesReport = async (req: Request, res: Response) => {
 
     const orders = await prisma.salesOrder.findMany({
       where,
-      select: { totalAmount: true, customerId: true, createdAt: true }
+      select: { totalAmount: true, partnerId: true, createdAt: true }
     })
 
     // 月度趋势
@@ -95,17 +95,17 @@ export const getSalesReport = async (req: Request, res: Response) => {
     }
 
     // 客户占比
-    const customerIds = [...new Set(orders.map(o => o.customerId).filter(Boolean) as number[])]
-    const customers = await prisma.customer.findMany({
-      where: { id: { in: customerIds } },
+    const customerIds = [...new Set(orders.map(o => o.partnerId).filter(Boolean) as number[])]
+    const customers = await prisma.partner.findMany({
+      where: { id: { in: customerIds }, isCustomer: true },
       select: { id: true, name: true }
     })
     const customerNameMap = new Map(customers.map(c => [c.id, c.name]))
 
     const customerMap = new Map<string, number>()
     for (const order of orders) {
-      if (!order.customerId) continue
-      const name = customerNameMap.get(order.customerId) || '未知'
+      if (!order.partnerId) continue
+      const name = customerNameMap.get(order.partnerId) || '未知'
       customerMap.set(name, (customerMap.get(name) || 0) + order.totalAmount)
     }
 

@@ -26,7 +26,7 @@ export const getSalesOrders = async (req: Request, res: Response) => {
     if (keyword) {
       where.OR = [
         { orderNo: { contains: String(keyword) } },
-        { customer: { name: { contains: String(keyword) } } }
+        { partner: { name: { contains: String(keyword) } } }
       ]
     }
     if (status) where.status = String(status)
@@ -35,7 +35,7 @@ export const getSalesOrders = async (req: Request, res: Response) => {
       prisma.salesOrder.findMany({
         where, skip, take, orderBy: { createdAt: 'desc' },
         include: {
-          customer: true,
+          partner: true,
           items: { include: { product: true } },
           returnOrders: { include: { items: true } },
           receivableItems: { include: { receivable: { select: { id: true, orderNo: true, status: true } } } }
@@ -61,7 +61,7 @@ export const getSalesOrder = async (req: Request, res: Response) => {
     const order = await prisma.salesOrder.findUnique({
       where: { id },
       include: {
-        customer: true,
+        partner: true,
         items: { include: { product: true } },
         productionOrders: { select: { id: true, orderNo: true, status: true } },
         purchaseOrders: { select: { id: true, orderNo: true, status: true } },
@@ -82,15 +82,17 @@ export const getSalesOrder = async (req: Request, res: Response) => {
 // 创建销售单
 export const createSalesOrder = async (req: Request, res: Response) => {
   try {
-    const { customerId, items, remark, status: reqStatus, reserveInventory,
+    const { customerId, partnerId, items, remark, status: reqStatus, reserveInventory,
       orderDate, businessType, deliveryMethod, salesperson, deliveryPerson,
       returnDate, paymentMethod, contactInfo, customerRemark, creator,
       wholeDiscount, usePrepayment, shippingAddress
     } = req.body
+    // 兼容前端字段名：customerId 与 partnerId 任一传入均可
+    const pid = partnerId ?? customerId
     const isDraft = reqStatus === 'draft'
 
     // 草稿：跳过必填校验
-    if (!isDraft && (!customerId || !items || items.length === 0)) {
+    if (!isDraft && (!pid || !items || items.length === 0)) {
       res.status(400).json({ code: 400, message: '客户和销售明细不能为空' })
       return
     }
@@ -104,7 +106,7 @@ export const createSalesOrder = async (req: Request, res: Response) => {
 
     const order = await prisma.salesOrder.create({
       data: {
-        customerId: customerId || null,
+        partnerId: pid || null,
         orderNo,
         totalAmount,
         status: isDraft ? 'draft' : 'pending',
@@ -133,7 +135,7 @@ export const createSalesOrder = async (req: Request, res: Response) => {
           }
         })
       },
-      include: { customer: true, items: { include: { product: true } } }
+      include: { partner: true, items: { include: { product: true } } }
     })
 
     res.json({ code: 0, message: isDraft ? '草稿已保存' : '创建成功', data: order })
@@ -146,10 +148,11 @@ export const createSalesOrder = async (req: Request, res: Response) => {
 export const updateSalesOrder = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id)
-    const { customerId, items, remark, status, reserveInventory,
+    const { customerId, partnerId, items, remark, status, reserveInventory,
       orderDate, businessType, deliveryMethod, salesperson, deliveryPerson,
       returnDate, paymentMethod, contactInfo, customerRemark, creator, wholeDiscount, usePrepayment, shippingAddress
     } = req.body
+    const pid = partnerId ?? customerId
 
     const existing = await prisma.salesOrder.findUnique({ where: { id } })
     if (!existing) {
@@ -180,7 +183,7 @@ export const updateSalesOrder = async (req: Request, res: Response) => {
     const order = await prisma.salesOrder.update({
       where: { id },
       data: {
-        ...(customerId !== undefined && { customerId: customerId || null }),
+        ...(pid !== undefined && { partnerId: pid || null }),
         ...(finalOrderNo && { orderNo: finalOrderNo }),
         totalAmount,
         remark,
@@ -210,7 +213,7 @@ export const updateSalesOrder = async (req: Request, res: Response) => {
           }
         })
       },
-      include: { customer: true, items: { include: { product: true } } }
+      include: { partner: true, items: { include: { product: true } } }
     })
 
     res.json({ code: 0, message: '更新成功', data: order })
@@ -299,7 +302,7 @@ export const getMaterialRequirements = async (req: Request, res: Response) => {
     const order = await prisma.salesOrder.findUnique({
       where: { id },
       include: {
-        customer: true,
+        partner: true,
         items: { include: { product: true } }
       }
     })

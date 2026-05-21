@@ -10,9 +10,7 @@
     >
       <el-form ref="formRef" :model="form" :rules="rules" label-width="80px">
         <el-form-item label="客户" prop="customerId">
-          <el-select v-model="form.customerId" placeholder="请选择客户" filterable style="width:100%" :disabled="readonly">
-            <el-option v-for="c in customers" :key="c.id" :label="c.name" :value="c.id" />
-          </el-select>
+          <PartnerSelect v-model="form.customerId" role="customer" placeholder="请选择客户" :disabled="readonly" @change="onPartnerSelected" />
         </el-form-item>
         <el-form-item label="备注"><el-input v-model="form.remark" placeholder="可选" :disabled="readonly" /></el-form-item>
         <el-form-item label="占用库存"><el-checkbox v-model="form.reserveInventory" :disabled="readonly">草稿商品占用库存，避免超卖</el-checkbox></el-form-item>
@@ -99,9 +97,7 @@
               <!-- 下拉选择 -->
               <template v-else-if="field.type === 'select'">
                 <span class="dh-label">{{ field.label }}</span>
-                <el-select v-if="field.key === 'customerId'" :model-value="form.customerId" @update:model-value="form.customerId = $event" placeholder="选择客户" filterable size="small" :disabled="readonly || orderIsLocked" @change="onPartnerChange">
-                  <el-option v-for="c in customers" :key="c.id" :label="c.name" :value="c.id" />
-                </el-select>
+                <PartnerSelect v-if="field.key === 'customerId'" v-model="form.customerId" role="customer" placeholder="选择客户" size="small" :disabled="readonly || orderIsLocked" @change="onPartnerChangeFromSelect" />
                 <el-select v-else v-model="form[field.key]" placeholder="" size="small" :disabled="readonly || orderIsLocked" clearable>
                   <el-option v-for="opt in (field.options || [])" :key="opt" :label="opt" :value="opt" />
                 </el-select>
@@ -223,7 +219,8 @@ import DocFooter, { type FooterStat } from './DocFooter.vue'
 import HeaderFieldConfig from './HeaderFieldConfig.vue'
 import { salesOrderApi, type SalesOrder } from '@/api/salesOrder'
 import { productApi } from '@/api/product'
-import { customerApi } from '@/api/customer'
+import { partnerApi, type Partner } from '@/api/partner'
+import PartnerSelect from './PartnerSelect.vue'
 import { useDraftAutoSave } from '@/composables/useDraftAutoSave'
 import { useAmountPrivacy, useReveal } from '@/composables/useAmountPrivacy'
 import { useHeaderFields, type HeaderFieldDef } from '@/composables/useHeaderFields'
@@ -254,7 +251,7 @@ const downstreamDocs = ref<Array<{ id: number; orderNo: string; docType: string;
 const inlineLoading = ref(false)
 const customers = ref<any[]>(props.customers || [])
 const products = ref<any[]>(props.products || [])
-const selCustomer = computed(() => customers.value.find((c: any) => c.id === form.customerId) || null)
+const selCustomer = ref<Partner | null>(null)
 const form = reactive({
   customerId: 0, remark: '', customerRemark: '', reserveInventory: true,
   orderDate: '', businessType: '', deliveryMethod: '', salesperson: '',
@@ -290,17 +287,29 @@ const draftHint = computed(() => {
 })
 
 function onStatClick(label: string) { if (label === '合计') docReveal.toggle() }
-function onPartnerChange() {
-  const customer = selCustomer.value
-  if (customer) {
-    if (customer.address && !form.shippingAddress) form.shippingAddress = customer.address
-    if (customer.phone && !form.contactInfo) form.contactInfo = customer.phone
+function onPartnerSelected(partner: Partner | null) {
+  selCustomer.value = partner
+  if (partner) {
+    if (partner.address && !form.shippingAddress) form.shippingAddress = partner.address
+    if (partner.phone && !form.contactInfo) form.contactInfo = partner.phone
+  }
+}
+function onPartnerChangeFromSelect(partner: Partner | null) {
+  selCustomer.value = partner
+  if (partner) {
+    if (partner.address && !form.shippingAddress) form.shippingAddress = partner.address
+    if (partner.phone && !form.contactInfo) form.contactInfo = partner.phone
   }
   const hasData = form.items.some((i: any) => i.productId > 0)
   if (!hasData) return
   ElMessageBox.confirm('切换客户将清空已有明细，是否继续？', '确认切换', { type: 'warning' })
     .then(() => { form.items = [{ productId: 0, quantity: 1, price: 0 }] })
     .catch(() => {})
+}
+function onPartnerChange() {
+  // 兼容：保留旧函数，触发时按 customerId 主动 fetch
+  if (!form.customerId) { selCustomer.value = null; return }
+  partnerApi.getDetail(form.customerId).then(p => { selCustomer.value = p }).catch(() => {})
 }
 async function handleToolbarAction(key: string) {
   if (key === 'new') { emit('cancel'); return }
@@ -329,7 +338,7 @@ function onWsKeydown(e: KeyboardEvent) {
 
 async function loadRefData() {
   if (!props.inline) return
-  try { const [p, c] = await Promise.all([productApi.getList({ page: 1, pageSize: 1000 }), customerApi.getList({ page: 1, pageSize: 1000 })]); products.value = p.list; customers.value = (c as any).list || [] } catch { /* 忽略 */ }
+  try { const p = await productApi.getList({ page: 1, pageSize: 1000 }); products.value = p.list } catch { /* 忽略 */ }
 }
 async function loadOrderDetail() {
   if (!props.inline || !props.editId) return

@@ -19,7 +19,8 @@ const generateOrderNo = async (): Promise<string> => {
 // 获取应付单列表
 export const getPayables = async (req: Request, res: Response) => {
   try {
-    const { page = '1', pageSize = '20', keyword, status, supplierId } = req.query
+    const { page = '1', pageSize = '20', keyword, status, supplierId, partnerId } = req.query
+    const pid = partnerId ?? supplierId
     const skip = (Number(page) - 1) * Number(pageSize)
     const take = Number(pageSize)
 
@@ -27,18 +28,18 @@ export const getPayables = async (req: Request, res: Response) => {
     if (keyword) {
       where.OR = [
         { orderNo: { contains: String(keyword) } },
-        { supplier: { name: { contains: String(keyword) } } }
+        { partner: { name: { contains: String(keyword) } } }
       ]
     }
     if (status) where.status = String(status)
-    if (supplierId) where.supplierId = Number(supplierId)
+    if (pid) where.partnerId = Number(pid)
 
     const [list, total] = await Promise.all([
       prisma.payable.findMany({
         where, skip, take, orderBy: { createdAt: 'desc' },
         include: {
-          supplier: true,
-          items: { include: { purchaseOrder: { include: { supplier: true } } } }
+          partner: true,
+          items: { include: { purchaseOrder: { include: { partner: true } } } }
         }
       }),
       prisma.payable.count({ where })
@@ -61,8 +62,8 @@ export const getPayable = async (req: Request, res: Response) => {
     const order = await prisma.payable.findUnique({
       where: { id },
       include: {
-        supplier: true,
-        items: { include: { purchaseOrder: { include: { supplier: true, items: { include: { material: true } } } } } }
+        partner: true,
+        items: { include: { purchaseOrder: { include: { partner: true, items: { include: { material: true } } } } } }
       }
     })
     if (!order) {
@@ -78,7 +79,8 @@ export const getPayable = async (req: Request, res: Response) => {
 // 获取可引用的采购单（未被锁定且已确认/已完成的）
 export const getAvailablePurchaseOrders = async (req: Request, res: Response) => {
   try {
-    const { supplierId } = req.query
+    const { supplierId, partnerId } = req.query
+    const pid = partnerId ?? supplierId
 
     // 查询已被应付单引用的采购单ID
     const lockedItems = await prisma.payableItem.findMany({
@@ -93,11 +95,11 @@ export const getAvailablePurchaseOrders = async (req: Request, res: Response) =>
       id: { notIn: lockedIds },
       status: { in: ['confirmed', 'completed'] }
     }
-    if (supplierId) where.supplierId = Number(supplierId)
+    if (pid) where.partnerId = Number(pid)
 
     const orders = await prisma.purchaseOrder.findMany({
       where,
-      include: { supplier: true, items: { include: { material: true } } },
+      include: { partner: true, items: { include: { material: true } } },
       orderBy: { createdAt: 'desc' }
     })
 
@@ -110,9 +112,10 @@ export const getAvailablePurchaseOrders = async (req: Request, res: Response) =>
 // 创建应付单
 export const createPayable = async (req: AuthRequest, res: Response) => {
   try {
-    const { supplierId, items, remark } = req.body
+    const { supplierId, partnerId, items, remark } = req.body
+    const pid = partnerId ?? supplierId
 
-    if (!supplierId || !items || items.length === 0) {
+    if (!pid || !items || items.length === 0) {
       res.status(400).json({ code: 400, message: '供应商和引用采购单不能为空' })
       return
     }
@@ -135,7 +138,7 @@ export const createPayable = async (req: AuthRequest, res: Response) => {
     const purchaseOrders = await prisma.purchaseOrder.findMany({
       where: {
         id: { in: items.map((i: any) => i.purchaseOrderId) },
-        supplierId
+        partnerId: pid
       }
     })
     if (purchaseOrders.length !== items.length) {
@@ -148,7 +151,7 @@ export const createPayable = async (req: AuthRequest, res: Response) => {
 
     const order = await prisma.payable.create({
       data: {
-        supplierId,
+        partnerId: pid,
         orderNo,
         totalAmount,
         status: 'pending',
@@ -161,8 +164,8 @@ export const createPayable = async (req: AuthRequest, res: Response) => {
         }
       },
       include: {
-        supplier: true,
-        items: { include: { purchaseOrder: { include: { supplier: true } } } }
+        partner: true,
+        items: { include: { purchaseOrder: { include: { partner: true } } } }
       }
     })
 
@@ -176,7 +179,8 @@ export const createPayable = async (req: AuthRequest, res: Response) => {
 export const updatePayable = async (req: AuthRequest, res: Response) => {
   try {
     const id = Number(req.params.id)
-    const { supplierId, items, remark } = req.body
+    const { supplierId, partnerId, items, remark } = req.body
+    const pid = partnerId ?? supplierId
 
     const existing = await prisma.payable.findUnique({ where: { id } })
     if (!existing) {
@@ -195,7 +199,7 @@ export const updatePayable = async (req: AuthRequest, res: Response) => {
     const order = await prisma.payable.update({
       where: { id },
       data: {
-        ...(supplierId !== undefined && { supplierId }),
+        ...(pid !== undefined && { partnerId: pid }),
         totalAmount,
         remark,
         ...(items && {
@@ -209,8 +213,8 @@ export const updatePayable = async (req: AuthRequest, res: Response) => {
         })
       },
       include: {
-        supplier: true,
-        items: { include: { purchaseOrder: { include: { supplier: true } } } }
+        partner: true,
+        items: { include: { purchaseOrder: { include: { partner: true } } } }
       }
     })
 
@@ -266,8 +270,8 @@ export const approvePayable = async (req: AuthRequest, res: Response) => {
         approvedAt: new Date()
       },
       include: {
-        supplier: true,
-        items: { include: { purchaseOrder: { include: { supplier: true } } } }
+        partner: true,
+        items: { include: { purchaseOrder: { include: { partner: true } } } }
       }
     })
 
@@ -298,8 +302,8 @@ export const revokePayable = async (req: AuthRequest, res: Response) => {
         approvedAt: null
       },
       include: {
-        supplier: true,
-        items: { include: { purchaseOrder: { include: { supplier: true } } } }
+        partner: true,
+        items: { include: { purchaseOrder: { include: { partner: true } } } }
       }
     })
 

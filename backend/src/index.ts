@@ -5,6 +5,8 @@ import dotenv from 'dotenv'
 import path from 'path'
 import { prisma } from './lib/prisma'
 import { configService } from './services/config.service'
+import { auditLogger } from './middleware/audit.middleware'
+import { errorHandler } from './middleware/error.middleware'
 
 // Load environment variables
 dotenv.config()
@@ -43,8 +45,7 @@ import salesOrderRoutes from './routes/salesOrder.routes'
 import bomRoutes from './routes/bom.routes'
 import inventoryRoutes from './routes/inventory.routes'
 import dashboardRoutes from './routes/dashboard.routes'
-import customerRoutes from './routes/customer.routes'
-import supplierRoutes from './routes/supplier.routes'
+import partnerRoutes from './routes/partner.routes'
 import purchaseOrderRoutes from './routes/purchaseOrder.routes'
 import reportRoutes from './routes/report.routes'
 import productionOrderRoutes from './routes/productionOrder.routes'
@@ -53,6 +54,9 @@ import returnOrderRoutes from './routes/returnOrder.routes'
 import otherSalaryRoutes from './routes/otherSalary.routes'
 import receivableRoutes from './routes/receivable.routes'
 import payableRoutes from './routes/payable.routes'
+
+// 审计中间件 — 必须在所有业务路由之前；auth 中间件已在各路由内部挂载，req.userId 由 routes 内 authenticate 填入
+app.use('/api/v1', auditLogger)
 
 app.use('/api/v1/auth', authRoutes)
 app.use('/api/v1/employees', employeeRoutes)
@@ -67,8 +71,7 @@ app.use('/api/v1/sales-orders', salesOrderRoutes)
 app.use('/api/v1/bom', bomRoutes)
 app.use('/api/v1/inventory', inventoryRoutes)
 app.use('/api/v1/dashboard', dashboardRoutes)
-app.use('/api/v1/customers', customerRoutes)
-app.use('/api/v1/suppliers', supplierRoutes)
+app.use('/api/v1/partners', partnerRoutes)
 app.use('/api/v1/production-orders', productionOrderRoutes)
 app.use('/api/v1/purchase-orders', purchaseOrderRoutes)
 app.use('/api/v1/reports', reportRoutes)
@@ -95,15 +98,8 @@ app.get('{*path}', (req, res) => {
   res.sendFile(path.join(frontendDist, 'index.html'))
 })
 
-// Error handling middleware
-app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error(err.stack)
-  res.status(err.status || 500).json({
-    code: err.code || 500,
-    message: err.message || 'Internal server error',
-    data: null
-  })
-})
+// Error handling middleware — 统一错误响应（AppError / Zod / Prisma / 兜底 500）
+app.use(errorHandler)
 
 // Start server
 async function start() {

@@ -40,7 +40,7 @@ export const getProductionOrders = async (req: Request, res: Response) => {
           product: true,
           salesOrder: {
             include: {
-              customer: true,
+              partner: true,
               productionOrders: {
                 where: { status: { not: 'cancelled' } },
                 select: { quantity: true, producedQuantity: true, status: true }
@@ -71,7 +71,7 @@ export const getProductionOrder = async (req: Request, res: Response) => {
       where: { id },
       include: {
         product: true,
-        salesOrder: { include: { customer: true, items: { include: { product: true } } } },
+        salesOrder: { include: { partner: true, items: { include: { product: true } } } },
         pickingItems: { include: { material: true } },
         dailyRecords: { include: { employee: true, items: { include: { product: true } } } }
       }
@@ -116,7 +116,7 @@ export const createProductionOrder = async (req: Request, res: Response) => {
       },
       include: {
         product: true,
-        salesOrder: { include: { customer: true } }
+        salesOrder: { include: { partner: true } }
       }
     })
 
@@ -153,7 +153,7 @@ export const updateProductionOrder = async (req: Request, res: Response) => {
       data,
       include: {
         product: true,
-        salesOrder: { include: { customer: true } },
+        salesOrder: { include: { partner: true } },
         pickingItems: { include: { material: true } }
       }
     })

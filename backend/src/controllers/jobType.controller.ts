@@ -1,248 +1,123 @@
 import { Request, Response } from 'express'
+import { z } from 'zod'
 import { prisma } from '../lib/prisma'
+import { asyncHandler } from '../lib/asyncHandler'
+import { ARCHIVED } from '../lib/archive'
+import { badRequest, notFound } from '../lib/appError'
+import { checkJobTypeReferences } from '../services/referenceCheck.service'
 
-// 获取下一个工种编码
-export const getNextCode = async (req: Request, res: Response) => {
-  try {
-    // 查找最大编码
-    const lastJobType = await prisma.jobType.findFirst({
-      where: {
-        code: {
-          startsWith: 'JT'
-        }
-      },
-      orderBy: {
-        code: 'desc'
-      },
-      select: {
-        code: true
-      }
-    })
+export const JobTypeCreateSchema = z.object({
+  name: z.string().min(1, '名称必填').max(50),
+  code: z.string().max(50).optional()
+})
 
-    let nextCode = 'JT001'
-    if (lastJobType) {
-      const lastNum = parseInt(lastJobType.code.replace('JT', ''))
-      const nextNum = lastNum + 1
-      nextCode = `JT${String(nextNum).padStart(3, '0')}`
-    }
+export const JobTypeUpdateSchema = z.object({
+  name: z.string().min(1).max(50).optional(),
+  code: z.string().max(50).optional(),
+  status: z.enum(['active', 'inactive']).optional()
+})
 
-    res.json({
-      code: 0,
-      message: '获取成功',
-      data: nextCode
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取下一个工种编码失败',
-      data: null
-    })
-  }
+export const JobTypeListQuerySchema = z.object({
+  includeArchived: z.union([z.boolean(), z.string()]).optional(),
+  includeDeleted: z.union([z.boolean(), z.string()]).optional()
+})
+
+const ARCHIVED_STATUSES = ['archived', 'deleted']
+
+async function generateNextJobTypeCode(): Promise<string> {
+  const last = await prisma.jobType.findFirst({
+    where: { code: { startsWith: 'JT' } },
+    orderBy: { code: 'desc' },
+    select: { code: true }
+  })
+  if (!last) return 'JT001'
+  const lastNum = parseInt(last.code.replace('JT', ''))
+  return `JT${String(lastNum + 1).padStart(3, '0')}`
 }
 
-// 获取工种列表
-export const getJobTypes = async (req: Request, res: Response) => {
-  try {
-    const { includeDeleted } = req.query
+export const getNextCode = asyncHandler(async (_req: Request, res: Response) => {
+  const nextCode = await generateNextJobTypeCode()
+  res.json({ code: 0, message: '获取成功', data: nextCode })
+})
 
-    const where: any = {}
-    // 默认不显示已删除的工种
-    if (includeDeleted !== 'true') {
-      where.status = 'active'
-    }
+export const getJobTypes = asyncHandler(async (req: Request, res: Response) => {
+  const { includeArchived, includeDeleted } = req.query as any
+  const showArchived =
+    includeArchived === 'true' || includeArchived === true ||
+    includeDeleted === 'true' || includeDeleted === true
 
-    const jobTypes = await prisma.jobType.findMany({
-      where,
-      include: {
-        employees: {
-          where: { status: 'active' }
-        }
-      },
-      orderBy: { createdAt: 'desc' }
-    })
-
-    res.json({
-      code: 0,
-      message: '获取成功',
-      data: jobTypes
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取工种列表失败',
-      data: null
-    })
+  const where: any = {}
+  if (!showArchived) {
+    where.status = { notIn: ARCHIVED_STATUSES }
   }
-}
 
-// 获取工种详情
-export const getJobType = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params
+  const jobTypes = await prisma.jobType.findMany({
+    where,
+    include: { employees: { where: { status: 'active' } } },
+    orderBy: { createdAt: 'desc' }
+  })
 
-    const jobType = await prisma.jobType.findUnique({
-      where: { id: parseInt(id as string) },
-      include: {
-        employees: true
-      }
-    })
+  res.json({ code: 0, message: '获取成功', data: jobTypes })
+})
 
-    if (!jobType) {
-      return res.status(404).json({
-        code: 404,
-        message: '工种不存在',
-        data: null
-      })
-    }
+export const getJobType = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const jobType = await prisma.jobType.findUnique({
+    where: { id },
+    include: { employees: true }
+  })
+  if (!jobType) throw notFound('工种不存在')
+  res.json({ code: 0, message: '获取成功', data: jobType })
+})
 
-    res.json({
-      code: 0,
-      message: '获取成功',
-      data: jobType
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取工种详情失败',
-      data: null
-    })
+export const createJobType = asyncHandler(async (req: Request, res: Response) => {
+  const data = req.body as z.infer<typeof JobTypeCreateSchema>
+  const code = data.code && data.code.trim() ? data.code : await generateNextJobTypeCode()
+  const jobType = await prisma.jobType.create({
+    data: { name: data.name, code, status: 'active' },
+    include: { employees: true }
+  })
+  res.json({ code: 0, message: '创建成功', data: jobType })
+})
+
+export const updateJobType = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const data = req.body as z.infer<typeof JobTypeUpdateSchema>
+  const jobType = await prisma.jobType.update({
+    where: { id },
+    data,
+    include: { employees: true }
+  })
+  res.json({ code: 0, message: '更新成功', data: jobType })
+})
+
+export const deleteJobType = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const existing = await prisma.jobType.findUnique({ where: { id } })
+  if (!existing) throw notFound('工种不存在')
+
+  const blockers = await checkJobTypeReferences(id)
+  if (blockers.length > 0) {
+    throw badRequest('该工种有在职员工在用，无法归档', { blockers })
   }
-}
 
-// 创建工种
-export const createJobType = async (req: Request, res: Response) => {
-  try {
-    let { name, code } = req.body
+  const jobType = await prisma.jobType.update({
+    where: { id },
+    data: { status: ARCHIVED }
+  })
+  res.json({ code: 0, message: '已归档', data: jobType })
+})
 
-    // 如果 code 为空，自动生成编码
-    if (!code) {
-      const lastJobType = await prisma.jobType.findFirst({
-        where: {
-          code: {
-            startsWith: 'JT'
-          }
-        },
-        orderBy: {
-          code: 'desc'
-        },
-        select: {
-          code: true
-        }
-      })
-
-      if (lastJobType) {
-        const lastNum = parseInt(lastJobType.code.replace('JT', ''))
-        const nextNum = lastNum + 1
-        code = `JT${String(nextNum).padStart(3, '0')}`
-      } else {
-        code = 'JT001'
-      }
-    }
-
-    // 检查工种编码是否重复
-    const existing = await prisma.jobType.findUnique({
-      where: { code }
-    })
-
-    if (existing) {
-      return res.status(400).json({
-        code: 400,
-        message: '工种编码已存在',
-        data: null
-      })
-    }
-
-    const jobType = await prisma.jobType.create({
-      data: {
-        name,
-        code,
-        status: 'active'
-      },
-      include: {
-        employees: true
-      }
-    })
-
-    res.json({
-      code: 0,
-      message: '创建成功',
-      data: jobType
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '创建工种失败',
-      data: null
-    })
+export const restoreJobType = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const existing = await prisma.jobType.findUnique({ where: { id } })
+  if (!existing) throw notFound('工种不存在')
+  if (!ARCHIVED_STATUSES.includes(existing.status)) {
+    throw badRequest('该工种未处于归档状态')
   }
-}
-
-// 更新工种
-export const updateJobType = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params
-    const { name, code, status } = req.body
-
-    const jobType = await prisma.jobType.update({
-      where: { id: parseInt(id as string) },
-      data: {
-        name,
-        code,
-        status
-      },
-      include: {
-        employees: true
-      }
-    })
-
-    res.json({
-      code: 0,
-      message: '更新成功',
-      data: jobType
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '更新工种失败',
-      data: null
-    })
-  }
-}
-
-// 删除工种（软删除）
-export const deleteJobType = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params
-
-    // 检查工种是否存在
-    const jobType = await prisma.jobType.findUnique({
-      where: { id: parseInt(id as string) }
-    })
-
-    if (!jobType) {
-      return res.status(404).json({
-        code: 404,
-        message: '工种不存在',
-        data: null
-      })
-    }
-
-    // 软删除：将状态改为 deleted
-    await prisma.jobType.update({
-      where: { id: parseInt(id as string) },
-      data: { status: 'deleted' }
-    })
-
-    res.json({
-      code: 0,
-      message: '删除成功',
-      data: null
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '删除工种失败',
-      data: null
-    })
-  }
-}
+  const jobType = await prisma.jobType.update({
+    where: { id },
+    data: { status: 'active' }
+  })
+  res.json({ code: 0, message: '已恢复', data: jobType })
+})

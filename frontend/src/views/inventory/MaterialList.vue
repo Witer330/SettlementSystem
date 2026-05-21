@@ -21,6 +21,11 @@
           <el-option label="辅料" value="辅料" />
           <el-option label="包装材料" value="包装材料" />
         </el-select>
+        <el-switch
+          v-model="includeArchived"
+          active-text="显示已归档"
+          @change="loadData"
+        />
         <el-button type="primary" @click="loadData">搜索</el-button>
       </div>
 
@@ -33,15 +38,24 @@
         <el-table-column prop="safeStock" label="安全库存" width="100" />
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'info'" size="small">
-              {{ row.status === 'active' ? '启用' : '停用' }}
+            <el-tag :type="statusTagType(row.status)" size="small">
+              {{ statusLabel(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="150">
+        <el-table-column label="操作" width="180">
           <template #default="{ row }">
-            <el-button link type="primary" @click="openDialog(row)">编辑</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button link type="primary" @click="openDialog(row)" :disabled="row.status === 'archived'">编辑</el-button>
+            <el-button
+              v-if="row.status !== 'archived'"
+              link type="danger"
+              @click="handleArchive(row)"
+            >归档</el-button>
+            <el-button
+              v-else
+              link type="success"
+              @click="handleRestore(row)"
+            >恢复</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -94,10 +108,11 @@
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { materialApi, type Material } from '@/api/material'
+import { confirmAndArchive, confirmAndRestore } from '@/composables/useArchive'
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -107,6 +122,7 @@ const dialogVisible = ref(false)
 const isEdit = ref(false)
 const editId = ref(0)
 const formRef = ref<FormInstance>()
+const includeArchived = ref(false)
 
 const queryParams = reactive({
   page: 1,
@@ -132,10 +148,13 @@ const rules: FormRules = {
   unit: [{ required: true, message: '请输入单位', trigger: 'blur' }]
 }
 
+const statusLabel = (s: string) => s === 'active' ? '启用' : s === 'inactive' ? '停用' : s === 'archived' ? '已归档' : s
+const statusTagType = (s: string): 'success' | 'info' | 'warning' => s === 'active' ? 'success' : s === 'archived' ? 'warning' : 'info'
+
 const loadData = async () => {
   loading.value = true
   try {
-    const res = await materialApi.getList(queryParams)
+    const res = await materialApi.getList({ ...queryParams, includeArchived: includeArchived.value })
     tableData.value = res.list
     total.value = res.total
   } finally {
@@ -176,12 +195,21 @@ const handleSubmit = async () => {
   }
 }
 
-const handleDelete = async (row: Material) => {
-  await ElMessageBox.confirm(`确定要删除物料"${row.name}"吗？`, '确认删除', { type: 'warning' })
-  await materialApi.delete(row.id)
-  ElMessage.success('删除成功')
-  loadData()
-}
+const handleArchive = (row: Material) =>
+  confirmAndArchive({
+    entityLabel: '物料',
+    entityName: row.name,
+    onArchive: () => materialApi.delete(row.id),
+    onSuccess: loadData
+  })
+
+const handleRestore = (row: Material) =>
+  confirmAndRestore({
+    entityLabel: '物料',
+    entityName: row.name,
+    onRestore: () => materialApi.restore(row.id),
+    onSuccess: loadData
+  })
 
 onMounted(() => loadData())
 </script>

@@ -70,17 +70,12 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'inventory',
         name: 'Inventory',
-        redirect: '/dashboard/inventory/suppliers',
+        redirect: '/dashboard/inventory/partners',
         children: [
           {
-            path: 'suppliers',
-            name: 'SupplierList',
-            component: () => import('@/views/inventory/SupplierList.vue')
-          },
-          {
-            path: 'customers',
-            name: 'CustomerList',
-            component: () => import('@/views/inventory/CustomerList.vue')
+            path: 'partners',
+            name: 'PartnerList',
+            component: () => import('@/views/inventory/PartnerList.vue')
           },
           {
             path: 'materials',

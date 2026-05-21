@@ -19,7 +19,8 @@ const generateOrderNo = async (): Promise<string> => {
 // 获取应收单列表
 export const getReceivables = async (req: Request, res: Response) => {
   try {
-    const { page = '1', pageSize = '20', keyword, status, customerId } = req.query
+    const { page = '1', pageSize = '20', keyword, status, customerId, partnerId } = req.query
+    const pid = partnerId ?? customerId
     const skip = (Number(page) - 1) * Number(pageSize)
     const take = Number(pageSize)
 
@@ -27,18 +28,18 @@ export const getReceivables = async (req: Request, res: Response) => {
     if (keyword) {
       where.OR = [
         { orderNo: { contains: String(keyword) } },
-        { customer: { name: { contains: String(keyword) } } }
+        { partner: { name: { contains: String(keyword) } } }
       ]
     }
     if (status) where.status = String(status)
-    if (customerId) where.customerId = Number(customerId)
+    if (pid) where.partnerId = Number(pid)
 
     const [list, total] = await Promise.all([
       prisma.receivable.findMany({
         where, skip, take, orderBy: { createdAt: 'desc' },
         include: {
-          customer: true,
-          items: { include: { salesOrder: { include: { customer: true } } } }
+          partner: true,
+          items: { include: { salesOrder: { include: { partner: true } } } }
         }
       }),
       prisma.receivable.count({ where })
@@ -61,8 +62,8 @@ export const getReceivable = async (req: Request, res: Response) => {
     const order = await prisma.receivable.findUnique({
       where: { id },
       include: {
-        customer: true,
-        items: { include: { salesOrder: { include: { customer: true, items: { include: { product: true } } } } } }
+        partner: true,
+        items: { include: { salesOrder: { include: { partner: true, items: { include: { product: true } } } } } }
       }
     })
     if (!order) {
@@ -78,7 +79,8 @@ export const getReceivable = async (req: Request, res: Response) => {
 // 获取可引用的销货单（未被锁定且已确认/已完成的）
 export const getAvailableSalesOrders = async (req: Request, res: Response) => {
   try {
-    const { customerId } = req.query
+    const { customerId, partnerId } = req.query
+    const pid = partnerId ?? customerId
 
     // 查询已被应收单引用的销货单ID
     const lockedItems = await prisma.receivableItem.findMany({
@@ -93,11 +95,11 @@ export const getAvailableSalesOrders = async (req: Request, res: Response) => {
       id: { notIn: lockedIds },
       status: { in: ['confirmed', 'completed'] }
     }
-    if (customerId) where.customerId = Number(customerId)
+    if (pid) where.partnerId = Number(pid)
 
     const orders = await prisma.salesOrder.findMany({
       where,
-      include: { customer: true, items: { include: { product: true } } },
+      include: { partner: true, items: { include: { product: true } } },
       orderBy: { createdAt: 'desc' }
     })
 
@@ -110,9 +112,10 @@ export const getAvailableSalesOrders = async (req: Request, res: Response) => {
 // 创建应收单
 export const createReceivable = async (req: AuthRequest, res: Response) => {
   try {
-    const { customerId, items, remark } = req.body
+    const { customerId, partnerId, items, remark } = req.body
+    const pid = partnerId ?? customerId
 
-    if (!customerId || !items || items.length === 0) {
+    if (!pid || !items || items.length === 0) {
       res.status(400).json({ code: 400, message: '客户和引用销货单不能为空' })
       return
     }
@@ -135,7 +138,7 @@ export const createReceivable = async (req: AuthRequest, res: Response) => {
     const salesOrders = await prisma.salesOrder.findMany({
       where: {
         id: { in: items.map((i: any) => i.salesOrderId) },
-        customerId
+        partnerId: pid
       }
     })
     if (salesOrders.length !== items.length) {
@@ -148,7 +151,7 @@ export const createReceivable = async (req: AuthRequest, res: Response) => {
 
     const order = await prisma.receivable.create({
       data: {
-        customerId,
+        partnerId: pid,
         orderNo,
         totalAmount,
         status: 'pending',
@@ -161,8 +164,8 @@ export const createReceivable = async (req: AuthRequest, res: Response) => {
         }
       },
       include: {
-        customer: true,
-        items: { include: { salesOrder: { include: { customer: true } } } }
+        partner: true,
+        items: { include: { salesOrder: { include: { partner: true } } } }
       }
     })
 
@@ -176,7 +179,8 @@ export const createReceivable = async (req: AuthRequest, res: Response) => {
 export const updateReceivable = async (req: AuthRequest, res: Response) => {
   try {
     const id = Number(req.params.id)
-    const { customerId, items, remark } = req.body
+    const { customerId, partnerId, items, remark } = req.body
+    const pid = partnerId ?? customerId
 
     const existing = await prisma.receivable.findUnique({ where: { id } })
     if (!existing) {
@@ -195,7 +199,7 @@ export const updateReceivable = async (req: AuthRequest, res: Response) => {
     const order = await prisma.receivable.update({
       where: { id },
       data: {
-        ...(customerId !== undefined && { customerId }),
+        ...(pid !== undefined && { partnerId: pid }),
         totalAmount,
         remark,
         ...(items && {
@@ -209,8 +213,8 @@ export const updateReceivable = async (req: AuthRequest, res: Response) => {
         })
       },
       include: {
-        customer: true,
-        items: { include: { salesOrder: { include: { customer: true } } } }
+        partner: true,
+        items: { include: { salesOrder: { include: { partner: true } } } }
       }
     })
 
@@ -266,8 +270,8 @@ export const approveReceivable = async (req: AuthRequest, res: Response) => {
         approvedAt: new Date()
       },
       include: {
-        customer: true,
-        items: { include: { salesOrder: { include: { customer: true } } } }
+        partner: true,
+        items: { include: { salesOrder: { include: { partner: true } } } }
       }
     })
 
@@ -298,8 +302,8 @@ export const revokeReceivable = async (req: AuthRequest, res: Response) => {
         approvedAt: null
       },
       include: {
-        customer: true,
-        items: { include: { salesOrder: { include: { customer: true } } } }
+        partner: true,
+        items: { include: { salesOrder: { include: { partner: true } } } }
       }
     })
 

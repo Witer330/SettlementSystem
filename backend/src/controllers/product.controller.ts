@@ -1,163 +1,118 @@
 import { Request, Response } from 'express'
+import { z } from 'zod'
 import { prisma } from '../lib/prisma'
+import { asyncHandler } from '../lib/asyncHandler'
+import { ARCHIVED, buildArchivedFilter } from '../lib/archive'
+import { badRequest, notFound } from '../lib/appError'
+import { checkProductReferences } from '../services/referenceCheck.service'
 
-// 获取产品列表
-export const getProducts = async (req: Request, res: Response) => {
-  try {
-    const { page = 1, pageSize = 10, keyword, status } = req.query
-    const where: any = {}
-    if (keyword) {
-      where.OR = [
-        { name: { contains: keyword as string } },
-        { code: { contains: keyword as string } }
-      ]
-    }
-    if (status) where.status = status
+// ============ Zod Schemas ============
+export const ProductCreateSchema = z.object({
+  name: z.string().min(1, '产品名称必填').max(100),
+  code: z.string().min(1, '产品编码必填').max(50),
+  category: z.string().min(1, '分类必填').max(50),
+  unit: z.string().min(1, '单位必填').max(10),
+  specification: z.string().max(100).optional().nullable(),
+  price: z.number().min(0).default(0),
+  unitPrice: z.number().min(0).default(0),
+  safeStock: z.number().min(0).default(0)
+})
 
-    const [list, total] = await Promise.all([
-      prisma.product.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        skip: ((page as number) - 1) * (pageSize as number),
-        take: parseInt(pageSize as string)
-      }),
-      prisma.product.count({ where })
-    ])
+export const ProductUpdateSchema = ProductCreateSchema.partial().extend({
+  status: z.enum(['active', 'inactive']).optional()
+})
 
-    res.json({
-      code: 0,
-      message: '获取成功',
-      data: {
-        list,
-        total,
-        page: parseInt(page as string),
-        pageSize: parseInt(pageSize as string),
-        totalPages: Math.ceil(total / parseInt(pageSize as string))
-      }
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取失败',
-      data: null
-    })
+export const ProductListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(200).default(20),
+  keyword: z.string().optional(),
+  status: z.string().optional(),
+  includeArchived: z.union([z.boolean(), z.string()]).optional()
+})
+
+// ============ Controllers ============
+export const getProducts = asyncHandler(async (req: Request, res: Response) => {
+  const { page, pageSize, keyword, status, includeArchived } = req.query as any
+  const where: any = {}
+  if (keyword) {
+    where.OR = [
+      { name: { contains: String(keyword) } },
+      { code: { contains: String(keyword) } }
+    ]
   }
-}
-
-// 获取产品详情
-export const getProduct = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params
-
-    const product = await prisma.product.findUnique({
-      where: { id: parseInt(id as string) }
-    })
-
-    if (!product) {
-      return res.status(404).json({
-        code: 404,
-        message: '产品不存在',
-        data: null
-      })
-    }
-
-    res.json({
-      code: 0,
-      message: '获取成功',
-      data: product
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取失败',
-      data: null
-    })
+  if (status) {
+    where.status = status
+  } else {
+    const filter = buildArchivedFilter(includeArchived)
+    if (filter) where.status = filter
   }
-}
 
-// 创建产品
-export const createProduct = async (req: Request, res: Response) => {
-  try {
-    const { name, code, category, specification, unit, price } = req.body
+  const p = Number(page) || 1
+  const ps = Number(pageSize) || 20
 
-    const product = await prisma.product.create({
-      data: {
-        name,
-        code,
-        category,
-        specification,
-        unit,
-        price: price || 0,
-        status: 'active'
-      }
-    })
+  const [list, total] = await Promise.all([
+    prisma.product.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (p - 1) * ps,
+      take: ps
+    }),
+    prisma.product.count({ where })
+  ])
 
-    res.json({
-      code: 0,
-      message: '创建成功',
-      data: product
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '创建失败',
-      data: null
-    })
+  res.json({
+    code: 0,
+    message: '获取成功',
+    data: { list, total, page: p, pageSize: ps, totalPages: Math.ceil(total / ps) }
+  })
+})
+
+export const getProduct = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const product = await prisma.product.findUnique({ where: { id } })
+  if (!product) throw notFound('产品不存在')
+  res.json({ code: 0, message: '获取成功', data: product })
+})
+
+export const createProduct = asyncHandler(async (req: Request, res: Response) => {
+  const data = req.body as z.infer<typeof ProductCreateSchema>
+  const product = await prisma.product.create({
+    data: { ...data, status: 'active' }
+  })
+  res.json({ code: 0, message: '创建成功', data: product })
+})
+
+export const updateProduct = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const data = req.body as z.infer<typeof ProductUpdateSchema>
+  const product = await prisma.product.update({ where: { id }, data })
+  res.json({ code: 0, message: '更新成功', data: product })
+})
+
+// 删除 = 归档（软删除），需关联检查
+export const deleteProduct = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const blockers = await checkProductReferences(id)
+  if (blockers.length > 0) {
+    throw badRequest('该产品存在关联数据，无法归档', { blockers })
   }
-}
+  const product = await prisma.product.update({
+    where: { id },
+    data: { status: ARCHIVED }
+  })
+  res.json({ code: 0, message: '已归档', data: product })
+})
 
-// 更新产品
-export const updateProduct = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params
-    const { name, code, category, specification, unit, price, status } = req.body
-
-    const product = await prisma.product.update({
-      where: { id: parseInt(id as string) },
-      data: {
-        name,
-        code,
-        category,
-        specification,
-        unit,
-        price,
-        status
-      }
-    })
-
-    res.json({
-      code: 0,
-      message: '更新成功',
-      data: product
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '更新失败',
-      data: null
-    })
+export const restoreProduct = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const existing = await prisma.product.findUnique({ where: { id } })
+  if (!existing) throw notFound('产品不存在')
+  if (existing.status !== ARCHIVED) {
+    throw badRequest('该产品未处于归档状态')
   }
-}
-
-// 删除产品
-export const deleteProduct = async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params
-
-    await prisma.product.delete({
-      where: { id: parseInt(id as string) }
-    })
-
-    res.json({
-      code: 0,
-      message: '删除成功',
-      data: null
-    })
-  } catch (error: any) {
-    res.status(500).json({
-      code: 500,
-      message: error.message || '删除失败',
-      data: null
-    })
-  }
-}
+  const product = await prisma.product.update({
+    where: { id },
+    data: { status: 'active' }
+  })
+  res.json({ code: 0, message: '已恢复', data: product })
+})

@@ -1,122 +1,110 @@
 import { Request, Response } from 'express'
+import { z } from 'zod'
 import { prisma } from '../lib/prisma'
+import { asyncHandler } from '../lib/asyncHandler'
+import { ARCHIVED, buildArchivedFilter } from '../lib/archive'
+import { badRequest, notFound } from '../lib/appError'
+import { checkMaterialReferences, isMaterialBlockerHard } from '../services/referenceCheck.service'
 
-// 获取物料列表
-export const getMaterials = async (req: Request, res: Response) => {
-  try {
-    const { page = '1', pageSize = '20', keyword, category, status } = req.query
-    const skip = (Number(page) - 1) * Number(pageSize)
-    const take = Number(pageSize)
+export const MaterialCreateSchema = z.object({
+  name: z.string().min(1, '物料名称必填').max(100),
+  code: z.string().min(1, '物料编码必填').max(50),
+  category: z.string().min(1, '分类必填').max(50),
+  unit: z.string().min(1, '单位必填').max(10),
+  specification: z.string().max(100).optional().nullable(),
+  barcode: z.string().max(100).optional().nullable(),
+  safeStock: z.number().min(0).default(0)
+})
 
-    const where: any = {}
-    if (keyword) {
-      where.OR = [
-        { name: { contains: String(keyword) } },
-        { code: { contains: String(keyword) } }
-      ]
-    }
-    if (category) where.category = String(category)
-    if (status) where.status = String(status)
+export const MaterialUpdateSchema = MaterialCreateSchema.partial().extend({
+  status: z.enum(['active', 'inactive']).optional()
+})
 
-    const [materials, total] = await Promise.all([
-      prisma.material.findMany({ where, skip, take, orderBy: { createdAt: 'desc' } }),
-      prisma.material.count({ where })
-    ])
+export const MaterialListQuerySchema = z.object({
+  page: z.coerce.number().int().min(1).default(1),
+  pageSize: z.coerce.number().int().min(1).max(200).default(20),
+  keyword: z.string().optional(),
+  category: z.string().optional(),
+  status: z.string().optional(),
+  includeArchived: z.union([z.boolean(), z.string()]).optional()
+})
 
-    res.json({
-      code: 0,
-      message: '获取成功',
-      data: { list: materials, total, page: Number(page), pageSize: take }
-    })
-  } catch (error: any) {
-    res.status(500).json({ code: 500, message: error.message || '获取失败' })
+export const getMaterials = asyncHandler(async (req: Request, res: Response) => {
+  const { page, pageSize, keyword, category, status, includeArchived } = req.query as any
+  const where: any = {}
+  if (keyword) {
+    where.OR = [
+      { name: { contains: String(keyword) } },
+      { code: { contains: String(keyword) } }
+    ]
   }
-}
-
-// 获取单个物料
-export const getMaterial = async (req: Request, res: Response) => {
-  try {
-    const id = Number(req.params.id)
-    const material = await prisma.material.findUnique({ where: { id } })
-    if (!material) {
-      res.status(404).json({ code: 404, message: '物料不存在' })
-      return
-    }
-    res.json({ code: 0, message: '获取成功', data: material })
-  } catch (error: any) {
-    res.status(500).json({ code: 500, message: error.message || '获取失败' })
+  if (category) where.category = String(category)
+  if (status) {
+    where.status = status
+  } else {
+    const filter = buildArchivedFilter(includeArchived)
+    if (filter) where.status = filter
   }
-}
 
-// 创建物料
-export const createMaterial = async (req: Request, res: Response) => {
-  try {
-    const { name, code, category, specification, unit, barcode, safeStock } = req.body
-    if (!name || !code || !category || !unit) {
-      res.status(400).json({ code: 400, message: '缺少必填字段' })
-      return
-    }
+  const p = Number(page) || 1
+  const ps = Number(pageSize) || 20
 
-    const existing = await prisma.material.findUnique({ where: { code } })
-    if (existing) {
-      res.status(400).json({ code: 400, message: '物料编码已存在' })
-      return
-    }
+  const [list, total] = await Promise.all([
+    prisma.material.findMany({ where, skip: (p - 1) * ps, take: ps, orderBy: { createdAt: 'desc' } }),
+    prisma.material.count({ where })
+  ])
 
-    const material = await prisma.material.create({
-      data: { name, code, category, specification, unit, barcode, safeStock: safeStock || 0 }
-    })
+  res.json({
+    code: 0,
+    message: '获取成功',
+    data: { list, total, page: p, pageSize: ps, totalPages: Math.ceil(total / ps) }
+  })
+})
 
-    res.json({ code: 0, message: '创建成功', data: material })
-  } catch (error: any) {
-    res.status(500).json({ code: 500, message: error.message || '创建失败' })
+export const getMaterial = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const material = await prisma.material.findUnique({ where: { id } })
+  if (!material) throw notFound('物料不存在')
+  res.json({ code: 0, message: '获取成功', data: material })
+})
+
+export const createMaterial = asyncHandler(async (req: Request, res: Response) => {
+  const data = req.body as z.infer<typeof MaterialCreateSchema>
+  const material = await prisma.material.create({ data })
+  res.json({ code: 0, message: '创建成功', data: material })
+})
+
+export const updateMaterial = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const data = req.body as z.infer<typeof MaterialUpdateSchema>
+  const material = await prisma.material.update({ where: { id }, data })
+  res.json({ code: 0, message: '更新成功', data: material })
+})
+
+export const deleteMaterial = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const all = await checkMaterialReferences(id)
+  const hardBlockers = all.filter(isMaterialBlockerHard)
+  if (hardBlockers.length > 0) {
+    throw badRequest('该物料存在关联数据，无法归档', { blockers: all })
   }
-}
+  const material = await prisma.material.update({
+    where: { id },
+    data: { status: ARCHIVED }
+  })
+  res.json({ code: 0, message: '已归档', data: material })
+})
 
-// 更新物料
-export const updateMaterial = async (req: Request, res: Response) => {
-  try {
-    const id = Number(req.params.id)
-    const { name, code, category, specification, unit, barcode, safeStock, status } = req.body
-
-    const existing = await prisma.material.findUnique({ where: { id } })
-    if (!existing) {
-      res.status(404).json({ code: 404, message: '物料不存在' })
-      return
-    }
-
-    if (code && code !== existing.code) {
-      const duplicate = await prisma.material.findUnique({ where: { code } })
-      if (duplicate) {
-        res.status(400).json({ code: 400, message: '物料编码已存在' })
-        return
-      }
-    }
-
-    const material = await prisma.material.update({
-      where: { id },
-      data: { name, code, category, specification, unit, barcode, safeStock, status }
-    })
-
-    res.json({ code: 0, message: '更新成功', data: material })
-  } catch (error: any) {
-    res.status(500).json({ code: 500, message: error.message || '更新失败' })
+export const restoreMaterial = asyncHandler(async (req: Request, res: Response) => {
+  const id = Number(req.params.id)
+  const existing = await prisma.material.findUnique({ where: { id } })
+  if (!existing) throw notFound('物料不存在')
+  if (existing.status !== ARCHIVED) {
+    throw badRequest('该物料未处于归档状态')
   }
-}
-
-// 删除物料
-export const deleteMaterial = async (req: Request, res: Response) => {
-  try {
-    const id = Number(req.params.id)
-    const existing = await prisma.material.findUnique({ where: { id } })
-    if (!existing) {
-      res.status(404).json({ code: 404, message: '物料不存在' })
-      return
-    }
-
-    await prisma.material.delete({ where: { id } })
-    res.json({ code: 0, message: '删除成功' })
-  } catch (error: any) {
-    res.status(500).json({ code: 500, message: error.message || '删除失败' })
-  }
-}
+  const material = await prisma.material.update({
+    where: { id },
+    data: { status: 'active' }
+  })
+  res.json({ code: 0, message: '已恢复', data: material })
+})
