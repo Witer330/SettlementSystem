@@ -6,23 +6,19 @@
         <el-radio-button value="detail">明细</el-radio-button>
         <el-radio-button value="summary">汇总</el-radio-button>
       </el-radio-group>
+      <el-button v-if="viewMode === 'detail' && !readonly" size="small" @click="addRowAndScroll">+ 添加行</el-button>
+      <el-button v-if="viewMode === 'detail' && !readonly && !locked && items.length > 1" size="small" type="danger" :disabled="selectedRows.length === 0" @click="batchRemove">批量删<template v-if="selectedRows.length > 0">({{ selectedRows.length }})</template></el-button>
+      <span style="flex:1" />
+      <slot name="modeBarExtra" />
     </div>
 
-    <div class="dd-table-wrap">
+    <div ref="wrapRef" class="dd-table-wrap">
     <el-table ref="tableRef" :data="displayItems" border size="small" :height="tableHeight" style="width:100%" @selection-change="onSelectionChange">
       <!-- 批量选择（明细模式） -->
       <el-table-column v-if="viewMode === 'detail' && !readonly && !locked" type="selection" width="40" align="center" />
 
-      <!-- #（明细模式：添加行 + 批量删除） -->
-      <el-table-column width="60" align="center">
-        <template v-if="viewMode === 'detail'" #header>
-          <div style="display:flex;align-items:center;gap:2px;">
-            <el-button v-if="!readonly" link size="small" @click="addRowAndScroll" title="添加行">+</el-button>
-            <span v-else>#</span>
-            <el-button v-if="!readonly && !locked && items.length > 1" link type="danger" size="small" :disabled="selectedRows.length === 0" @click="batchRemove">删<template v-if="selectedRows.length > 0">{{ selectedRows.length }}</template></el-button>
-          </div>
-        </template>
-        <template v-else #header>#</template>
+      <!-- 行号 -->
+      <el-table-column label="行号" width="60" align="center">
         <template #default="{ $index }">{{ $index + 1 }}</template>
       </el-table-column>
 
@@ -95,15 +91,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessageBox } from 'element-plus'
 import { useKeyboardNavigation } from '@/composables/useKeyboardNavigation'
 
 const bodyRef = ref<HTMLElement | null>(null)
+const wrapRef = ref<HTMLElement | null>(null)
 const tableRef = ref<any>(null)
 const selectedRows = ref<any[]>([])
 const viewMode = ref<'detail' | 'summary'>('detail')
-const tableHeight = ref<string | number>('100%')
+const tableHeight = ref<number | undefined>(undefined)
+
+let observer: ResizeObserver | null = null
+
+onMounted(() => {
+  if (wrapRef.value) {
+    observer = new ResizeObserver(([entry]) => {
+      if (entry) tableHeight.value = entry.contentRect.height
+    })
+    observer.observe(wrapRef.value)
+  }
+})
+
+onUnmounted(() => {
+  observer?.disconnect()
+})
 
 function onModeChange() {
   tableRef.value?.clearSelection()
@@ -199,9 +211,13 @@ function scrollToBottom() {
   setTimeout(() => {
     const root = bodyRef.value
     if (!root) return
-    const rows = root.querySelectorAll('.el-table__body-wrapper tbody tr')
-    const lastRow = rows[rows.length - 1] as HTMLElement | null
-    if (lastRow) lastRow.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    // Element Plus 固定高度表格的滚动容器可能在 el-table__body-wrapper 或 el-scrollbar__wrap
+    const target = root.querySelector('.el-table__body-wrapper') as HTMLElement | null
+    if (target) {
+      const scrollWrap = target.querySelector('.el-scrollbar__wrap') as HTMLElement | null
+      if (scrollWrap) scrollWrap.scrollTop = scrollWrap.scrollHeight
+      else target.scrollTop = target.scrollHeight
+    }
   }, 200)
 }
 
@@ -217,6 +233,7 @@ const nav = useKeyboardNavigation({
 
 <style scoped>
 .dd-body {
+  flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -227,6 +244,7 @@ const nav = useKeyboardNavigation({
 .dd-mode-bar {
   display: flex;
   align-items: center;
+  gap: 8px;
   padding-bottom: 8px;
   flex-shrink: 0;
 }

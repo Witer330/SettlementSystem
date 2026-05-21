@@ -41,7 +41,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import {
-  Check, Close, Delete, Connection,
+  Check, Close, Delete, Edit, Connection,
   Box, Ticket, Money, Cpu, RefreshLeft
 } from '@element-plus/icons-vue'
 
@@ -93,6 +93,7 @@ const salesActions: ToolbarAction[] = [
   { key: 'create-production', label: '生成生产工单', icon: Cpu, type: 'primary', group: 'flow' },
   { key: 'create-return', label: '退货', icon: RefreshLeft, type: 'danger', group: 'flow' },
   { key: 'material-requirements', label: '物料需求', icon: Ticket, type: 'success', group: 'flow' },
+  { key: 'save-draft', label: '保存草稿', icon: Edit, type: 'default', group: 'data' },
   { key: 'delete', label: '删除', icon: Delete, type: 'danger', group: 'data' },
   { key: 'flow-log', label: '流转记录', icon: Connection, type: 'info', group: 'view' }
 ]

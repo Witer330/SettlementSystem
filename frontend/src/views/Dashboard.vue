@@ -47,7 +47,7 @@
             @tab-title-change="onTabTitleChange"
             @tab-toolbar-action="onTabToolbarAction"
           />
-          <router-view v-else />
+          <div v-else class="page-scroll"><router-view /></div>
         </el-main>
       </el-container>
     </el-container>
@@ -267,6 +267,11 @@ async function handleCloseAllTabs() {
   background-color: var(--el-bg-color-page);
   padding: 0;
   overflow: hidden;
+}
+.page-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 @media (max-width: 768px) {

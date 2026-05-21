@@ -51,6 +51,11 @@
 
     <!-- ═══ 工作台模式（三组件：表头/明细/表尾） ═══ -->
     <div v-else v-loading="inlineLoading" class="ws-form" @keydown="onWsKeydown">
+      <!-- 功能栏（表头上方） -->
+      <div v-if="orderId" class="ws-toolbar">
+        <DocActionBar order-type="sales-order" :status="orderStatus" :order-id="orderId" :is-locked="orderIsLocked" :readonly="readonly" @action="(key) => handleToolbarAction(key)" />
+      </div>
+
       <DocHeader
         :order-id="orderId"
         :order-no="orderNo"
@@ -126,7 +131,6 @@
         </template>
 
         <template #actions>
-          <DocToolbar v-if="orderId && !readonly" order-type="sales-order" :status="orderStatus" :order-id="orderId" :is-locked="orderIsLocked" :readonly="readonly" mode="flat" @action="(key) => handleToolbarAction(key)" />
           <el-button v-if="!readonly" size="small" :icon="Setting" @click="configDrawerVisible = true" title="表头字段配置" />
         </template>
       </DocHeader>
@@ -146,6 +150,9 @@
         @batch-remove="batchRemoveItems"
         @item-select="(v, r) => onProductChange(v, r)"
       >
+        <template #modeBarExtra>
+          <el-button v-if="!readonly" size="small" @click="batchSelectProducts">批量导入</el-button>
+        </template>
         <template #priceTag="{ row: r }">
           <el-tag v-if="r.productId > 0 && r.price === 0" type="danger" size="small" effect="dark">赠</el-tag>
         </template>
@@ -157,7 +164,6 @@
       <DocFooter
         :stats="footerStats"
         :draft-hint="draftHint"
-        :show-actions="!readonly"
         @stat-click="onStatClick"
       >
         <template #info>
@@ -178,12 +184,6 @@
             <el-button v-for="d in downstreamDocs" :key="d.id" link :type="d.docType === 'receivable' ? 'warning' : d.docType === 'return' ? 'danger' : 'primary'" size="small" @click="emit('toolbarAction', 'open-' + d.docType + ':' + d.id)">{{ d.orderNo }}</el-button>
           </template>
         </template>
-        <template #actions>
-          <el-button link size="small" @click="handleCancel">取消</el-button>
-          <el-button size="small" @click="batchSelectProducts">批量</el-button>
-          <el-button size="small" :loading="draft.isSaving.value" @click="handleSaveDraft">草稿</el-button>
-          <el-button size="small" type="primary" :loading="submitting" @click="handleSubmit">提交</el-button>
-        </template>
       </DocFooter>
     </div>
 
@@ -199,7 +199,7 @@
     </el-dialog>
 
     <!-- 表头字段配置抽屉 -->
-    <HeaderFieldConfig v-model="configDrawerVisible" :fields="headerFields" @save="saveHeaderConfig" @reset="resetHeaderFields" />
+    <HeaderFieldConfig v-model="configDrawerVisible" :fields="headerFields" :per-row="perRow" @save="(fields, pr) => saveHeaderConfig(fields, pr)" @reset="resetHeaderFields" />
 
     <!-- 草稿保存确认弹窗 -->
     <el-dialog v-model="draftSaveVisible" title="保存草稿" width="380px" :append-to-body="true">
@@ -216,7 +216,7 @@
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
 import { Setting } from '@element-plus/icons-vue'
-import DocToolbar from './DocToolbar.vue'
+import DocActionBar from './DocActionBar.vue'
 import DocHeader from './DocHeader.vue'
 import DocDetail from './DocDetail.vue'
 import DocFooter, { type FooterStat } from './DocFooter.vue'
@@ -267,7 +267,7 @@ const totalAmount = computed(() => form.items.reduce((s: number, i: any) => s + 
 const draft = useDraftAutoSave(salesOrderApi as any, form as any, 'customerId', 'productId')
 const { maskAmount } = useAmountPrivacy()
 const docReveal = useReveal()
-const { fields: headerFields, fieldGroups, loadConfig: loadHeaderConfig, saveConfig: saveHeaderConfig, resetToDefault: resetHeaderFields } = useHeaderFields()
+const { fields: headerFields, perRow, fieldGroups, loadConfig: loadHeaderConfig, saveConfig: saveHeaderConfig, resetToDefault: resetHeaderFields } = useHeaderFields()
 const configDrawerVisible = ref(false)
 const draftSaveVisible = ref(false)
 const draftReserveInventory = ref(true)
@@ -303,6 +303,10 @@ function onPartnerChange() {
     .catch(() => {})
 }
 async function handleToolbarAction(key: string) {
+  if (key === 'new') { emit('cancel'); return }
+  if (key === 'save-draft') { handleSaveDraft(); return }
+  if (key === 'submit') { handleSubmit(); return }
+  if (key === 'config-header') { configDrawerVisible.value = true; return }
   if (key === 'delete' && orderId.value) {
     try { await ElMessageBox.confirm('确定删除该单据？删除后无法恢复。', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }) }
     catch { return }

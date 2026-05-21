@@ -48,6 +48,9 @@
 
     <!-- ═══ 工作台模式（三组件：表头/明细/表尾） ═══ -->
     <div v-else v-loading="inlineLoading" class="ws-form" @keydown="onWsKeydown">
+      <div v-if="orderId" class="ws-toolbar">
+        <DocActionBar order-type="purchase-order" :status="orderStatus" :order-id="orderId" :is-locked="orderIsLocked" :readonly="readonly" @action="handleToolbarAction" />
+      </div>
       <DocHeader
         :order-id="orderId"
         :order-no="orderNo"
@@ -101,9 +104,6 @@
             </div>
           </div>
         </template>
-        <template #actions>
-          <DocToolbar v-if="orderId && !readonly" order-type="purchase-order" :status="orderStatus" :order-id="orderId" :is-locked="orderIsLocked" :readonly="readonly" mode="flat" @action="handleToolbarAction" />
-        </template>
       </DocHeader>
 
       <DocDetail
@@ -120,6 +120,9 @@
         @remove-row="removeItem"
         @batch-remove="batchRemoveItems"
       >
+        <template #modeBarExtra>
+          <el-button v-if="!readonly" size="small" @click="batchSelectMaterials">批量导入</el-button>
+        </template>
         <template #priceTag="{ row: r }">
           <span v-if="r.materialId > 0 && r.price === 0" class="ws-price-warn">待定价</span>
         </template>
@@ -131,7 +134,6 @@
       <DocFooter
         :stats="footerStats"
         :draft-hint="draftHint"
-        :show-actions="!readonly"
         @stat-click="onStatClick"
       >
         <template #statsExtra>
@@ -139,12 +141,6 @@
             <el-button v-if="upstreamOrder" link type="primary" size="small" @click="emit('toolbarAction', 'open-order:' + upstreamOrder.id)">{{ upstreamOrder.orderNo }}</el-button>
             <el-button v-for="d in downstreamDocs" :key="d.id" link :type="d.docType === 'payable' ? 'warning' : 'primary'" size="small" @click="emit('toolbarAction', 'open-' + d.docType + ':' + d.id)">{{ d.orderNo }}</el-button>
           </template>
-        </template>
-        <template #actions>
-          <el-button link size="small" @click="handleCancel">取消</el-button>
-          <el-button size="small" @click="batchSelectMaterials">批量</el-button>
-          <el-button size="small" :loading="draft.isSaving.value" @click="handleSaveDraft">草稿</el-button>
-          <el-button size="small" type="primary" :loading="submitting" @click="handleSubmit">提交</el-button>
         </template>
       </DocFooter>
     </div>
@@ -165,7 +161,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus'
-import DocToolbar from './DocToolbar.vue'
+import DocActionBar from './DocActionBar.vue'
 import DocHeader from './DocHeader.vue'
 import DocDetail from './DocDetail.vue'
 import DocFooter, { type FooterStat } from './DocFooter.vue'
@@ -235,6 +231,9 @@ function onPartnerChange() {
     .catch(() => {})
 }
 async function handleToolbarAction(key: string) {
+  if (key === 'new') { emit('cancel'); return }
+  if (key === 'save-draft') { handleSaveDraft(); return }
+  if (key === 'submit') { handleSubmit(); return }
   if (key === 'delete' && orderId.value) {
     try { await ElMessageBox.confirm('确定删除该单据？删除后无法恢复。', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }) }
     catch { return }

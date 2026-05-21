@@ -2,14 +2,25 @@
 /* 注意：DocHeader/DocDetail/DocFooter 有各自的 scoped 样式。
    此文件仅提供：整体 grid 布局 + 表格深度样式 + 通用工具类 */
 
-/* 工作台容器：表头 → 明细(1fr,可滚动) → 表尾 */
+/* 功能栏（表头上方，tab栏下方） */
+.ws-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 20px;
+  background: var(--bg-canvas, #f6f8fa);
+  border-bottom: 1px solid var(--border-color, #e3e8ee);
+  flex-shrink: 0;
+}
+
+/* 工作台容器：功能栏 → 表头 → 明细(flex:1) → 表尾 */
 .ws-form {
   flex: 1;
   min-height: 0;
-  display: grid;
-  grid-template-rows: auto 1fr auto;
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  padding-top: 20px;
+  padding-top: 0;
   background: var(--bg-canvas, #f6f8fa);
   box-sizing: border-box;
 }

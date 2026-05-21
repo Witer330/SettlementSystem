@@ -1,6 +1,11 @@
 <template>
   <el-drawer v-model="visible" title="表头字段配置" size="340px" :append-to-body="true">
     <div class="hfc-tip">拖拽调整顺序，开关控制显隐</div>
+    <!-- 每行字段数 -->
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;">
+      <span style="font-size:13px;color:var(--color-text-secondary)">每行字段数</span>
+      <el-input-number v-model="localPerRow" :min="1" :max="6" size="small" controls-position="right" style="width:100px" />
+    </div>
     <draggable
       v-model="localFields"
       item-key="key"
@@ -28,7 +33,6 @@
 
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import { ElMessage } from 'element-plus'
 import { Rank } from '@element-plus/icons-vue'
 import draggable from 'vuedraggable'
 import type { HeaderFieldDef } from '@/composables/useHeaderFields'
@@ -36,26 +40,31 @@ import type { HeaderFieldDef } from '@/composables/useHeaderFields'
 const props = defineProps<{
   modelValue: boolean
   fields: HeaderFieldDef[]
+  perRow: number
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [v: boolean]
-  save: [fields: HeaderFieldDef[]]
+  save: [fields: HeaderFieldDef[], perRow: number]
   reset: []
 }>()
 
 const visible = computed({ get: () => props.modelValue, set: (v) => emit('update:modelValue', v) })
 const localFields = ref<HeaderFieldDef[]>([])
+const localPerRow = ref(3)
 const saving = ref(false)
 
 watch(() => props.modelValue, (v) => {
-  if (v) localFields.value = JSON.parse(JSON.stringify(props.fields))
+  if (v) {
+    localFields.value = JSON.parse(JSON.stringify(props.fields))
+    localPerRow.value = props.perRow
+  }
 })
 
 async function handleSave() {
   saving.value = true
   try {
-    emit('save', localFields.value)
+    emit('save', localFields.value, localPerRow.value)
     visible.value = false
   } finally {
     saving.value = false
