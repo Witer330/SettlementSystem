@@ -1,7 +1,7 @@
 <template>
   <div class="dashboard">
     <el-container class="dashboard-container">
-      <AppSidebar :is-collapsed="isCollapsed" />
+      <AppSidebar :is-collapsed="isCollapsed" @navigate="onNavigate" />
 
       <el-container class="dashboard-main">
         <AppHeader
@@ -56,7 +56,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { Close } from '@element-plus/icons-vue'
 import AppSidebar from './layout/AppSidebar.vue'
@@ -70,20 +70,39 @@ const toggleSidebar = () => {
 }
 
 const route = useRoute()
+const router = useRouter()
+let navigatingFromSidebar = false
+
+function onNavigate(path: string, title: string) {
+  if (path === '/dashboard') { tabStore.deactivateAll(); router.push('/dashboard'); return }
+  navigatingFromSidebar = true
+  tabStore.addTab(path, title, { route: path })
+  router.push(path)
+}
 const tabStore = useTabStore()
 
 // 侧边栏导航时取消所有 tab 的激活状态，展示路由页面
 watch(
   () => route.path,
   () => {
+    if (navigatingFromSidebar) { navigatingFromSidebar = false; return }
     if (tabStore.activeTabId) {
       tabStore.deactivateAll()
     }
   }
 )
 
-function onTabSuccess(tabId: string, _orderNo: string) {
-  tabStore.removeTab(tabId)
+function onTabSuccess(tabId: string, orderNo: string) {
+  // 保存成功 → 更新标签标题和单号，保持可编辑，不关闭
+  if (orderNo) {
+    const tab = tabStore.tabs.find(t => t.id === tabId)
+    if (tab) {
+      tabStore.updateTab(tabId, {
+        title: tab.type === 'purchase-order' ? '采购单 - ' + orderNo : '销货单 - ' + orderNo,
+        metadata: { ...tab.metadata, orderId: tab.metadata.orderId || 0 }
+      })
+    }
+  }
 }
 
 function onTabCancel(tabId: string) {
@@ -110,7 +129,7 @@ function onTabToolbarAction(_tabId: string, action: string) {
       // 由表单内部处理，不需要额外动作
       break
     case 'material-requirements':
-      if (orderId) window.open(`/dashboard/inventory/material-requirements?orderId=${orderId}`, '_blank')
+      if (orderId) router.push(`/dashboard/inventory/material-requirements?orderId=${orderId}`)
       break
     default:
       console.log('Toolbar action:', action, 'tabId:', _tabId)
@@ -169,85 +188,85 @@ async function handleCloseAllTabs() {
 .tab-bar {
   display: flex;
   align-items: center;
-  height: 36px;
-  background: var(--el-fill-color-light);
-  border-bottom: 1px solid var(--el-border-color-light);
+  height: 34px;
+  background: #e8e8e8;
+  border-bottom: 1px solid #d9d9d9;
   flex-shrink: 0;
 }
 
 .tab-bar-scroll {
   display: flex;
-  align-items: stretch;
+  align-items: flex-end;
   flex: 1;
   overflow-x: auto;
   scrollbar-width: none;
   height: 100%;
+  padding: 4px 4px 0;
+  gap: 0;
 }
-
-.tab-bar-scroll::-webkit-scrollbar {
-  display: none;
-}
+.tab-bar-scroll::-webkit-scrollbar { display: none; }
 
 .tab-item {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   padding: 0 12px;
-  height: 100%;
-  font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  height: 28px;
+  font-size: 12px;
+  color: #999;
   cursor: pointer;
-  border-right: 1px solid var(--el-border-color-light);
-  background: transparent;
+  background: #e0e0e0;
   white-space: nowrap;
   user-select: none;
-  transition: background 0.15s, color 0.15s;
+  border-radius: 6px 6px 0 0;
+  margin-right: 1px;
   flex-shrink: 0;
+  border: 1px solid transparent;
+  transition: background .12s, color .12s, border-color .12s;
 }
-
 .tab-item:hover {
-  background: var(--el-fill-color);
-  color: var(--color-text-primary);
+  background: #ededed;
+  color: #555;
 }
-
 .tab-item.active {
-  background: var(--color-white);
-  color: var(--color-text-primary);
-  font-weight: var(--font-weight-500);
-  border-bottom: 2px solid var(--color-primary);
+  background: #fff;
+  color: #111;
+  font-weight: 600;
+  border-color: #d9d9d9;
+  border-bottom-color: #fff;
+  position: relative;
+  z-index: 1;
 }
 
 .tab-dot {
-  width: 6px;
-  height: 6px;
+  width: 6px; height: 6px;
   border-radius: 50%;
   background: transparent;
   flex-shrink: 0;
 }
-
-.tab-dot.dirty {
-  background: var(--color-warning, #e6a23c);
-}
+.tab-dot.dirty { background: #e6a23c; }
 
 .tab-title {
-  max-width: 180px;
+  max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1;
 }
 
 .tab-close {
-  padding: 2px;
-  width: 16px;
-  height: 16px;
+  padding: 0; margin-left: 2px;
+  width: 14px; height: 14px;
   font-size: 10px;
-  color: var(--color-text-muted);
-  border-radius: var(--radius-sm);
+  color: #bbb;
+  border-radius: 3px;
   flex-shrink: 0;
+  transition: opacity .12s, background .12s, color .12s;
 }
-
+.tab-item.active .tab-close { opacity: .6; }
+.tab-item:hover .tab-close { opacity: 1; }
 .tab-close:hover {
-  background: var(--el-fill-color);
-  color: var(--color-danger);
+  background: #fee;
+  color: #e44;
 }
 
 .tab-bar-actions {
@@ -255,7 +274,8 @@ async function handleCloseAllTabs() {
   align-items: center;
   padding: 0 8px;
   flex-shrink: 0;
-  font-size: var(--font-size-xs);
+  font-size: 11px;
+  color: #999;
 }
 
 /* ── Content ── */

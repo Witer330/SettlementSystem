@@ -24,6 +24,12 @@ router.put('/bills/:id/revoke', salaryController.revokeSalaryBill)
 
 // 发放工资单（终态，生成数据哈希）
 router.put('/bills/:id/issue', salaryController.issueSalaryBill)
+router.put('/unissue-test', (req, res) => { res.json({ ok: true }) })
+router.put('/bills/:id/unissue', (req, res) => { res.json({ ok: true, id: req.params.id }) })
+router.post('/bills/:id/unissue', (req, res) => { res.json({ ok: true, id: req.params.id }) })
+
+// TEST
+router.get('/test-unissue', (req, res) => res.json({ ok: true }))
 
 // 删除工资单（仅 pending 可删）
 router.delete('/bills/:id', salaryController.deleteSalaryBill)

@@ -2,8 +2,8 @@
  * 订单状态标签映射 — 销货单/采购单共用
  */
 export function useStatusHelpers() {
-  const label = (s: string) => ({ draft: '草稿', pending: '待确认', confirmed: '已确认', completed: '已完成' }[s] || s)
-  const tagType = (s: string) => ({ draft: 'info', pending: 'warning', confirmed: 'primary', completed: 'success' }[s] || '')
+  const label = (s: string) => ({ draft: '待确认', pending: '待确认', confirmed: '已确认', completed: '已完成', voided: '已作废' }[s] || s)
+  const tagType = (s: string) => ({ draft: 'warning', pending: 'warning', confirmed: 'primary', completed: 'success', voided: 'danger' }[s] || '')
 
   const helpText = {
     confirm: '确认后订单进入"已确认"状态，表示审核通过，可以安排生产或备货。流转条件：客户已确认交期和价格。',

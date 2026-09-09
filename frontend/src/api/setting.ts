@@ -50,7 +50,7 @@ export const settingApi = {
       const data = await api.get<{ key: string; value: any }>(`/settings/${key}`)
       return data.value as T
     } catch (e: any) {
-      if (e?.response?.status === 404) return null
+      if (e?.code === 404) return null
       throw e
     }
   },
@@ -62,7 +62,7 @@ export const settingApi = {
 
   // 批量更新设置
   async batchUpdate(
-    settings: Array<{ key: string; value: string; remark?: string }>
+    settings: Array<{ key: string; value: string; type?: string; category?: string; remark?: string }>
   ): Promise<void> {
     await api.post('/settings/batch', { settings })
   },

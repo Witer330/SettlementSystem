@@ -187,10 +187,6 @@ async function batchRemove() {
   tableRef.value?.clearSelection()
 }
 
-async function onRemove(row: any) {
-  emit('removeRow', row)
-}
-
 function onItemSelect(value: number, row: any) {
   row[props.itemField] = value
   emit('itemSelect', value, row)

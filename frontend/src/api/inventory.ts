@@ -72,7 +72,7 @@ export const inventoryApi = {
     api.get<InventoryItem>(`/inventory/${materialId}`),
 
   // 手动调整库存
-  adjust: (data: { materialId: number; quantity: number; type: 'in' | 'out'; remark?: string }) =>
+  adjust: (data: { materialId: number; quantity: number; type: 'in' | 'out'; pkgSpec?: string; unitRatio?: number; remark?: string }) =>
     api.post('/inventory/adjust', data),
 
   // 成品库存列表
@@ -81,5 +81,17 @@ export const inventoryApi = {
 
   // 成品库存调整
   adjustProductStock: (data: { productId: number; quantity: number; type: 'in' | 'out'; remark?: string }) =>
-    api.post('/inventory/products/adjust', data)
+    api.post('/inventory/products/adjust', data),
+
+  // 批量创建出入库单（draft）
+  batchCreate: (data: { items: Array<{ materialId: number; quantity: number; pkgSpec?: string; unitRatio?: number; remark?: string }>; type: string; batchNo?: string }) =>
+    api.post('/inventory/batch', data),
+
+  // 审核出入库单
+  approveBatch: (batchNo: string) =>
+    api.post('/inventory/batch/approve', { batchNo }),
+
+  // 反审出入库单
+  unapproveBatch: (batchNo: string) =>
+    api.post('/inventory/batch/unapprove', { batchNo })
 }

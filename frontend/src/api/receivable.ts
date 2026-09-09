@@ -33,7 +33,7 @@ export const receivableApi = {
     status?: string
     customerId?: number
   }) {
-    return await api.get('/receivables', { params })
+    return await api.get<{ list: Receivable[]; total: number }>('/receivables', { params })
   },
 
   async getById(id: number): Promise<Receivable> {
@@ -41,7 +41,7 @@ export const receivableApi = {
   },
 
   async getAvailableSalesOrders(customerId?: number) {
-    return await api.get('/receivables/available-sales-orders', { params: { customerId } })
+    return await api.get<SalesOrder[]>('/receivables/available-sales-orders', { params: { customerId } })
   },
 
   async create(data: { customerId: number; items: { salesOrderId: number; amount: number }[]; remark?: string }): Promise<Receivable> {

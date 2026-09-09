@@ -26,8 +26,13 @@ const routes: RouteRecordRaw[] = [
       {
         path: 'salary',
         name: 'Salary',
-        redirect: '/dashboard/salary/salary-calculation',
+        redirect: '/dashboard/salary/salary-entry',
         children: [
+          {
+            path: 'salary-entry',
+            name: 'SalaryEntry',
+            component: () => import('@/views/salary/SalaryEntry.vue')
+          },
           {
             path: 'salary-calculation',
             name: 'SalaryCalculation',
@@ -91,6 +96,16 @@ const routes: RouteRecordRaw[] = [
             path: 'sales-orders',
             name: 'SalesOrder',
             component: () => import('@/views/inventory/SalesOrder.vue')
+          },
+          {
+            path: 'inbound',
+            name: 'InventoryInbound',
+            component: () => import('@/views/inventory/InventorySheets.vue')
+          },
+          {
+            path: 'outbound',
+            name: 'InventoryOutbound',
+            component: () => import('@/views/inventory/InventorySheets.vue')
           },
           {
             path: 'inventory-query',

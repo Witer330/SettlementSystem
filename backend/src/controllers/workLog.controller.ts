@@ -60,7 +60,7 @@ export const getWorkLog = async (req: Request, res: Response) => {
 // 创建工时记录
 export const createWorkLog = async (req: Request, res: Response) => {
   try {
-    const { employeeId, date, hours, remark } = req.body
+    const { employeeId, date, hours, hourlyRate, remark } = req.body
 
     if (!employeeId || !date || !hours) {
       res.status(400).json({ code: 400, message: '员工、日期和工时不能为空' })
@@ -78,6 +78,7 @@ export const createWorkLog = async (req: Request, res: Response) => {
         employeeId,
         date: new Date(date),
         hours,
+        hourlyRate: hourlyRate ?? null,
         remark
       },
       include: {
@@ -114,11 +115,12 @@ export const updateWorkLog = async (req: Request, res: Response) => {
       return
     }
 
-    const { employeeId, date, hours, remark } = req.body
+    const { employeeId, date, hours, hourlyRate, remark } = req.body
     const data: any = {}
     if (employeeId !== undefined) data.employeeId = employeeId
     if (date !== undefined) data.date = new Date(date)
     if (hours !== undefined) data.hours = hours
+    if (hourlyRate !== undefined) data.hourlyRate = hourlyRate
     if (remark !== undefined) data.remark = remark
 
     const record = await prisma.workLog.update({

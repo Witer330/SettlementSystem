@@ -5,6 +5,7 @@ import {
   createPurchaseOrder,
   updatePurchaseOrder,
   deletePurchaseOrder,
+  restorePurchaseOrder,
   updatePurchaseOrderStatus,
   receivePurchaseOrder
 } from '../controllers/purchaseOrder.controller'
@@ -17,6 +18,7 @@ router.get('/:id', authenticate, getPurchaseOrder)
 router.post('/', authenticate, createPurchaseOrder)
 router.put('/:id', authenticate, updatePurchaseOrder)
 router.delete('/:id', authenticate, deletePurchaseOrder)
+router.patch('/:id/restore', authenticate, restorePurchaseOrder)
 router.patch('/:id/status', authenticate, updatePurchaseOrderStatus)
 router.post('/:id/receive', authenticate, receivePurchaseOrder)
 

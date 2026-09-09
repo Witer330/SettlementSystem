@@ -34,7 +34,10 @@
         <el-table-column prop="name" label="名称" min-width="150" />
         <el-table-column prop="category" label="分类" width="100" />
         <el-table-column prop="specification" label="规格" width="120" />
-        <el-table-column prop="unit" label="单位" width="80" />
+        <el-table-column prop="unit" label="基本单位" width="80" />
+        <el-table-column prop="defaultUnit" label="默认使用单位" width="120">
+          <template #default="{ row }">{{ row.defaultUnit || row.unit }}</template>
+        </el-table-column>
         <el-table-column prop="safeStock" label="安全库存" width="100" />
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
@@ -70,34 +73,35 @@
       />
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑物料' : '新增物料'" width="520px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑物料' : '新增物料'" width="620px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
-        <el-form-item label="名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入物料名称" />
-        </el-form-item>
-        <el-form-item label="编码" prop="code">
-          <el-input v-model="form.code" placeholder="请输入物料编码" />
-        </el-form-item>
+        <el-form-item label="名称" prop="name"><el-input v-model="form.name" /></el-form-item>
+        <el-form-item label="编码" prop="code"><el-input v-model="form.code" /></el-form-item>
         <el-form-item label="分类" prop="category">
-          <el-select v-model="form.category" placeholder="请选择分类" style="width: 100%">
-            <el-option label="原材料" value="原材料" />
-            <el-option label="辅料" value="辅料" />
-            <el-option label="包装材料" value="包装材料" />
+          <el-select v-model="form.category" style="width:100%"><el-option label="原材料" value="原材料" /><el-option label="辅料" value="辅料" /><el-option label="包装材料" value="包装材料" /></el-select>
+        </el-form-item>
+        <el-form-item label="规格"><el-input v-model="form.specification" /></el-form-item>
+        <el-form-item label="基本单位" prop="unit"><el-input v-model="form.unit" placeholder="如 个、kg、米" /></el-form-item>
+        <el-form-item label="默认使用单位">
+          <el-select v-model="form.defaultUnit" placeholder="默认使用单位" clearable style="width:100%">
+            <el-option :label="`基本单位（${form.unit || '个'}）`" :value="form.unit" />
+            <el-option v-for="pkg in pkgSpecs" :key="pkg.unitName" :label="`${pkg.name}（${pkg.unitName}）`" :value="pkg.unitName" />
           </el-select>
         </el-form-item>
-        <el-form-item label="规格">
-          <el-input v-model="form.specification" placeholder="如 Φ100×20" />
-        </el-form-item>
-        <el-form-item label="单位" prop="unit">
-          <el-input v-model="form.unit" placeholder="如 kg、个、米" />
-        </el-form-item>
-        <el-form-item label="条码">
-          <el-input v-model="form.barcode" placeholder="可选" />
-        </el-form-item>
-        <el-form-item label="安全库存">
-          <el-input-number v-model="form.safeStock" :min="0" style="width: 100%" />
-        </el-form-item>
+        <el-form-item label="条码"><el-input v-model="form.barcode" /></el-form-item>
+        <el-form-item label="安全库存"><el-input-number v-model="form.safeStock" :min="0" style="width:100%" /></el-form-item>
       </el-form>
+
+      <div v-if="isEdit" style="margin-top:12px">
+        <h4 style="margin-bottom:8px">包装规格 <el-button size="small" @click="addPkgRow">+ 添加</el-button></h4>
+        <el-table :data="pkgSpecs" border size="small" style="width:100%">
+          <el-table-column label="包装名" min-width="80"><template #default="{ row }"><el-input v-model="row.name" size="small" placeholder="小箱" /></template></el-table-column>
+          <el-table-column label="单位" width="80"><template #default="{ row }"><el-input v-model="row.unitName" size="small" placeholder="箱" /></template></el-table-column>
+          <el-table-column label="换算比" width="140"><template #default="{ row }"><span style="margin-right:4px">1{{ row.unitName || '箱' }} =</span><el-input-number v-model="row.ratio" :min="1" size="small" style="width:70px" />{{ form.unit || '个' }}</template></el-table-column>
+          <el-table-column label="默认" width="60" align="center"><template #default="{ row }"><el-radio v-model="defaultPkgIndex" :value="pkgSpecs.indexOf(row)" size="small" /></template></el-table-column>
+          <el-table-column width="50" align="center"><template #default="{ $index }"><el-button link type="danger" size="small" @click="pkgSpecs.splice($index, 1)">✕</el-button></template></el-table-column>
+        </el-table>
+      </div>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>
@@ -112,10 +116,14 @@ import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { materialApi, type Material } from '@/api/material'
+import { pkgSpecApi } from '@/api/pkgSpec'
 import { confirmAndArchive, confirmAndRestore } from '@/composables/useArchive'
 
 const loading = ref(false)
 const submitting = ref(false)
+const pkgSpecs = ref<Array<{ name: string; unitName: string; ratio: number }>>([])
+const defaultPkgIndex = ref(0)
+function addPkgRow() { pkgSpecs.value.push({ name: '', unitName: '箱', ratio: 1 }) }
 const tableData = ref<Material[]>([])
 const total = ref(0)
 const dialogVisible = ref(false)
@@ -137,6 +145,7 @@ const form = reactive({
   category: '',
   specification: '',
   unit: '',
+  defaultUnit: '' as string | null,
   barcode: '',
   safeStock: 0
 })
@@ -162,16 +171,20 @@ const loadData = async () => {
   }
 }
 
-const openDialog = (row?: Material) => {
+const openDialog = async (row?: Material) => {
   isEdit.value = !!row
   editId.value = row?.id || 0
-  form.name = row?.name || ''
-  form.code = row?.code || ''
-  form.category = row?.category || ''
-  form.specification = row?.specification || ''
-  form.unit = row?.unit || ''
-  form.barcode = row?.barcode || ''
-  form.safeStock = row?.safeStock || 0
+  form.name = row?.name || ''; form.code = row?.code || ''; form.category = row?.category || ''
+  form.specification = row?.specification || ''; form.unit = row?.unit || ''
+  form.defaultUnit = row?.defaultUnit || null; form.barcode = row?.barcode || ''; form.safeStock = row?.safeStock || 0
+  pkgSpecs.value = []; defaultPkgIndex.value = 0
+  if (row?.id) {
+    try {
+      const specs = await pkgSpecApi.getList('material', row.id)
+      pkgSpecs.value = specs.map((s: any) => ({ name: s.name, unitName: s.unitName, ratio: s.ratio }))
+      defaultPkgIndex.value = specs.findIndex((s: any) => s.isDefault)
+    } catch {}
+  }
   dialogVisible.value = true
 }
 
@@ -181,6 +194,9 @@ const handleSubmit = async () => {
   try {
     if (isEdit.value) {
       await materialApi.update(editId.value, { ...form })
+      if (pkgSpecs.value.length > 0) {
+        await pkgSpecApi.save('material', editId.value, pkgSpecs.value.map((s, i) => ({ ...s, isDefault: i === defaultPkgIndex.value })))
+      }
       ElMessage.success('更新成功')
     } else {
       await materialApi.create({ ...form })

@@ -127,11 +127,13 @@ export const createSalesOrder = async (req: Request, res: Response) => {
         ...(shippingAddress !== undefined && { shippingAddress }),
         ...(items && items.length > 0 && {
           items: {
-            create: items.map((item: any) => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              price: item.price
-            }))
+            create: items
+              .filter((item: any) => item.productId > 0)
+              .map((item: any) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                price: item.price
+              }))
           }
         })
       },
@@ -205,11 +207,13 @@ export const updateSalesOrder = async (req: Request, res: Response) => {
         ...(items && {
           items: {
             deleteMany: {},
-            create: items.map((item: any) => ({
-              productId: item.productId,
-              quantity: item.quantity,
-              price: item.price
-            }))
+            create: items
+              .filter((item: any) => item.productId > 0)
+              .map((item: any) => ({
+                productId: item.productId,
+                quantity: item.quantity,
+                price: item.price
+              }))
           }
         })
       },
@@ -226,27 +230,67 @@ export const updateSalesOrder = async (req: Request, res: Response) => {
 export const deleteSalesOrder = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id)
-    const existing = await prisma.salesOrder.findUnique({ where: { id } })
+    const existing = await prisma.salesOrder.findUnique({
+      where: { id },
+      include: { items: true }
+    })
     if (!existing) {
       res.status(404).json({ code: 404, message: '销售单不存在' })
       return
     }
 
-    const lockedItem = await prisma.receivableItem.findFirst({
-      where: {
-        salesOrderId: id,
-        receivable: { status: { in: ['pending', 'approved'] } }
-      }
+    // 有下游单据 → 禁止作废
+    // 1. 应收单锁定
+    const receivableLock = await prisma.receivableItem.findFirst({
+      where: { salesOrderId: id, receivable: { status: { in: ['pending', 'approved'] } } }
     })
-    if (lockedItem) {
-      res.status(400).json({ code: 400, message: '该销售单已被应收单锁定，请先反审并删除关联的应收单', data: null })
+    if (receivableLock) {
+      res.status(400).json({ code: 400, message: '已生成应收单，请先反审并删除关联的应收单后再作废', data: null })
+      return
+    }
+    // 2. 已发货
+    if (existing.items.some(i => i.shippedQuantity > 0)) {
+      res.status(400).json({ code: 400, message: '该销售单已有发货记录，不能作废', data: null })
+      return
+    }
+    // 3. 退货单
+    const returnOrder = await prisma.returnOrder.findFirst({
+      where: { salesOrderId: id, status: { notIn: ['cancelled', 'scrapped'] } }
+    })
+    if (returnOrder) {
+      res.status(400).json({ code: 400, message: '已生成退货单，请先处理退货单后再作废', data: null })
+      return
+    }
+    // 4. 生产工单
+    const productionOrder = await prisma.productionOrder.findFirst({
+      where: { salesOrderId: id, status: { not: 'cancelled' } }
+    })
+    if (productionOrder) {
+      res.status(400).json({ code: 400, message: '已生成生产工单，请先取消工单后再作废', data: null })
       return
     }
 
-    await prisma.salesOrder.delete({ where: { id } })
-    res.json({ code: 0, message: '删除成功' })
+    // 无下游单据 → 软删除（标记为 voided）
+    await prisma.salesOrder.update({ where: { id }, data: { status: 'voided' } })
+    res.json({ code: 0, message: '已作废' })
   } catch (error: any) {
-    res.status(500).json({ code: 500, message: error.message || '删除失败' })
+    res.status(500).json({ code: 500, message: error.message || '作废失败' })
+  }
+}
+
+// 恢复作废的单据
+export const restoreSalesOrder = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id)
+    const existing = await prisma.salesOrder.findUnique({ where: { id } })
+    if (!existing || existing.status !== 'voided') {
+      res.status(404).json({ code: 404, message: '作废单据不存在' })
+      return
+    }
+    const order = await prisma.salesOrder.update({ where: { id }, data: { status: 'draft' } })
+    res.json({ code: 0, message: '已恢复为待确认', data: order })
+  } catch (error: any) {
+    res.status(500).json({ code: 500, message: error.message || '恢复失败' })
   }
 }
 
@@ -275,14 +319,6 @@ export const updateSalesOrderStatus = async (req: Request, res: Response) => {
       return
     }
 
-    // completed → 扣减成品库存
-    if (status === 'completed' && existing.status !== 'completed') {
-      for (const item of existing.items) {
-        const qty = item.shippedQuantity > 0 ? item.shippedQuantity : item.quantity
-        await prisma.product.update({ where: { id: item.productId }, data: { stock: { decrement: qty } } })
-      }
-    }
-
     const order = await prisma.salesOrder.update({
       where: { id },
       data: { status }
@@ -291,6 +327,95 @@ export const updateSalesOrderStatus = async (req: Request, res: Response) => {
     res.json({ code: 0, message: '状态更新成功', data: order })
   } catch (error: any) {
     res.status(500).json({ code: 500, message: error.message || '更新失败' })
+  }
+}
+
+// 销售发货（支持分批发货，镜像采购入库模式）
+export const shipSalesOrder = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id)
+    const { items } = req.body // [{ itemId, shippedQuantity }]
+
+    const order = await prisma.salesOrder.findUnique({
+      where: { id },
+      include: { items: true }
+    })
+    if (!order) {
+      res.status(404).json({ code: 404, message: '销售单不存在' })
+      return
+    }
+
+    // 更新已发数量并扣减成品库存
+    for (const incoming of items) {
+      const salesItem = order.items.find(i => i.id === incoming.itemId)
+      if (!salesItem) continue
+
+      const delta = incoming.shippedQuantity - salesItem.shippedQuantity
+      if (delta <= 0) continue
+
+      await prisma.salesItem.update({
+        where: { id: incoming.itemId },
+        data: { shippedQuantity: incoming.shippedQuantity }
+      })
+
+      // 扣减成品库存
+      await prisma.product.update({
+        where: { id: salesItem.productId },
+        data: { stock: { decrement: delta } }
+      })
+
+      // 记录库存变动
+      await prisma.inventoryLog.create({
+        data: {
+          materialId: 0, // 成品扣减，materialId 用 0 占位
+          type: 'out',
+          quantity: delta,
+          referenceType: 'sales',
+          referenceId: id,
+          remark: `销售出库 ${order.orderNo} 产品ID ${salesItem.productId}`
+        }
+      })
+    }
+
+    // 检查是否全部发完，更新状态 + 自动生成应收单
+    const updatedOrder = await prisma.salesOrder.findUnique({
+      where: { id },
+      include: { items: true }
+    })
+    const allShipped = updatedOrder!.items.every(
+      i => i.shippedQuantity >= i.quantity
+    )
+    if (allShipped && order.status !== 'completed') {
+      await prisma.salesOrder.update({
+        where: { id },
+        data: { status: 'completed' }
+      })
+
+      // 自动生成应收单（如尚未生成）
+      const existingReceivable = await prisma.receivableItem.findFirst({ where: { salesOrderId: id } })
+      if (!existingReceivable && order.partnerId) {
+        const receivableNo = `AR-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(id).padStart(4, '0')}`
+        await prisma.receivable.create({
+          data: {
+            orderNo: receivableNo,
+            partnerId: order.partnerId,
+            totalAmount: order.totalAmount,
+            status: 'pending',
+            remark: `自动生成 — 销售单 ${order.orderNo}`,
+            items: { create: { salesOrderId: id, amount: order.totalAmount } }
+          }
+        })
+      }
+    }
+
+    const result = await prisma.salesOrder.findUnique({
+      where: { id },
+      include: { partner: true, items: { include: { product: true } } }
+    })
+
+    res.json({ code: 0, message: '发货成功', data: result })
+  } catch (error: any) {
+    res.status(500).json({ code: 500, message: error.message || '发货失败' })
   }
 }
 

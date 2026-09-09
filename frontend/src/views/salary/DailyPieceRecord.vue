@@ -191,7 +191,7 @@ const loadEmployees = async () => {
 
 const loadProducts = async () => {
   try {
-    const res = await productApi.getList({ status: 'active', pageSize: 1000 })
+    const res = await productApi.getList({ status: 'active', pageSize: 200 })
     products.value = res.list
   } catch (error: any) {
     ElMessage.error(error.message || '加载产品列表失败')

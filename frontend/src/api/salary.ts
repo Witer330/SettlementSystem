@@ -111,6 +111,10 @@ export const salaryApi = {
     return await api.put<SalaryBill>(`/salary/bills/${id}/issue`)
   },
 
+  async unissueSalaryBill(id: number, reason?: string): Promise<SalaryBill> {
+    return await api.put<SalaryBill>(`/salary/bills/${id}/unissue`, { reason })
+  },
+
   // 删除工资单
   async deleteSalaryBill(id: number): Promise<void> {
     return await api.delete<void>(`/salary/bills/${id}`)

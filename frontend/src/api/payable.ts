@@ -33,7 +33,7 @@ export const payableApi = {
     status?: string
     supplierId?: number
   }) {
-    return await api.get('/payables', { params })
+    return await api.get<{ list: Payable[]; total: number }>('/payables', { params })
   },
 
   async getById(id: number): Promise<Payable> {
@@ -41,7 +41,7 @@ export const payableApi = {
   },
 
   async getAvailablePurchaseOrders(supplierId?: number) {
-    return await api.get('/payables/available-purchase-orders', { params: { supplierId } })
+    return await api.get<PurchaseOrder[]>('/payables/available-purchase-orders', { params: { supplierId } })
   },
 
   async create(data: { supplierId: number; items: { purchaseOrderId: number; amount: number }[]; remark?: string }): Promise<Payable> {

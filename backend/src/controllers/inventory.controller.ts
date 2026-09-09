@@ -100,7 +100,7 @@ export const getInventoryLogs = async (req: Request, res: Response) => {
 // 手动调整库存
 export const adjustInventory = async (req: Request, res: Response) => {
   try {
-    const { materialId, quantity, type, remark } = req.body
+    const { materialId, quantity, type, pkgSpec, unitRatio, remark } = req.body
     if (!materialId || quantity === undefined || !type) {
       res.status(400).json({ code: 400, message: '缺少必填字段' })
       return
@@ -159,6 +159,8 @@ export const adjustInventory = async (req: Request, res: Response) => {
           materialId: Number(materialId),
           type,
           quantity,
+          pkgSpec: pkgSpec || null,
+          unitRatio: unitRatio ? Number(unitRatio) : null,
           referenceType: 'manual',
           remark: remark || `手动${type === 'in' ? '入库' : '出库'} ${quantity} ${material.unit}`
         }
@@ -296,4 +298,74 @@ export const adjustProductStock = async (req: Request, res: Response) => {
   } catch (error: any) {
     res.status(500).json({ code: 500, message: error.message || '成品库存调整失败' })
   }
+}
+
+// 批量创建出入库单（状态为 draft，不更新库存）
+export const batchCreateLogs = async (req: Request, res: Response) => {
+  try {
+    const { items, type, batchNo } = req.body
+    if (!items || items.length === 0) { res.status(400).json({ code: 400, message: '明细不能为空' }); return }
+
+    const logs = []
+    for (const item of items) {
+      const log = await prisma.inventoryLog.create({
+        data: {
+          materialId: item.materialId, type, quantity: item.quantity,
+          batchNo: batchNo || `INV-${Date.now()}`, status: 'draft',
+          pkgSpec: item.pkgSpec || null, unitRatio: item.unitRatio || null,
+          referenceType: 'manual', remark: item.remark
+        }
+      })
+      logs.push(log)
+    }
+    res.json({ code: 0, message: '已保存为草稿，审核后生效', data: { batchNo, count: logs.length } })
+  } catch (e: any) { res.status(500).json({ code: 500, message: e.message || '保存失败' }) }
+}
+
+// 审核出入库单（更新库存）
+export const approveBatch = async (req: Request, res: Response) => {
+  try {
+    const { batchNo } = req.body
+    const logs = await prisma.inventoryLog.findMany({ where: { batchNo, status: 'draft' } })
+    if (logs.length === 0) { res.status(404).json({ code: 404, message: '未找到待审核记录' }); return }
+
+    await prisma.$transaction(async (tx) => {
+      for (const log of logs) {
+        const delta = log.type === 'in' ? log.quantity : -log.quantity
+        if (log.type === 'out') {
+          const inv = await tx.inventory.findUnique({ where: { materialId: log.materialId } })
+          if (!inv || inv.quantity < log.quantity) throw new Error(`物料#${log.materialId}库存不足`)
+        }
+        await tx.inventory.upsert({
+          where: { materialId: log.materialId },
+          update: { quantity: { increment: delta }, lastUpdated: new Date() },
+          create: { materialId: log.materialId, quantity: delta, lastUpdated: new Date() }
+        })
+        await tx.inventoryLog.update({ where: { id: log.id }, data: { status: 'approved' } })
+      }
+    })
+    res.json({ code: 0, message: '已审核，库存已更新' })
+  } catch (e: any) { res.status(500).json({ code: 500, message: e.message || '审核失败' }) }
+}
+
+// 反审出入库单（回退库存）
+export const unapproveBatch = async (req: Request, res: Response) => {
+  try {
+    const { batchNo } = req.body
+    const logs = await prisma.inventoryLog.findMany({ where: { batchNo, status: 'approved' } })
+    if (logs.length === 0) { res.status(404).json({ code: 404, message: '未找到已审核记录' }); return }
+
+    await prisma.$transaction(async (tx) => {
+      for (const log of logs) {
+        const delta = log.type === 'in' ? -log.quantity : log.quantity
+        await tx.inventory.upsert({
+          where: { materialId: log.materialId },
+          update: { quantity: { increment: delta }, lastUpdated: new Date() },
+          create: { materialId: log.materialId, quantity: 0, lastUpdated: new Date() }
+        })
+        await tx.inventoryLog.update({ where: { id: log.id }, data: { status: 'draft' } })
+      }
+    })
+    res.json({ code: 0, message: '已反审，库存已回退' })
+  } catch (e: any) { res.status(500).json({ code: 500, message: e.message || '反审失败' }) }
 }

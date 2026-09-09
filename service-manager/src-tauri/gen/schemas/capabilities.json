@@ -1,1 +1,1 @@
-{}
+{"default":{"identifier":"default","description":"默认权限：允许前端调用所有命令和事件","local":true,"windows":["main"],"permissions":["core:default","core:event:default","core:event:allow-listen","core:event:allow-emit","core:window:default","core:window:allow-show","core:window:allow-hide","core:window:allow-set-focus","core:window:allow-close"]}}

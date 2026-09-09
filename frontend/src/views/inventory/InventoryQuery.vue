@@ -3,12 +3,7 @@
     <div class="page-header">
       <h1>库存查询</h1>
       <div class="page-header-actions">
-        <el-button @click="showReport = true">
-          <el-icon><DataAnalysis /></el-icon>查看报表
-        </el-button>
-        <el-button type="primary" @click="openAdjustDialog()">
-          <el-icon><Edit /></el-icon>库存调整
-        </el-button>
+        <el-button @click="showReport = true"><el-icon><DataAnalysis /></el-icon>查看报表</el-button>
       </div>
     </div>
 
@@ -129,19 +124,39 @@
     </el-dialog>
 
     <!-- 库存调整对话框 -->
-    <el-dialog v-model="adjustDialogVisible" :title="inventoryType === 'material' ? '原材料库存调整' : '成品库存调整'" width="480px">
+    <el-dialog v-model="adjustDialogVisible" :title="adjustDialogTitle" width="480px">
       <el-form ref="adjustFormRef" :model="adjustForm" :rules="adjustRules" label-width="90px">
         <el-form-item :label="inventoryType === 'material' ? '物料' : '产品'">
           <el-input :model-value="adjustForm.itemName" disabled />
         </el-form-item>
         <el-form-item label="调整类型" prop="type">
-          <el-radio-group v-model="adjustForm.type">
+          <el-radio-group v-model="adjustForm.type" @change="onAdjustTypeChange">
             <el-radio value="in">入库</el-radio>
             <el-radio value="out">出库</el-radio>
           </el-radio-group>
         </el-form-item>
+        <el-form-item label="包装规格">
+          <el-select v-model="adjustForm.pkgSpec" placeholder="基本单位" clearable style="width:100%" @change="onPkgSpecChange">
+            <el-option v-for="s in pkgSpecOptions" :key="s" :label="s" :value="s" />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="adjustForm.pkgSpec" label="换算比">
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="white-space:nowrap">1{{ adjustForm.pkgSpec }} =</span>
+            <el-input-number v-model="adjustForm.unitRatio" :min="1" style="flex:1" />
+            <span style="white-space:nowrap">{{ currentItemUnit }}</span>
+          </div>
+        </el-form-item>
         <el-form-item label="数量" prop="quantity">
-          <el-input-number v-model="adjustForm.quantity" :min="1" style="width: 100%" />
+          <div style="display:flex;align-items:center;gap:8px">
+            <el-input-number v-model="adjustForm.quantity" :min="1" style="flex:1" />
+            <span style="white-space:nowrap;color:var(--color-text-muted);min-width:60px">
+              {{ adjustForm.pkgSpec || currentItemUnit }}
+            </span>
+            <span v-if="adjustForm.pkgSpec && adjustForm.unitRatio" style="white-space:nowrap;color:var(--color-text-muted);font-size:12px">
+              = {{ adjustForm.quantity * adjustForm.unitRatio }} {{ currentItemUnit }}
+            </span>
+          </div>
         </el-form-item>
         <el-form-item label="备注">
           <el-input v-model="adjustForm.remark" placeholder="可选" />
@@ -187,10 +202,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
-import { Edit, DataAnalysis } from '@element-plus/icons-vue'
+import { DataAnalysis } from '@element-plus/icons-vue'
 import { inventoryApi, type InventoryItem, type InventoryLog, type ProductStockItem } from '@/api/inventory'
 import ReportDialog from '@/components/ReportDialog.vue'
 
@@ -232,9 +247,19 @@ const adjustForm = reactive({
   productId: 0,
   itemName: '',
   type: 'in' as 'in' | 'out',
+  pkgSpec: '',
+  unitRatio: 0,
   quantity: 1,
   remark: ''
 })
+const currentItemUnit = ref('个')
+const pkgSpecOptions = ['小箱', '中箱', '大箱', '包', '卷', '袋', '桶', '托']
+const PKG_MEMORY = 'inv_pkg_memory'
+function pkgKey() { return inventoryType.value === 'material' ? `mat_${adjustForm.materialId}` : `prod_${adjustForm.productId}` }
+function loadPkgRatio(spec: string): number { try { return JSON.parse(localStorage.getItem(PKG_MEMORY) || '{}')[pkgKey()]?.[spec] || 0 } catch { return 0 } }
+function savePkgRatio(spec: string, ratio: number) { if (!spec || !ratio) return; const m = JSON.parse(localStorage.getItem(PKG_MEMORY) || '{}'); m[pkgKey()] = { ...m[pkgKey()], [spec]: ratio }; localStorage.setItem(PKG_MEMORY, JSON.stringify(m)) }
+function onPkgSpecChange(spec: string) { adjustForm.unitRatio = spec ? loadPkgRatio(spec) : 0 }
+function onAdjustTypeChange() { /* noop */ }
 
 const adjustRules: FormRules = {
   type: [{ required: true, message: '请选择调整类型', trigger: 'change' }],
@@ -294,6 +319,12 @@ const rowClassName = ({ row }: { row: any }) => {
   return ''
 }
 
+const adjustDialogTitle = computed(() => {
+  const prefix = inventoryType.value === 'material' ? '原材料' : '成品'
+  const action = adjustForm.type === 'in' ? '入库' : '出库'
+  return `${prefix}手工${action}`
+})
+
 const openAdjustDialog = (row?: any) => {
   if (inventoryType.value === 'material') {
     adjustForm.materialId = row?.materialId || 0
@@ -304,7 +335,7 @@ const openAdjustDialog = (row?: any) => {
     adjustForm.materialId = 0
     adjustForm.itemName = row ? `${row.productCode} - ${row.productName}` : ''
   }
-  adjustForm.type = 'in'
+  if (!adjustForm.type) adjustForm.type = 'in'
   adjustForm.quantity = 1
   adjustForm.remark = ''
   adjustDialogVisible.value = true
@@ -314,17 +345,22 @@ const handleAdjust = async () => {
   await adjustFormRef.value?.validate()
   adjusting.value = true
   try {
+    // 记住换算比
+    if (adjustForm.pkgSpec && adjustForm.unitRatio) savePkgRatio(adjustForm.pkgSpec, adjustForm.unitRatio)
+    const actualQty = adjustForm.pkgSpec && adjustForm.unitRatio ? adjustForm.quantity * adjustForm.unitRatio : adjustForm.quantity
     if (inventoryType.value === 'material') {
       await inventoryApi.adjust({
         materialId: adjustForm.materialId,
-        quantity: adjustForm.quantity,
+        quantity: actualQty,
         type: adjustForm.type,
+        pkgSpec: adjustForm.pkgSpec || undefined,
+        unitRatio: adjustForm.unitRatio || undefined,
         remark: adjustForm.remark
       })
     } else {
       await inventoryApi.adjustProductStock({
         productId: adjustForm.productId,
-        quantity: adjustForm.quantity,
+        quantity: actualQty,
         type: adjustForm.type,
         remark: adjustForm.remark
       })

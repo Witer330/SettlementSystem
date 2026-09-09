@@ -6,6 +6,7 @@
         <el-button @click="showReport = true">
           <el-icon><DataAnalysis /></el-icon>查看报表
         </el-button>
+        <el-button @click="loadVoidedOrders"><el-icon><DeleteFilled /></el-icon>作废单据</el-button>
         <el-button
           type="primary"
           @click="openTabNew()"
@@ -15,65 +16,11 @@
       </div>
     </div>
 
-    <div
-      v-if="drafts.length > 0"
-      class="draft-zone"
-    >
-      <div class="draft-zone-header">
-        <span class="draft-zone-title"><el-icon
-          :size="16"
-          style="margin-right:4px;"
-        ><Document /></el-icon>未完成的草稿 · {{ drafts.length }}</span>
-        <div class="draft-zone-header-actions">
-          <el-button
-            link
-            type="danger"
-            size="small"
-            @click="deleteAllDrafts"
-          >
-            全部删除
-          </el-button>
-          <el-button
-            link
-            size="small"
-            @click="draftsCollapsed = !draftsCollapsed"
-          >
-            {{ draftsCollapsed ? '展开 ▼' : '收起 ▲' }}
-          </el-button>
-        </div>
-      </div>
-      <div
-        v-show="!draftsCollapsed"
-        class="draft-cards"
-      >
-        <div
-          v-for="d in drafts"
-          :key="d.id"
-          class="draft-card"
-        >
-          <div class="draft-card-body">
-            <div class="draft-card-left">
-              <span class="draft-card-no">{{ d.orderNo }}</span>
-              <span class="draft-card-party">{{ d.supplier?.name || '(未选择供应商)' }}</span>
-              <span class="draft-card-meta">{{ d.items?.length || 0 }} 项明细 · <span class="clickable-amount" @click.stop="toggleRowReveal(d.id)">{{ maskAmount(d.totalAmount || 0, { visible: rowRevealed[d.id] }) }}</span> · {{ formatDraftTime(d.updatedAt) }}</span>
-            </div>
-            <div class="draft-card-actions">
-              <el-button
-                size="small"
-                type="primary"
-                @click="openTabEdit(d)"
-              >
-                继续编辑
-              </el-button>
-              <el-button
-                size="small"
-                @click="deleteDraft(d)"
-              >
-                删除
-              </el-button>
-            </div>
-          </div>
-        </div>
+    <div class="flow-progress">
+      <div v-for="(s, i) in flowMilestones" :key="i" class="flow-progress-item">
+        <div class="flow-progress-dot" :class="{ active: s.active }" />
+        <span class="flow-progress-label">{{ s.label }}</span>
+        <span v-if="i < flowMilestones.length - 1" class="flow-progress-line" :class="{ active: s.active }" />
       </div>
     </div>
 
@@ -93,20 +40,10 @@
           style="width:120px"
           @change="loadData"
         >
-          <el-option
-            label="草稿"
-            value="draft"
-          /> <el-option
-            label="待确认"
-            value="pending"
-          />
-          <el-option
-            label="已确认"
-            value="confirmed"
-          /> <el-option
-            label="已完成"
-            value="completed"
-          />
+          <el-option label="待确认" value="pending" />
+          <el-option label="已确认" value="confirmed" />
+          <el-option label="已完成" value="completed" />
+          <el-option label="已作废" value="voided" />
         </el-select>
         <el-button
           type="primary"
@@ -116,118 +53,36 @@
         </el-button>
       </div>
 
-      <el-table
-        v-loading="loading"
-        :data="tableData"
-        stripe
-      >
-        <el-table-column
-          prop="orderNo"
-          label="单号"
-          width="180"
-        />
-        <el-table-column
-          label="供应商"
-          min-width="120"
-        >
+      <el-table v-loading="loading" :data="tableData" stripe style="width:100%">
+        <el-table-column prop="orderNo" label="单号" width="180" />
+        <el-table-column label="供应商" min-width="140" align="center"><template #default="{ row }">{{ row.supplier?.name || '(未选择)' }}</template></el-table-column>
+        <el-table-column label="总金额" min-width="130" align="right"><template #default="{ row }"><span class="clickable-amount" @click="toggleRowReveal(row.id)">{{ maskAmount(row.totalAmount, { visible: rowRevealed[row.id] }) }}</span></template></el-table-column>
+        <el-table-column label="状态" width="150">
           <template #default="{ row }">
-            {{ row.supplier?.name || (row.status === 'draft' ? '(未选择)' : '') }}
+            <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
+              <el-tag :type="statusType(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
+              <el-tag v-if="isOrderLocked(row)" type="danger" size="small">已锁定</el-tag>
+            </div>
           </template>
         </el-table-column>
-        <el-table-column
-          prop="totalAmount"
-          label="总金额"
-          width="120"
-        >
-          <template #default="{ row }">
-            <span class="clickable-amount" @click="toggleRowReveal(row.id)">{{ maskAmount(row.totalAmount, { visible: rowRevealed[row.id] }) }}</span>
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="明细数"
-          width="80"
-        >
-          <template #default="{ row }">
-            {{ row.items?.length || 0 }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="status"
-          label="状态"
-          width="140"
-        >
-          <template #default="{ row }">
-            <el-tag
-              :type="statusType(row.status)"
-              size="small"
-            >
-              {{ statusLabel(row.status) }}
-            </el-tag>
-            <el-tag
-              v-if="isOrderLocked(row)"
-              type="danger"
-              size="small"
-              style="margin-left:4px"
-            >
-              已锁定
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column
-          prop="createdAt"
-          label="创建时间"
-          width="180"
-        >
-          <template #default="{ row }">
-            {{ formatDate(row.createdAt) }}
-          </template>
-        </el-table-column>
-        <el-table-column
-          label="操作"
-          width="280"
-
-        >
+        <el-table-column prop="createdAt" label="创建时间" width="130" align="center"><template #default="{ row }">{{ formatDate(row.createdAt) }}</template></el-table-column>
+        <el-table-column label="操作" width="320" fixed="right">
           <template #default="{ row }">
             <template v-if="isOrderLocked(row)">
               <el-tooltip :content="`已被应付单 ${getLockedPayableNo(row)} 锁定`" placement="top">
-                <span style="margin-right:4px"><el-tag type="danger" size="small">锁定</el-tag></span>
+                <el-button link type="primary" @click="openTabView(row)">查看</el-button>
               </el-tooltip>
-              <el-button link type="primary" @click="openTabView(row)">查看</el-button>
               <el-button v-if="row.status !== 'completed'" link type="success" @click="openReceiveDialog(row)">入库</el-button>
               <el-button v-if="row.status === 'pending'" link type="warning" @click="handleConfirm(row)">确认</el-button>
               <el-button link type="info" @click="openFlowDialog(row)"><el-icon style="margin-right:2px"><Connection /></el-icon>流转</el-button>
             </template>
             <template v-else>
-            <el-button
-              link
-              type="primary"
-              @click="openTabEdit(row)"
-            >
-              编辑
-            </el-button>
-            <el-button
-              v-if="row.status !== 'completed'"
-              link
-              type="success"
-              @click="openReceiveDialog(row)"
-            >
-              入库
-            </el-button>
-            <el-button
-              v-if="row.status === 'pending'"
-              link
-              type="warning"
-              @click="handleConfirm(row)"
-            >
-              确认
-            </el-button>
-            <el-button
-              link
-              type="danger"
-              @click="handleDelete(row)"
-            >
-              删除
-            </el-button>
+              <el-button link type="primary" @click="openTabEdit(row)">编辑</el-button>
+              <el-button v-if="row.status !== 'completed'" link type="success" @click="openReceiveDialog(row)">入库</el-button>
+              <el-button v-if="row.status === 'pending'" link type="warning" @click="handleConfirm(row)">确认</el-button>
+              <el-button link type="info" @click="openFlowDialog(row)"><el-icon style="margin-right:2px"><Connection /></el-icon>流转</el-button>
+              <el-button v-if="row.status !== 'voided'" link type="danger" @click="handleDelete(row)">作废</el-button>
+              <el-button v-else link type="success" @click="handleRestore(row)">恢复</el-button>
             </template>
           </template>
         </el-table-column>
@@ -349,11 +204,18 @@
       </template>
     </el-dialog>
 
-    <ReportDialog
-      v-model="showReport"
-      report-type="purchase"
-      title="采购报表"
-    />
+    <ReportDialog v-model="showReport" report-type="purchase" title="采购报表" />
+
+    <el-dialog v-model="voidedVisible" title="作废单据" width="700px">
+      <el-table v-loading="voidedLoading" :data="voidedList" stripe size="small">
+        <el-table-column prop="orderNo" label="单号" width="180" />
+        <el-table-column label="供应商" min-width="120"><template #default="{ r }">{{ r.supplier?.name || r.partner?.name || '-' }}</template></el-table-column>
+        <el-table-column label="总金额" width="120" align="right"><template #default="{ r }">{{ maskAmount(r.totalAmount) }}</template></el-table-column>
+        <el-table-column label="作废时间" width="120" align="center"><template #default="{ r }">{{ new Date(r.updatedAt).toLocaleDateString('zh-CN') }}</template></el-table-column>
+        <el-table-column label="操作" width="100" align="center"><template #default="{ r }"><el-button link type="success" @click="restoreVoided(r)">恢复</el-button></template></el-table-column>
+      </el-table>
+      <el-empty v-if="!voidedLoading && voidedList.length === 0" description="无作废单据" />
+    </el-dialog>
   </div>
 </template>
 
@@ -361,7 +223,7 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, DataAnalysis, Document, Connection } from '@element-plus/icons-vue'
+import { Plus, DataAnalysis, Connection, DeleteFilled } from '@element-plus/icons-vue'
 import { purchaseOrderApi, type PurchaseOrder } from '@/api/purchaseOrder'
 import ReportDialog from '@/components/ReportDialog.vue'
 import PurchaseOrderForm from '@/components/PurchaseOrderForm.vue'
@@ -388,6 +250,8 @@ const rowRevealed = reactive<Record<number, boolean>>({})
 const toggleRowReveal = (id: number) => { rowRevealed[id] = !rowRevealed[id] }
 const formatDate = (d: string) => new Date(d).toLocaleDateString('zh-CN')
 
+const flowMilestones = ref([{ label: '采购下单', active: false }, { label: '确认订单', active: false }, { label: '收货入库', active: false }, { label: '应付生成', active: false }])
+
 const isOrderLocked = (row: any) => row.payableItems?.some((pi: any) => ['pending', 'approved'].includes(pi.payable?.status))
 const getLockedPayableNo = (row: any) => row.payableItems?.find((pi: any) => ['pending', 'approved'].includes(pi.payable?.status))?.payable?.orderNo || ''
 
@@ -409,26 +273,25 @@ const flowOrder = ref<PurchaseOrder | null>(null)
 const openFlowDialog = (row: PurchaseOrder) => { flowOrder.value = row; flowDialogVisible.value = true }
 const goToPayableFromFlow = (id: number) => { if (id) { flowDialogVisible.value = false; router.push(`/dashboard/finance/payables`) } }
 
-// ── 草稿 ──
-const drafts = ref<PurchaseOrder[]>([]); const draftsCollapsed = ref(false)
-async function loadDrafts() { try { const r = await purchaseOrderApi.getList({ page: 1, pageSize: 50, status: 'draft' }); drafts.value = r.list } catch {} }
-async function deleteDraft(d: PurchaseOrder) { try { await ElMessageBox.confirm(`删除草稿"${d.orderNo}"？`, '删除草稿', { type: 'info' }); await purchaseOrderApi.delete(d.id); loadDrafts(); if (queryParams.status === 'draft') loadData() } catch {} }
-async function deleteAllDrafts() { try { await ElMessageBox.confirm(`删除全部${drafts.value.length}条草稿？`, '清空草稿', { type: 'warning' }); await Promise.all(drafts.value.map(d => purchaseOrderApi.delete(d.id))); drafts.value = []; if (queryParams.status === 'draft') loadData() } catch {} }
-function formatDraftTime(d: string) { const diff = Date.now() - new Date(d).getTime(); if (diff < 60000) return '刚刚'; if (diff < 3600000) return `${Math.floor(diff/60000)}分钟前`; if (diff < 86400000) return `${Math.floor(diff/3600000)}小时前`; return new Date(d).toLocaleDateString('zh-CN') }
-
 // ── 列表 ──
-async function loadData() { loading.value = true; try { const [res] = await Promise.all([purchaseOrderApi.getList(queryParams), loadDrafts()]); tableData.value = res.list; total.value = res.total } finally { loading.value = false } }
-const handleDelete = async (row: PurchaseOrder) => { await ElMessageBox.confirm(`删除"${row.orderNo}"？`, '确认删除', { type: 'warning' }); await purchaseOrderApi.delete(row.id); ElMessage.success('已删除'); loadData() }
+async function loadData() { loading.value = true; try { const res = await purchaseOrderApi.getList(queryParams); tableData.value = res.list; total.value = res.total } finally { loading.value = false } }
+// ── 作废单据弹窗 ──
+const voidedVisible = ref(false); const voidedLoading = ref(false); const voidedList = ref<PurchaseOrder[]>([])
+async function loadVoidedOrders() { voidedVisible.value = true; voidedLoading.value = true; try { const r = await purchaseOrderApi.getList({ pageSize: 200, status: 'voided' }); voidedList.value = r.list } finally { voidedLoading.value = false } }
+async function restoreVoided(row: PurchaseOrder) { await ElMessageBox.confirm(`确定恢复"${row.orderNo}"？`, '恢复确认', { type: 'info' }); await purchaseOrderApi.restore(row.id); ElMessage.success('已恢复'); voidedList.value = voidedList.value.filter(v => v.id !== row.id); loadData() }
+
+const handleDelete = async (row: PurchaseOrder) => { await ElMessageBox.confirm(`确定作废"${row.orderNo}"？`, '确认作废', { type: 'warning' }); await purchaseOrderApi.delete(row.id); ElMessage.success('已作废'); loadData() }
+const handleRestore = async (row: PurchaseOrder) => { await purchaseOrderApi.restore(row.id); ElMessage.success('已恢复'); loadData() }
 const handleConfirm = async (row: PurchaseOrder) => { await ElMessageBox.confirm(`确认"${row.orderNo}"？`, '确认操作', { type: 'info' }); await purchaseOrderApi.updateStatus(row.id, 'confirmed'); ElMessage.success('已确认'); loadData() }
 
-function onFormSuccess() { formReadonly.value = false; loadData(); loadDrafts() }
+function onFormSuccess() { formReadonly.value = false; loadData() }
 
 // ── 入库 ──
 async function openReceiveDialog(row: PurchaseOrder) { currentReceiveOrderId.value = row.id; const detail = await purchaseOrderApi.getDetail(row.id); receiveItems.value = detail.items.map(i => ({ itemId: i.id!, materialName: `${i.materialCode||''} - ${i.materialName||''}`, quantity: i.quantity, receivedQuantity: i.receivedQuantity || 0, receiveQty: 0 })); receiveDialogVisible.value = true }
 
 async function handleReceive() { const toReceive = receiveItems.value.filter(i => i.receiveQty > 0); if (toReceive.length === 0) { ElMessage.warning('请填写入库数量'); return }; submitting.value = true; try { await purchaseOrderApi.receive(currentReceiveOrderId.value, toReceive.map(i => ({ itemId: i.itemId, receivedQuantity: i.receivedQuantity + i.receiveQty }))); ElMessage.success('入库成功'); receiveDialogVisible.value = false; loadData() } catch (e: any) { ElMessage.error(e.message) } finally { submitting.value = false } }
 
-onMounted(() => { loadData(); loadDrafts() })
+onMounted(() => { loadData() })
 </script>
 
 <style scoped>
@@ -460,6 +323,15 @@ onMounted(() => { loadData(); loadDrafts() })
 .clickable-amount:hover {
   background-color: var(--el-fill-color-light);
 }
+
+.flow-progress { display: flex; align-items: center; padding: 12px 16px; background: var(--bg-elevated); border-radius: 8px; margin-bottom: var(--space-4); overflow-x: auto; }
+.flow-progress-item { display: flex; align-items: center; flex-shrink: 0; }
+.flow-progress-dot { width: 8px; height: 8px; border-radius: 50%; background: #d1d5db; flex-shrink: 0; }
+.flow-progress-dot.active { background: #10b981; }
+.flow-progress-label { font-size: var(--font-size-sm); color: var(--color-text-muted); margin-left: 6px; white-space: nowrap; }
+.flow-progress-dot.active + .flow-progress-label { color: var(--color-text-primary); font-weight: 500; }
+.flow-progress-line { display: inline-block; width: 24px; height: 1px; background: #d1d5db; margin: 0 8px; flex-shrink: 0; }
+.flow-progress-line.active { background: #10b981; }
 
 .flow-timeline { padding: 8px 0; }
 .flow-node { display: flex; align-items: flex-start; gap: 12px; padding: 8px 0; }

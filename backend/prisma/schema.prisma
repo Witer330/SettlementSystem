@@ -37,6 +37,7 @@ model JobType {
   id        Int      @id @default(autoincrement())
   name      String   @unique
   code      String   @unique
+  unitPrice Float    @default(0)  // 默认计件单价
   status    String   @default("active")
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -64,6 +65,8 @@ model Employee {
   workLogs        WorkLog[]
   dailyRecords    DailyPieceRecord[]
   otherSalaries   OtherSalary[]
+  salaryDetailItems SalaryDetailItem[]
+  partnerSalespersons Partner[]
 }
 
 model Product {
@@ -73,6 +76,7 @@ model Product {
   category      String
   specification String?
   unit          String
+  defaultUnit   String?  // 默认使用单位（基本单位或包装单位名称）
   price         Float    @default(0)
   unitPrice     Float    @default(0)  // 计件单价（工资核算用）
   stock         Float    @default(0)
@@ -85,6 +89,7 @@ model Product {
   dailyPieceRecords  DailyPieceRecordItem[]
   productionOrders  ProductionOrder[]
   returnOrderItems   ReturnOrderItem[]
+  salaryDetailItems   SalaryDetailItem[]
   salesItems         SalesItem[]
 }
 
@@ -101,14 +106,47 @@ model BillOfMaterial {
 
 // 工时记录 - 用于时薪员工
 model WorkLog {
-  id        Int      @id @default(autoincrement())
+  id         Int      @id @default(autoincrement())
   employeeId Int
-  date      DateTime
-  hours     Float
-  remark    String?
-  createdAt DateTime @default(now())
+  date       DateTime
+  hours      Float
+  hourlyRate Float?   // 覆盖员工的默认时薪，为空则使用员工档案的时薪
+  remark     String?
+  createdAt  DateTime @default(now())
 
   employee Employee @relation(fields: [employeeId], references: [id])
+}
+
+// 工资明细单（批次维度，合并计件+计时+其他）
+model SalaryDetailSheet {
+  id        Int      @id @default(autoincrement())
+  sheetNo   String   @unique
+  batchDate DateTime @default(now())
+  status    String   @default("draft")  // draft / approved
+  creator   String?
+  remark    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items SalaryDetailItem[]
+}
+
+model SalaryDetailItem {
+  id         Int      @id @default(autoincrement())
+  sheetId    Int
+  employeeId Int
+  type       String   // piece / hourly / other
+  date       DateTime
+  productId  Int?
+  quantity   Float?
+  unitPrice  Float?
+  hours      Float?
+  amount     Float
+  remark     String?
+
+  sheet    SalaryDetailSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  employee Employee          @relation(fields: [employeeId], references: [id])
+  product  Product?          @relation(fields: [productId], references: [id])
 }
 
 // 其他工资 — 奖金、绩效、一次性任务费等
@@ -271,12 +309,26 @@ model Partner {
   id          Int      @id @default(autoincrement())
   name        String
   code        String   @unique
+  shortName   String?  // 简称
   contact     String?
   phone       String?
+  email       String?  // 邮箱
+  fax         String?  // 传真
   address     String?
+  shippingAddress String? // 发货地址
+  website     String?  // 网址
+  region      String?  // 区域
+  category    String?  // 分类
+  level       String?  // 等级
   isCustomer  Boolean  @default(false)
   isSupplier  Boolean  @default(false)
-  creditLimit Float    @default(0)   // 仅 isCustomer=true 时有意义
+  creditLimit Float    @default(0)
+  defaultDiscount Float @default(100) // 默认折扣(%)
+  salespersonId Int?   // 业务员
+  legalPerson String?  // 法人
+  registeredCapital Float? // 注册资本(万元)
+  businessScope String? // 经营范围
+  remark      String?  // 备注
   status      String   @default("active")
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -285,9 +337,39 @@ model Partner {
   receivables    Receivable[]
   purchaseOrders PurchaseOrder[]
   payables       Payable[]
+  salesperson    Employee? @relation(fields: [salespersonId], references: [id])
+  customFieldValues PartnerCustomFieldValue[]
 
   @@index([isCustomer])
   @@index([isSupplier])
+}
+
+model PartnerCustomField {
+  id        Int      @id @default(autoincrement())
+  key       String   @unique
+  label     String
+  type      String   @default("input") // input | number | select | textarea
+  options   String?                   // select 选项 JSON 数组
+  orderBy   Int      @default(0)
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  values PartnerCustomFieldValue[]
+}
+
+model PartnerCustomFieldValue {
+  id        Int      @id @default(autoincrement())
+  partnerId Int
+  fieldId   Int
+  value     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  partner Partner            @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  field   PartnerCustomField @relation(fields: [fieldId], references: [id], onDelete: Cascade)
+
+  @@unique([partnerId, fieldId])
 }
 
 model Material {
@@ -297,6 +379,7 @@ model Material {
   category      String
   specification String?
   unit          String
+  defaultUnit   String?  // 默认使用单位（基本单位或包装单位名称）
   barcode       String?
   safeStock     Float    @default(0)
   status        String   @default("active")
@@ -428,6 +511,10 @@ model InventoryLog {
   materialId    Int
   type          String
   quantity      Float
+  status        String   @default("draft")  // draft / approved
+  batchNo       String?  // 单据号，同一单号=同一批次
+  pkgSpec       String?  // 包装规格，空则用基本单位
+  unitRatio     Float?   // 包装换算比
   referenceType String?
   referenceId   Int?
   remark        String?
@@ -518,4 +605,17 @@ model OperationLog {
   @@index([module, createdAt])
   @@index([entityType, entityId])
   @@index([userId])
+}
+
+// 包装规格 — 物料/产品各自的包装单位及换算比
+model PkgSpec {
+  id        Int     @id @default(autoincrement())
+  ownerType String  // "material" 或 "product"
+  ownerId   Int
+  name      String  // 包装名称：小箱 / 中箱 / 大箱 / 包 / 托
+  unitName  String  // 包装单位：箱 / 包 / 托
+  ratio     Float   // 1包装 = N 基本单位
+  isDefault Boolean @default(false)
+
+  @@unique([ownerType, ownerId, name])
 }

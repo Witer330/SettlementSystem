@@ -38,16 +38,15 @@
           <span v-if="draft.isDraft.value" style="color:var(--color-text-muted);font-size:12px;margin-right:auto;">{{ draft.isSaving.value ? '保存中...' : `草稿 · ${draft.lastSavedAt.value ? new Date(draft.lastSavedAt.value).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) : ''}`.trim() }}</span>
           <span v-else style="flex:1;" />
           <el-button @click="visible = false">取消</el-button>
-          <el-button :loading="draft.isSaving.value" @click="handleSaveDraft">保存草稿</el-button>
-          <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>
+          <el-button type="primary" :loading="submitting" @click="handleSubmit">保存</el-button>
         </div>
       </template>
     </el-dialog>
 
     <!-- ═══ 工作台模式（三组件：表头/明细/表尾） ═══ -->
     <div v-else v-loading="inlineLoading" class="ws-form" @keydown="onWsKeydown">
-      <div v-if="orderId" class="ws-toolbar">
-        <DocActionBar order-type="purchase-order" :status="orderStatus" :order-id="orderId" :is-locked="orderIsLocked" :readonly="readonly" @action="handleToolbarAction" />
+      <div class="ws-toolbar">
+        <DocActionBar order-type="purchase-order" :status="orderId ? orderStatus : 'draft'" :order-id="orderId" :is-locked="orderIsLocked" :readonly="readonly" @action="handleToolbarAction" />
       </div>
       <DocHeader
         :order-id="orderId"
@@ -83,7 +82,7 @@
             </div>
             <div class="dh-cell dh-cell--partner">
               <span class="dh-label">供应商</span>
-              <PartnerSelect v-model="form.supplierId" role="supplier" placeholder="选择供应商" size="small" :disabled="readonly || orderIsLocked" @change="onPartnerChangeFromSelect" />
+              <PartnerSelect v-model="form.supplierId" role="supplier" placeholder="选择供应商" size="small" :disabled="readonly || orderIsLocked || isConfirmed" @change="onPartnerChangeFromSelect" />
             </div>
           </div>
           <div v-if="upstreamOrder" class="dh-row">
@@ -110,8 +109,8 @@
         :show-received="orderId > 0 && orderStatus !== 'draft'"
         received-label="已收"
         received-field="receivedQuantity"
-        :readonly="readonly"
-        :locked="orderIsLocked"
+        :readonly="readonly || isConfirmed"
+        :locked="orderIsLocked || isConfirmed"
         @add-row="addItemRow"
         @remove-row="removeItem"
         @batch-remove="batchRemoveItems"
@@ -187,6 +186,7 @@ const orderNo = ref('')
 const orderId = ref(0)
 const orderStatus = ref('draft')
 const orderIsLocked = ref(false)
+const isConfirmed = computed(() => orderStatus.value === 'confirmed')
 const orderCreatedAt = ref('')
 const upstreamOrder = ref<{ id: number; orderNo: string } | null>(null)
 const downstreamDocs = ref<Array<{ id: number; orderNo: string; docType: string; status: string; statusLabel: string }>>([])
@@ -222,9 +222,29 @@ const draftHint = computed(() => {
 function onStatClick(label: string) { if (label === '合计') docReveal.toggle() }
 function onPartnerSelected(partner: Partner | null) {
   selSupplier.value = partner
+  if (partner) {
+    const f = form as Record<string, any>
+    for (const cv of partner.customFieldValues || []) {
+      const k = cv.field.key
+      const cur = f[k]
+              if (cur === undefined || cur === '' || cur === 0 || cur === false || cur === null) {
+        f[k] = cv.value
+      }
+    }
+  }
 }
 function onPartnerChangeFromSelect(partner: Partner | null) {
   selSupplier.value = partner
+  if (partner) {
+    const f = form as Record<string, any>
+    for (const cv of partner.customFieldValues || []) {
+      const k = cv.field.key
+      const cur = f[k]
+              if (cur === undefined || cur === '' || cur === 0 || cur === false || cur === null) {
+        f[k] = cv.value
+      }
+    }
+  }
   const hasData = form.items.some((i: any) => i.materialId > 0)
   if (!hasData) return
   ElMessageBox.confirm('切换供应商将清空已有明细，是否继续？', '确认切换', { type: 'warning' })
@@ -239,29 +259,37 @@ async function handleToolbarAction(key: string) {
   if (key === 'new') { emit('cancel'); return }
   if (key === 'save-draft') { handleSaveDraft(); return }
   if (key === 'submit') { handleSubmit(); return }
+  // 状态操作
+  if ((key === 'confirm' || key === 'complete' || key === 'unconfirm' || key === 'uncomplete') && orderId.value) {
+    const statusMap: Record<string, string> = { confirm: 'confirmed', complete: 'completed', unconfirm: 'pending', uncomplete: 'confirmed' }
+    const labelMap: Record<string, string> = { confirm: '审核通过', complete: '完成', unconfirm: '反确认', uncomplete: '反完成' }
+    try { await ElMessageBox.confirm(`确定${labelMap[key]}该单据？`, '操作确认', { type: 'info' }) } catch { return }
+    try { await purchaseOrderApi.updateStatus(orderId.value, statusMap[key]); ElMessage.success(`已${labelMap[key]}`); loadOrderDetail() } catch (e: any) { ElMessage.error(e.message) }
+    return
+  }
   if (key === 'delete' && orderId.value) {
-    try { await ElMessageBox.confirm('确定删除该单据？删除后无法恢复。', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }) }
+    try { await ElMessageBox.confirm('确定作废该单据？作废后可在作废单据中恢复。', '作废确认', { type: 'warning', confirmButtonText: '作废', cancelButtonText: '取消' }) }
     catch { return }
     try {
       await purchaseOrderApi.delete(orderId.value)
-      ElMessage.success('已删除')
+      ElMessage.success('已作废')
       draft.stopAutoSave()
       emit('cancel')
-    } catch (e: any) { ElMessage.error(e.message || '删除失败') }
+    } catch (e: any) { ElMessage.error(e.message || '作废失败') }
     return
   }
   emit('toolbarAction', key)
 }
 
 function onWsKeydown(e: KeyboardEvent) {
-  if (e.ctrlKey && e.key === 's') { e.preventDefault(); handleSaveDraft() }
+  if (e.ctrlKey && e.key === 's') { e.preventDefault(); handleSubmit() }
   else if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); handleSubmit() }
   else if (e.key === 'Enter' && !['INPUT','TEXTAREA','SELECT'].includes((e.target as HTMLElement).tagName)) { addItemRow() }
 }
 
 async function loadRefData() {
   if (!props.inline) return
-  try { const m = await materialApi.getList({ page: 1, pageSize: 1000 }); materials.value = m.list } catch { /* 忽略 */ }
+  try { const m = await materialApi.getList({ page: 1, pageSize: 200 }); materials.value = m.list } catch { /* 忽略 */ }
 }
 async function loadOrderDetail() {
   if (!props.inline || !props.editId) return
@@ -318,7 +346,6 @@ async function handleSubmit() {
     if (props.inline) emit('success', resultOrderNo || orderNo.value); else { visible.value = false; emit('success') }
   } catch (e: any) { ElMessage.error(e.message || '操作失败') } finally { submitting.value = false }
 }
-function handleCancel() { draft.stopAutoSave(); if (draft.draftId.value && !draft.hasMeaningfulContent()) draft.discardDraft(); if (props.inline) emit('cancel'); else visible.value = false }
 const batchSelectMaterials = () => { batchSelected.value = []; batchVisible.value = true }
 const confirmBatchMaterials = () => { if (batchSelected.value.length === 0) { ElMessage.warning('请选择物料'); return }; for (const mid of batchSelected.value) form.items.push({ materialId: mid, quantity: 1, price: 0 }); batchVisible.value = false }
 

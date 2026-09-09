@@ -201,7 +201,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
-import { payableApi, type Payable, type PayableItem } from '@/api/payable'
+import { payableApi, type Payable } from '@/api/payable'
 import { partnerApi, type Partner } from '@/api/partner'
 import type { PurchaseOrder } from '@/api/purchaseOrder'
 import { useStatusHelpers } from '@/composables/useStatusHelpers'
@@ -259,7 +259,7 @@ async function loadAvailableOrders(supplierId: number) {
   selectLoading.value = true
   try {
     const res = await payableApi.getAvailablePurchaseOrders(supplierId)
-    availableOrders.value = Array.isArray(res) ? res : (res.list || [])
+    availableOrders.value = Array.isArray(res) ? res : []
   } finally { selectLoading.value = false }
 }
 

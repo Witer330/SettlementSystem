@@ -115,7 +115,7 @@ const loadSalesOrders = async () => {
 
 const loadProducts = async () => {
   try {
-    const res = await productApi.getList({ status: 'active', pageSize: 1000 })
+    const res = await productApi.getList({ status: 'active', pageSize: 200 })
     products.value = res.list
   } catch { /* ignore */ }
 }

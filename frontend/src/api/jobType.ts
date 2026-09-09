@@ -12,8 +12,7 @@ export interface JobType {
 
 export const jobTypeApi = {
   async getNextCode(): Promise<string> {
-    const result = await api.get<{ code: number; message: string; data: string }>('/job-types/next-code')
-    return result.data
+    return await api.get<string>('/job-types/next-code')
   },
 
   async getList(params?: { includeArchived?: boolean | string; includeDeleted?: boolean | string }): Promise<JobType[]> {

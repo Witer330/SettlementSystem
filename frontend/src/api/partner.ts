@@ -4,15 +4,37 @@ export interface Partner {
   id: number
   name: string
   code: string
+  shortName?: string | null
   contact?: string | null
   phone?: string | null
+  email?: string | null
+  fax?: string | null
   address?: string | null
+  shippingAddress?: string | null
+  website?: string | null
+  region?: string | null
+  category?: string | null
+  level?: string | null
   isCustomer: boolean
   isSupplier: boolean
   creditLimit: number
+  defaultDiscount: number
+  salespersonId?: number | null
+  salesperson?: { id: number; name: string } | null
+  legalPerson?: string | null
+  registeredCapital?: number | null
+  businessScope?: string | null
+  remark?: string | null
   status: string
   createdAt: string
   updatedAt: string
+  customFieldValues?: Array<{
+    id: number
+    partnerId: number
+    fieldId: number
+    value?: string | null
+    field: { id: number; key: string; label: string; type: string; options?: string | null }
+  }>
 }
 
 export interface PartnerListResponse {

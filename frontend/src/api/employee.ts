@@ -43,10 +43,7 @@ export interface EmployeeListResponse {
 export const employeeApi = {
   // 获取下一个员工工号
   async getNextCode(): Promise<string> {
-    const result = await api.get<{ code: number; message: string; data: string }>(
-      '/employees/next-code'
-    )
-    return result.data
+    return await api.get<string>('/employees/next-code')
   },
 
   // 获取员工列表

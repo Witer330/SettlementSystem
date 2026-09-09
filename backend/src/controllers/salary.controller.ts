@@ -80,13 +80,14 @@ export const salaryController = {
 
         for (const log of workLogs) {
           hourlyHours += log.hours
-          const amount = log.hours * hourlyRate
+          const rate = log.hourlyRate ?? hourlyRate
+          const amount = log.hours * rate
           hourlyAmount += amount
           details.push({
             type: 'hourly',
             date: log.date,
             quantity: log.hours,
-            unitPrice: hourlyRate,
+            unitPrice: rate,
             amount,
             sourceRecordId: log.id,
             remark: log.remark
@@ -422,6 +423,37 @@ export const salaryController = {
       res.json({ code: 0, message: '工资已发放，数据已固化', data: bill })
     } catch (error: any) {
       res.status(500).json({ code: 500, message: error.message || '发放失败', data: null })
+    }
+  },
+
+  // 撤销发放（issued → approved）
+  async unissueSalaryBill(req: AuthRequest, res: Response) {
+    try {
+      const { id } = req.params
+      const { reason } = req.body
+
+      const existing = await prisma.salaryBill.findUnique({ where: { id: Number(id) } })
+      if (!existing) {
+        return res.status(404).json({ code: 404, message: '工资单不存在', data: null })
+      }
+      if (existing.status !== 'issued') {
+        return res.status(400).json({ code: 400, message: '仅已发放的工资单可撤销', data: null })
+      }
+
+      const bill = await prisma.salaryBill.update({
+        where: { id: Number(id) },
+        data: {
+          status: 'approved',
+          issuedAt: null,
+          dataHash: null,
+          remark: reason ? `撤销发放：${reason}` : '撤销发放'
+        },
+        include: { employee: true, details: true }
+      })
+
+      res.json({ code: 0, message: '已撤销发放，工资单退回已审核状态', data: bill })
+    } catch (error: any) {
+      res.status(500).json({ code: 500, message: error.message || '撤销失败', data: null })
     }
   },
 

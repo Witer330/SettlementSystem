@@ -10,12 +10,26 @@ import { checkPartnerReferences } from '../services/referenceCheck.service'
 const PartnerBaseSchema = z.object({
   name: z.string().min(1, '名称必填').max(100),
   code: z.string().min(1, '编码必填').max(50),
+  shortName: z.string().max(50).optional().nullable(),
   contact: z.string().max(50).optional().nullable(),
   phone: z.string().max(50).optional().nullable(),
+  email: z.string().max(100).optional().nullable(),
+  fax: z.string().max(50).optional().nullable(),
   address: z.string().max(200).optional().nullable(),
+  shippingAddress: z.string().max(200).optional().nullable(),
+  website: z.string().max(200).optional().nullable(),
+  region: z.string().max(50).optional().nullable(),
+  category: z.string().max(50).optional().nullable(),
+  level: z.string().max(50).optional().nullable(),
   isCustomer: z.boolean().default(false),
   isSupplier: z.boolean().default(false),
-  creditLimit: z.number().min(0).default(0)
+  creditLimit: z.number().min(0).default(0),
+  defaultDiscount: z.number().min(0).max(100).default(100),
+  salespersonId: z.number().int().optional().nullable(),
+  legalPerson: z.string().max(50).optional().nullable(),
+  registeredCapital: z.number().min(0).optional().nullable(),
+  businessScope: z.string().max(500).optional().nullable(),
+  remark: z.string().max(500).optional().nullable()
 })
 
 export const PartnerCreateSchema = PartnerBaseSchema.refine(
@@ -27,7 +41,6 @@ export const PartnerUpdateSchema = PartnerBaseSchema.partial()
   .extend({ status: z.enum(['active', 'inactive']).optional() })
   .refine(
     d => {
-      // 更新时若同时显式传了两个字段且都为 false，则拒绝
       if (d.isCustomer === false && d.isSupplier === false) return false
       return true
     },
@@ -50,6 +63,11 @@ export const PartnerListQuerySchema = z.object({
   includeArchived: z.union([z.boolean(), z.string()]).optional()
 })
 
+const partnerInclude = {
+  salesperson: { select: { id: true, name: true } },
+  customFieldValues: { include: { field: true } }
+}
+
 // ============ Controllers ============
 export const getPartners = asyncHandler(async (req: Request, res: Response) => {
   const { page, pageSize, keyword, status, isCustomer, isSupplier, includeArchived } = req.query as any
@@ -59,6 +77,7 @@ export const getPartners = asyncHandler(async (req: Request, res: Response) => {
     where.OR = [
       { name: { contains: String(keyword) } },
       { code: { contains: String(keyword) } },
+      { shortName: { contains: String(keyword) } },
       { contact: { contains: String(keyword) } }
     ]
   }
@@ -79,7 +98,8 @@ export const getPartners = asyncHandler(async (req: Request, res: Response) => {
       where,
       orderBy: { createdAt: 'desc' },
       skip: (p - 1) * ps,
-      take: ps
+      take: ps,
+      include: partnerInclude
     }),
     prisma.partner.count({ where })
   ])
@@ -93,7 +113,7 @@ export const getPartners = asyncHandler(async (req: Request, res: Response) => {
 
 export const getPartner = asyncHandler(async (req: Request, res: Response) => {
   const id = Number(req.params.id)
-  const partner = await prisma.partner.findUnique({ where: { id } })
+  const partner = await prisma.partner.findUnique({ where: { id }, include: partnerInclude })
   if (!partner) throw notFound('往来单位不存在')
   res.json({ code: 0, message: '获取成功', data: partner })
 })
@@ -101,7 +121,8 @@ export const getPartner = asyncHandler(async (req: Request, res: Response) => {
 export const createPartner = asyncHandler(async (req: Request, res: Response) => {
   const data = req.body as z.infer<typeof PartnerCreateSchema>
   const partner = await prisma.partner.create({
-    data: { ...data, status: 'active' }
+    data: { ...data, status: 'active' },
+    include: partnerInclude
   })
   res.json({ code: 0, message: '创建成功', data: partner })
 })
@@ -127,7 +148,7 @@ export const updatePartner = asyncHandler(async (req: Request, res: Response) =>
     }
   }
 
-  const partner = await prisma.partner.update({ where: { id }, data })
+  const partner = await prisma.partner.update({ where: { id }, data, include: partnerInclude })
   res.json({ code: 0, message: '更新成功', data: partner })
 })
 
@@ -139,7 +160,8 @@ export const deletePartner = asyncHandler(async (req: Request, res: Response) =>
   }
   const partner = await prisma.partner.update({
     where: { id },
-    data: { status: ARCHIVED }
+    data: { status: ARCHIVED },
+    include: partnerInclude
   })
   res.json({ code: 0, message: '已归档', data: partner })
 })
@@ -153,7 +175,8 @@ export const restorePartner = asyncHandler(async (req: Request, res: Response) =
   }
   const partner = await prisma.partner.update({
     where: { id },
-    data: { status: 'active' }
+    data: { status: 'active' },
+    include: partnerInclude
   })
   res.json({ code: 0, message: '已恢复', data: partner })
 })

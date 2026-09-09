@@ -5,6 +5,7 @@ export interface WorkLog {
   employeeId: number
   date: string
   hours: number
+  hourlyRate?: number | null  // 覆盖员工默认时薪
   remark?: string
   employee?: {
     id: number
@@ -41,7 +42,7 @@ export const workLogApi = {
   getDetail: (id: number) =>
     api.get<WorkLog>(`/work-logs/${id}`),
 
-  create: (data: { employeeId: number; date: string; hours: number; remark?: string }) =>
+  create: (data: { employeeId: number; date: string; hours: number; hourlyRate?: number; remark?: string }) =>
     api.post<WorkLog>('/work-logs', data),
 
   update: (id: number, data: Partial<WorkLog>) =>

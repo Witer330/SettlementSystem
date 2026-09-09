@@ -62,32 +62,28 @@ async function seed() {
 
     console.log('✓ 示例部门创建成功');
 
-    // 创建示例工序
-    const process1 = await prisma.process.upsert({
-      where: { code: 'P001' },
+    // 创建示例工种（JobType 替代旧 Process 模型）
+    const jobType1 = await prisma.jobType.upsert({
+      where: { code: 'J001' },
       update: {},
       create: {
         name: 'CNC加工',
-        code: 'P001',
-        defaultPrice: 5.0,
-        unit: 'piece',
+        code: 'J001',
         status: 'active'
       }
     });
 
-    const process2 = await prisma.process.upsert({
-      where: { code: 'P002' },
+    const jobType2 = await prisma.jobType.upsert({
+      where: { code: 'J002' },
       update: {},
       create: {
         name: '装配',
-        code: 'P002',
-        defaultPrice: 3.0,
-        unit: 'piece',
+        code: 'J002',
         status: 'active'
       }
     });
 
-    console.log('✓ 示例工序创建成功');
+    console.log('✓ 示例工种创建成功');
 
     // 创建默认系统设置
     const defaultSettings = [
@@ -95,6 +91,7 @@ async function seed() {
       { key: 'system.name', value: '结算系统', type: 'string', category: 'system', remark: '系统名称' },
       { key: 'system.companyName', value: '', type: 'string', category: 'system', remark: '公司名称' },
       { key: 'system.backupInterval', value: '7', type: 'number', category: 'system', remark: '数据备份间隔（天）' },
+      { key: 'system.backupRetainDays', value: '30', type: 'number', category: 'system', remark: '备份保留天数' },
       { key: 'workflow.guide', value: '[]', type: 'json', category: 'workflow', remark: '首页流程引导配置' },
       { key: 'dashboard.quickActions', value: '[]', type: 'json', category: 'dashboard', remark: '首页快速操作入口' },
       { key: 'system.endpointRegistry', value: '[]', type: 'json', category: 'system', remark: '页面接口别名注册表' },

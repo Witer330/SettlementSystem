@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed, markRaw, type Component } from 'vue'
+import { ref, computed, type Component } from 'vue'
 
 export interface Tab {
   id: string
@@ -12,6 +12,7 @@ export interface Tab {
     orderId?: number
     isEdit?: boolean
     readonly?: boolean
+    route?: string
     [key: string]: any
   }
 }
@@ -42,25 +43,25 @@ export const useTabStore = defineStore('tabs', () => {
   }
 
   function addTab(type: string, title: string, metadata: Tab['metadata'] = {}): string {
-    // 如果已有相同单据的 tab（相同 orderId 且非新建），直接激活
+    // 单据 Tab：相同 orderId 去重
     if (metadata.orderId) {
       const existing = tabs.value.find(
         (t) => t.type === type && t.metadata.orderId === metadata.orderId
       )
-      if (existing) {
-        activeTabId.value = existing.id
-        return existing.id
-      }
+      if (existing) { activeTabId.value = existing.id; return existing.id }
+    }
+    // 页面 Tab：相同 route 或 type 去重（排除新建单据类）
+    if (!metadata.isNew && !metadata.orderId) {
+      const existing = tabs.value.find((t) => {
+        if (t.metadata.isNew || t.metadata.orderId) return false
+        if (metadata.route && t.metadata.route === metadata.route) return true
+        return t.type === type
+      })
+      if (existing) { activeTabId.value = existing.id; return existing.id }
     }
 
     const id = nextTabId(type)
-    tabs.value.push({
-      id,
-      type,
-      title,
-      dirty: false,
-      metadata: { ...metadata }
-    })
+    tabs.value.push({ id, type, title, dirty: false, metadata: { ...metadata } })
     activeTabId.value = id
     return id
   }

@@ -153,11 +153,11 @@ const handleDelete = async (row: BomItem) => {
 
 onMounted(async () => {
   try {
-    const res = await productApi.getList({ page: 1, pageSize: 1000 })
+    const res = await productApi.getList({ page: 1, pageSize: 200 })
     products.value = res.list
   } catch {}
   try {
-    const res = await materialApi.getList({ page: 1, pageSize: 1000 })
+    const res = await materialApi.getList({ page: 1, pageSize: 200 })
     materials.value = res.list
   } catch {}
 })

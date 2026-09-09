@@ -7,6 +7,7 @@ export interface Material {
   category: string
   specification?: string
   unit: string
+  defaultUnit?: string | null
   barcode?: string
   safeStock: number
   status: string

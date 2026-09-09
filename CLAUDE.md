@@ -2,6 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Agent 任务执行协议
+
+本项目遵循 [Agent 任务执行协议](C:\Users\witer\Documents\pro\项目施工方案\agent-spec\agent任务协议.md)。
+
+每次修改代码时必须执行：
+- **修改前**：运行 `npx tsc --noEmit`（backend）和/或 `npx vue-tsc --noEmit`（frontend）记录基线
+- **修改后**：再次运行类型检查，确认无新增错误
+- **Schema 变更**：检查 `scripts/` 下所有种子脚本是否引用被修改的模型，执行 `prisma generate`
+- **路由变更**：检查同类路由的中间件配置一致性，检查前端 `api/*.ts` 对应调用
+- **输出影响报告**：改动文件列表 + 已验证的依赖方 + 风险提示
+
 ## Project Overview
 
 SettlementSystem is a small industrial/trade enterprise settlement management system (小型工贸企业结算系统). It combines payroll/wage accounting (工资核算) with inventory management (进销存) for small factories with 10-100 employees. All UI text, commit messages, and documentation are in Simplified Chinese.
@@ -10,8 +21,9 @@ SettlementSystem is a small industrial/trade enterprise settlement management sy
 
 - **Frontend**: Vue 3 + Vite 8 + Element Plus + Pinia + Vue Router + Axios
 - **Backend**: Node.js + Express 5 + Prisma ORM + SQLite
+- **Service Manager**: Tauri 2 + Rust（桌面服务管理 + 在线更新执行）
 - **Auth**: JWT (jsonwebtoken + bcryptjs)
-- **Validation**: Zod (available but not yet used in controllers)
+- **Validation**: Zod
 - **Language**: TypeScript throughout
 
 ## Context Gathering Strategy
@@ -57,6 +69,15 @@ npm run preview          # Preview production build
 ./reload.ps1             # Builds both backend and frontend
 ```
 
+### Release & Version
+```bash
+node release/bump-version.cjs              # 查询版本
+node release/bump-version.cjs --patch      # 1.0.0 → 1.0.1
+node release/bump-version.cjs 2.0.0        # 指定版本
+node release/build.cjs                     # 打包全量安装包
+node release/publish-oss.cjs              # 构建+上传 OSS 在线更新
+```
+
 ## Architecture
 
 ### Backend (`backend/src/`)
@@ -66,7 +87,8 @@ npm run preview          # Preview production build
 - **Prisma Singleton**: `lib/prisma.ts` — shared PrismaClient instance (all controllers import from here)
 - **Auth**: `middleware/auth.middleware.ts` — JWT validation + role-based access (`authenticate`, `requireRole`)
 - **Controllers** handle request/response logic; **Routes** define endpoints and apply middleware
-- **Database**: Prisma schema at `prisma/schema.prisma` (28 models), SQLite stored in `prisma/data/settlement.db`
+- **Database**: Prisma schema at `prisma/schema.prisma` (28 models), SQLite (file:./data/settlement.db, 首次启动自动初始化)
+- **Update System**: Backend downloads OSS updates + verifies SHA256 → service-manager applies (PID-based process stop, backup/rollback, protected files: .env, config.json, prisma/data/)
 - **Configuration Management**: See `docs/CONFIG.md` for config categories, storage strategy, and new-config workflow
 
 ### Frontend (`frontend/src/`)
@@ -76,6 +98,13 @@ npm run preview          # Preview production build
 - **State**: `stores/user.ts` — Pinia store for auth token and user info (persisted in localStorage)
 - **Routing**: `router/index.ts` — nested routes under `/dashboard/*`, auth guard redirects unauthenticated users to `/login`
 - **Design system**: `styles/design-system.css` + `styles/element-plus-theme.ts` — black-and-white theme with pill-shaped buttons (50px border-radius), negative letter-spacing typography. `styles/page-common.css` provides shared page layout styles.
+
+### Service Manager (`service-manager/src-tauri/src/`)
+- **Entry**: `main.rs` — Tauri app with system tray, manages backend (Node) + proxy (hyper) processes
+- **Commands**: `commands.rs` — Tauri commands: start/stop services, apply OSS updates, get update progress
+- **Updater**: `updater.rs` — Prepare + launch self-updater for manager/proxy exe replacement
+- **Updater bin**: `src/bin/updater.rs` — Standalone process: waits for manager exit → replaces exe → restarts
+- **Proxy**: `src/bin/proxy.rs` — Hyper-based static file server + API proxy
 
 ### API Response Format
 All endpoints return:
@@ -101,7 +130,7 @@ Non-zero `code` indicates an error. HTTP status codes used for auth (401, 403, 4
 
 ## Key Conventions
 
-- **Package manager**: npm (no pnpm/yarn)
+- **Package manager**: npm（前后端）/ pnpm（施工方案标准，项目已用 npm 不再切换）
 - **Path alias**: `@/*` maps to `frontend/src/*`
 - **Commit messages**: Conventional Commits format in Chinese (e.g., `feat(员工管理): description`)
 - **No test framework** — there are no tests currently

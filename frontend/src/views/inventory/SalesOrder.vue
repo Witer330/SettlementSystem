@@ -4,6 +4,7 @@
       <h1>销售管理</h1>
       <div class="page-header-actions">
         <el-button @click="showReport = true"><el-icon><DataAnalysis /></el-icon>查看报表</el-button>
+        <el-button @click="loadVoidedOrders"><el-icon><DeleteFilled /></el-icon>作废单据</el-button>
         <el-button @click="router.push('/dashboard/inventory/return-orders')"><el-icon><RefreshLeft /></el-icon>退货管理</el-button>
         <el-button type="primary" @click="openTabNew()"><el-icon><Plus /></el-icon>新增销售单</el-button>
       </div>
@@ -17,44 +18,20 @@
       </div>
     </div>
 
-    <div v-if="drafts.length > 0" class="draft-zone">
-      <div class="draft-zone-header">
-        <span class="draft-zone-title"><el-icon :size="16" style="margin-right:4px;"><Document /></el-icon>未完成的草稿 · {{ drafts.length }}</span>
-        <div class="draft-zone-header-actions">
-          <el-button link type="danger" size="small" @click="deleteAllDrafts">全部删除</el-button>
-          <el-button link size="small" @click="draftsCollapsed = !draftsCollapsed">{{ draftsCollapsed ? '展开 ▼' : '收起 ▲' }}</el-button>
-        </div>
-      </div>
-      <div v-show="!draftsCollapsed" class="draft-cards">
-        <div v-for="d in drafts" :key="d.id" class="draft-card">
-          <div class="draft-card-body">
-            <div class="draft-card-left">
-              <span class="draft-card-no">{{ d.orderNo }}</span>
-              <span class="draft-card-party">{{ d.customer?.name || '(未选择客户)' }}</span>
-              <span class="draft-card-meta">{{ d.items?.length || 0 }} 项明细 · <span class="clickable-amount" @click.stop="toggleRowReveal(d.id)">{{ maskAmount(d.totalAmount || 0, { visible: rowRevealed[d.id] }) }}</span> · {{ formatDraftTime(d.updatedAt) }}</span>
-            </div>
-            <div class="draft-card-actions">
-              <el-button size="small" type="primary" @click="openTabEdit(d)">继续编辑</el-button>
-              <el-button size="small" @click="deleteDraft(d)">删除</el-button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
     <el-card shadow="never">
       <div class="filter-bar">
         <el-input v-model="queryParams.keyword" placeholder="搜索单号或客户" clearable style="width:240px" @keyup.enter="loadData" />
         <el-select v-model="queryParams.status" placeholder="状态" clearable style="width:120px" @change="loadData">
-          <el-option label="草稿" value="draft" /> <el-option label="待确认" value="pending" />
+          <el-option label="待确认" value="pending" />
           <el-option label="已确认" value="confirmed" /> <el-option label="已完成" value="completed" />
+          <el-option label="已作废" value="voided" />
         </el-select>
         <el-button type="primary" @click="loadData">搜索</el-button>
       </div>
 
       <el-table v-loading="loading" :data="tableData" stripe>
         <el-table-column prop="orderNo" label="单号" width="180" />
-        <el-table-column label="客户" min-width="120"><template #default="{ row }">{{ row.customer?.name || (row.status === 'draft' ? '(未选择)' : '') }}</template></el-table-column>
+        <el-table-column label="客户" min-width="120"><template #default="{ row }">{{ row.customer?.name || '(未选择)' }}</template></el-table-column>
         <el-table-column label="总金额" width="120"><template #default="{ row }"><span class="clickable-amount" @click="toggleRowReveal(row.id)">{{ maskAmount(row.totalAmount, { visible: rowRevealed[row.id] }) }}</span></template></el-table-column>
         <el-table-column label="状态" width="170">
           <template #default="{ row }">
@@ -74,7 +51,7 @@
               </el-tooltip>
               <el-button link type="primary" @click="openTabView(row)">查看</el-button>
               <el-button v-if="row.status === 'pending'" link type="warning" @click="handleConfirm(row)">确认<el-tooltip placement="top" :content="statusHelp.confirm"><el-icon :size="12" style="margin-left:2px;"><QuestionFilled /></el-icon></el-tooltip></el-button>
-              <el-button v-if="row.status === 'confirmed'" link type="success" @click="handleComplete(row)">完成<el-tooltip placement="top" :content="statusHelp.complete"><el-icon :size="12" style="margin-left:2px;"><QuestionFilled /></el-icon></el-tooltip></el-button>
+              <el-button v-if="row.status === 'confirmed'" link type="success" @click="openShipDialog(row)">发货</el-button>
               <el-button v-if="row.status === 'confirmed' || row.status === 'completed'" link type="danger" @click="openReturnDialog(row)">退货</el-button>
               <el-button link type="success" @click="goRequirements(row)">物料需求</el-button>
               <el-button link type="info" @click="openFlowDialog(row)"><el-icon style="margin-right:2px"><Connection /></el-icon>流转</el-button>
@@ -82,10 +59,11 @@
             <template v-else>
             <el-button link type="primary" @click="openTabEdit(row)">编辑</el-button>
             <el-button v-if="row.status === 'pending'" link type="warning" @click="handleConfirm(row)">确认<el-tooltip placement="top" :content="statusHelp.confirm"><el-icon :size="12" style="margin-left:2px;"><QuestionFilled /></el-icon></el-tooltip></el-button>
-            <el-button v-if="row.status === 'confirmed'" link type="success" @click="handleComplete(row)">完成<el-tooltip placement="top" :content="statusHelp.complete"><el-icon :size="12" style="margin-left:2px;"><QuestionFilled /></el-icon></el-tooltip></el-button>
+            <el-button v-if="row.status === 'confirmed'" link type="success" @click="openShipDialog(row)">发货</el-button>
             <el-button v-if="row.status === 'confirmed' || row.status === 'completed'" link type="danger" @click="openReturnDialog(row)">退货<el-tooltip placement="top" :content="statusHelp.returned"><el-icon :size="12" style="margin-left:2px;"><QuestionFilled /></el-icon></el-tooltip></el-button>
             <el-button link type="success" @click="goRequirements(row)">物料需求</el-button>
-            <el-button link type="danger" @click="handleDelete(row)">删除</el-button>
+            <el-button v-if="row.status !== 'voided'" link type="danger" @click="handleDelete(row)">作废</el-button>
+            <el-button v-else link type="success" @click="handleRestore(row)">恢复</el-button>
             </template>
           </template>
         </el-table-column>
@@ -105,6 +83,16 @@
       </el-table>
       <div style="color:var(--color-text-muted);font-size:12px;margin-top:8px;">退货单创建后可在「退货管理」中确认入库，入库时自动回加成品库存。</div>
       <template #footer><el-button @click="returnVisible = false">取消</el-button><el-button type="danger" :loading="submitting" @click="handleReturn">生成退货单</el-button></template>
+    </el-dialog>
+
+    <el-dialog v-model="shipDialogVisible" title="销售发货" width="600px">
+      <el-table :data="shipItems" border size="small">
+        <el-table-column label="产品" min-width="140"><template #default="{ row }">{{ row.productName }}</template></el-table-column>
+        <el-table-column label="订购数量" width="100"><template #default="{ row }">{{ row.quantity }}</template></el-table-column>
+        <el-table-column label="已发数量" width="100"><template #default="{ row }">{{ row.shippedQuantity }}</template></el-table-column>
+        <el-table-column label="本次发货" width="120"><template #default="{ row }"><el-input-number v-model="row.shipQty" :min="0" :max="row.quantity - row.shippedQuantity" size="small" style="width:100%" /></template></el-table-column>
+      </el-table>
+      <template #footer><el-button @click="shipDialogVisible = false">取消</el-button><el-button type="primary" :loading="submitting" @click="handleShip">确认发货</el-button></template>
     </el-dialog>
 
     <el-dialog v-model="flowDialogVisible" title="单据流转记录" width="550px">
@@ -141,6 +129,17 @@
     </el-dialog>
 
     <ReportDialog v-model="showReport" report-type="sales" title="销售报表" />
+
+    <el-dialog v-model="voidedVisible" title="作废单据" width="700px">
+      <el-table v-loading="voidedLoading" :data="voidedList" stripe size="small">
+        <el-table-column prop="orderNo" label="单号" width="180" />
+        <el-table-column label="客户" min-width="120"><template #default="{ r }">{{ r.customer?.name || r.partner?.name || '-' }}</template></el-table-column>
+        <el-table-column label="总金额" width="120" align="right"><template #default="{ r }">{{ maskAmount(r.totalAmount) }}</template></el-table-column>
+        <el-table-column label="作废时间" width="120" align="center"><template #default="{ r }">{{ new Date(r.updatedAt).toLocaleDateString('zh-CN') }}</template></el-table-column>
+        <el-table-column label="操作" width="100" align="center"><template #default="{ r }"><el-button link type="success" @click="restoreVoided(r)">恢复</el-button></template></el-table-column>
+      </el-table>
+      <el-empty v-if="!voidedLoading && voidedList.length === 0" description="无作废单据" />
+    </el-dialog>
   </div>
 </template>
 
@@ -148,7 +147,7 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus, DataAnalysis, Document, QuestionFilled, RefreshLeft, Connection } from '@element-plus/icons-vue'
+import { Plus, DataAnalysis, QuestionFilled, RefreshLeft, Connection, DeleteFilled } from '@element-plus/icons-vue'
 import { salesOrderApi, type SalesOrder } from '@/api/salesOrder'
 import { returnOrderApi } from '@/api/returnOrder'
 import ReportDialog from '@/components/ReportDialog.vue'
@@ -180,30 +179,26 @@ const toggleRowReveal = (id: number) => { rowRevealed[id] = !rowRevealed[id] }
 
 const flowMilestones = ref([{ label: '销售下单', active: false }, { label: '物料需求', active: false }, { label: '采购到货', active: false }, { label: '生产报工', active: false }, { label: '成品入库', active: false }])
 
-// ── 草稿 ──
-const draftCount = ref(0); const drafts = ref<SalesOrder[]>([]); const draftsCollapsed = ref(false)
-
-async function loadDrafts() { try { const r = await salesOrderApi.getList({ page: 1, pageSize: 50, status: 'draft' }); drafts.value = r.list; draftCount.value = r.total } catch {} }
-
-async function deleteDraft(d: SalesOrder) {
-  try { await ElMessageBox.confirm(`确定要删除草稿"${d.orderNo}"吗？`, '删除草稿', { type: 'info', confirmButtonText: '删除' }); await salesOrderApi.delete(d.id); ElMessage.success('已删除'); loadDrafts(); if (queryParams.status === 'draft') loadData() } catch {}
-}
-
-async function deleteAllDrafts() {
-  try { await ElMessageBox.confirm(`确定要删除全部 ${drafts.value.length} 条草稿吗？`, '删除全部草稿', { type: 'warning', confirmButtonText: '全部删除' }); await Promise.all(drafts.value.map(d => salesOrderApi.delete(d.id))); ElMessage.success('已清空'); drafts.value = []; draftCount.value = 0; if (queryParams.status === 'draft') loadData() } catch {}
-}
-
-function formatDraftTime(d: string) { const diff = Date.now() - new Date(d).getTime(); if (diff < 60000) return '刚刚'; if (diff < 3600000) return `${Math.floor(diff/60000)}分钟前`; if (diff < 86400000) return `${Math.floor(diff/3600000)}小时前`; return new Date(d).toLocaleDateString('zh-CN') }
-
 // ── 列表 ──
 const loadData = async () => {
   loading.value = true
-  try { const [res, dr] = await Promise.all([salesOrderApi.getList(queryParams), salesOrderApi.getList({ page:1, pageSize:1, status:'draft' })]); tableData.value = res.list; total.value = res.total; draftCount.value = dr.total } finally { loading.value = false }
+  try { const res = await salesOrderApi.getList(queryParams); tableData.value = res.list; total.value = res.total } finally { loading.value = false }
 }
 
-const handleDelete = async (row: SalesOrder) => { await ElMessageBox.confirm(`确定要删除"${row.orderNo}"吗？`, '确认删除', { type: 'warning' }); await salesOrderApi.delete(row.id); ElMessage.success('已删除'); loadData() }
+// ── 作废单据弹窗 ──
+const voidedVisible = ref(false); const voidedLoading = ref(false); const voidedList = ref<SalesOrder[]>([])
+async function loadVoidedOrders() { voidedVisible.value = true; voidedLoading.value = true; try { const r = await salesOrderApi.getList({ pageSize: 200, status: 'voided' }); voidedList.value = r.list } finally { voidedLoading.value = false } }
+async function restoreVoided(row: SalesOrder) { await ElMessageBox.confirm(`确定恢复"${row.orderNo}"？`, '恢复确认', { type: 'info' }); await salesOrderApi.restore(row.id); ElMessage.success('已恢复'); voidedList.value = voidedList.value.filter(v => v.id !== row.id); loadData() }
+
+const handleDelete = async (row: SalesOrder) => { await ElMessageBox.confirm(`确定作废"${row.orderNo}"？`, '确认作废', { type: 'warning' }); await salesOrderApi.delete(row.id); ElMessage.success('已作废'); loadData() }
+const handleRestore = async (row: SalesOrder) => { await salesOrderApi.restore(row.id); ElMessage.success('已恢复'); loadData() }
 const handleConfirm = async (row: SalesOrder) => { await ElMessageBox.confirm(`确认"${row.orderNo}"审核通过？`, '确认操作', { type: 'info' }); await salesOrderApi.updateStatus(row.id, 'confirmed'); ElMessage.success('已确认'); loadData() }
-const handleComplete = async (row: SalesOrder) => { await ElMessageBox.confirm(`确认"${row.orderNo}"全部发货完毕？`, '完成操作', { type: 'success' }); await salesOrderApi.updateStatus(row.id, 'completed'); ElMessage.success('已完成'); loadData() }
+
+// ── 发货（分批发货，镜像采购入库） ──
+const shipDialogVisible = ref(false); const currentShipOrderId = ref(0)
+const shipItems = ref<Array<{ itemId: number; productName: string; quantity: number; shippedQuantity: number; shipQty: number }>>([])
+async function openShipDialog(row: SalesOrder) { currentShipOrderId.value = row.id; const detail = await salesOrderApi.getDetail(row.id); shipItems.value = detail.items.map(i => ({ itemId: i.id!, productName: i.product?.name || '', quantity: i.quantity, shippedQuantity: i.shippedQuantity || 0, shipQty: 0 })); shipDialogVisible.value = true }
+async function handleShip() { const toShip = shipItems.value.filter(i => i.shipQty > 0); if (toShip.length === 0) { ElMessage.warning('请填写发货数量'); return }; submitting.value = true; try { await salesOrderApi.ship(currentShipOrderId.value, toShip.map(i => ({ itemId: i.itemId, shippedQuantity: i.shippedQuantity + i.shipQty }))); ElMessage.success('发货成功'); shipDialogVisible.value = false; loadData() } catch (e: any) { ElMessage.error(e.message) } finally { submitting.value = false } }
 const goRequirements = (row: SalesOrder) => router.push({ path: '/dashboard/inventory/material-requirements', query: { orderId: row.id } })
 
 // ── 表单（Tab 方式） ──
@@ -217,7 +212,7 @@ watch(
   () => { if (route.path === '/dashboard/inventory/sales-orders' && !tabStore.activeTabId) loadData() }
 )
 
-function onFormSuccess() { formReadonly.value = false; loadData(); loadDrafts() }
+function onFormSuccess() { formReadonly.value = false; loadData() }
 
 // ── 退货 ──
 const returnVisible = ref(false); const returnTarget = ref<SalesOrder | null>(null)
@@ -238,7 +233,7 @@ const flowOrder = ref<SalesOrder | null>(null)
 const openFlowDialog = (row: SalesOrder) => { flowOrder.value = row; flowDialogVisible.value = true }
 const goToReceivableFromFlow = (id: number) => { if (id) { flowDialogVisible.value = false; router.push(`/dashboard/finance/receivables`) } }
 
-onMounted(async () => { loadData(); loadDrafts() })
+onMounted(async () => { loadData() })
 </script>
 
 <style scoped>

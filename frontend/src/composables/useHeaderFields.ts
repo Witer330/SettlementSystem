@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue'
 import { settingApi } from '@/api/setting'
+import { partnerCustomFieldApi, type PartnerCustomField } from '@/api/partnerCustomField'
 
 /** 单据表头字段定义 */
 export interface HeaderFieldDef {
@@ -10,12 +11,32 @@ export interface HeaderFieldDef {
   width?: number
   fullRow?: boolean
   visible: boolean
+  source?: 'partner' // 来源：往来管理自定义字段
 }
 
 /** 持久化的配置结构 */
 interface HeaderFieldConfig {
   fields: HeaderFieldDef[]
   perRow: number
+}
+
+const PF_PREFIX = 'pf_'
+
+/** 将 PartnerCustomField 转为 HeaderFieldDef */
+function partnerFieldToHeaderDef(pf: PartnerCustomField): HeaderFieldDef {
+  let type: HeaderFieldDef['type'] = 'input'
+  if (pf.type === 'number') type = 'number'
+  else if (pf.type === 'select') type = 'select'
+  else if (pf.type === 'textarea') type = 'input'
+
+  return {
+    key: PF_PREFIX + pf.key,
+    label: pf.label,
+    type,
+    options: pf.options ? JSON.parse(pf.options) : undefined,
+    visible: false,
+    source: 'partner'
+  }
 }
 
 /** 销货单默认字段配置 */
@@ -44,6 +65,9 @@ export function useHeaderFields() {
   const fields = ref<HeaderFieldDef[]>([])
   const perRow = ref(3)
   const loading = ref(false)
+  // 往来管理可用字段列表
+  const partnerFields = ref<PartnerCustomField[]>([])
+  const partnerFieldsLoading = ref(false)
 
   const fieldGroups = computed(() => {
     const visible = fields.value.filter(f => f.visible)
@@ -60,6 +84,13 @@ export function useHeaderFields() {
     }
     if (current.length > 0) groups.push(current)
     return groups
+  })
+
+  /** 当前配置中引用的往来字段 keys（去除 pf_ 前缀） */
+  const referencedPartnerKeys = computed(() => {
+    return fields.value
+      .filter(f => f.key.startsWith(PF_PREFIX))
+      .map(f => f.key.slice(PF_PREFIX.length))
   })
 
   async function loadConfig() {
@@ -81,6 +112,34 @@ export function useHeaderFields() {
     }
   }
 
+  /** 加载往来管理自定义字段列表 */
+  async function loadPartnerFields() {
+    partnerFieldsLoading.value = true
+    try {
+      const list = await partnerCustomFieldApi.getFields()
+      partnerFields.value = list
+    } catch { /* 忽略 */ }
+    finally { partnerFieldsLoading.value = false }
+  }
+
+  /** 添加/移除往来字段到表头 */
+  function togglePartnerField(pf: PartnerCustomField, add: boolean) {
+    const headerKey = PF_PREFIX + pf.key
+    if (add) {
+      if (!fields.value.some(f => f.key === headerKey)) {
+        fields.value.push(partnerFieldToHeaderDef(pf))
+      }
+    } else {
+      const idx = fields.value.findIndex(f => f.key === headerKey)
+      if (idx >= 0) fields.value.splice(idx, 1)
+    }
+  }
+
+  /** 判断往来字段是否已被表头引用 */
+  function isPartnerFieldReferenced(pfKey: string): boolean {
+    return fields.value.some(f => f.key === PF_PREFIX + pfKey)
+  }
+
   async function saveConfig(newFields: HeaderFieldDef[], newPerRow?: number) {
     fields.value = newFields
     if (newPerRow !== undefined) perRow.value = newPerRow
@@ -93,5 +152,11 @@ export function useHeaderFields() {
     perRow.value = SALES_ORDER_DEFAULTS.perRow
   }
 
-  return { fields, perRow, fieldGroups, loading, loadConfig, saveConfig, resetToDefault }
+  return {
+    fields, perRow, fieldGroups, loading,
+    partnerFields, partnerFieldsLoading, referencedPartnerKeys,
+    loadConfig, loadPartnerFields,
+    togglePartnerField, isPartnerFieldReferenced,
+    saveConfig, resetToDefault
+  }
 }

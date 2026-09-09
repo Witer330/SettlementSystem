@@ -7,9 +7,6 @@
         class="collapse-btn"
         @click="$emit('toggle-sidebar')"
       />
-      <h2 class="page-title">
-        {{ currentPageTitle }}
-      </h2>
     </div>
 
     <div class="header-right">
@@ -88,7 +85,7 @@
 import { ref, computed, reactive } from 'vue'
 import { Fold, Expand, Lock, View, Hide } from '@element-plus/icons-vue'
 import { usePrivacyStore } from '@/stores/privacy'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { authApi, tokenManager } from '../../api/auth'
 
@@ -101,8 +98,6 @@ defineEmits<{
 }>()
 
 const router = useRouter()
-const route = useRoute()
-
 const userName = computed(() => tokenManager.getUser()?.name || '管理员')
 
 const privacyStore = usePrivacyStore()
@@ -137,27 +132,6 @@ const passwordRules: FormRules = {
     }
   ]
 }
-
-const currentPageTitle = computed(() => {
-  const titles: Record<string, string> = {
-    '/dashboard': '首页',
-    '/dashboard/salary/salary-calculation': '工资计算',
-    '/dashboard/salary/daily-records': '计件录入',
-    '/dashboard/inventory/suppliers': '供应商管理',
-    '/dashboard/inventory/customers': '客户管理',
-    '/dashboard/inventory/materials': '物料管理',
-    '/dashboard/inventory/purchase-orders': '采购管理',
-    '/dashboard/inventory/sales-orders': '销售管理',
-    '/dashboard/inventory/inventory-query': '库存查询',
-    '/dashboard/basic-info/products': '产品管理',
-    '/dashboard/system/users': '用户管理',
-    '/dashboard/system/job-types': '工种管理',
-    '/dashboard/system/employees': '员工管理',
-    '/dashboard/system/departments': '部门管理',
-    '/dashboard/system/settings': '系统设置'
-  }
-  return titles[route.path] || '首页'
-})
 
 const handleChangePassword = async () => {
   if (!passwordFormRef.value) return
@@ -225,13 +199,6 @@ const handleLogout = async () => {
   height: 36px;
   padding: 0;
   border-radius: var(--radius-circle);
-}
-
-.page-title {
-  font-size: var(--font-size-h4);
-  font-weight: var(--font-weight-450);
-  letter-spacing: var(--letter-body);
-  margin: 0;
 }
 
 .header-right {

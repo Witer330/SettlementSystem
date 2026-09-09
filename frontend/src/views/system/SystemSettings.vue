@@ -51,27 +51,12 @@
 
       <!-- 基本设置 -->
       <el-tab-pane label="基本设置" name="basic">
-        <el-card class="setting-card" shadow="never">
-          <el-form :model="basicSettings" label-width="150px">
-            <el-form-item label="系统名称">
-              <el-input v-model="basicSettings.systemName" placeholder="请输入系统名称" />
-            </el-form-item>
-            <el-form-item label="公司名称">
-              <el-input v-model="basicSettings.companyName" placeholder="请输入公司名称" />
-            </el-form-item>
-            <el-form-item label="数据备份间隔（天）">
-              <el-input-number
-                v-model="basicSettings.backupInterval"
-                :min="1"
-                :max="30"
-                style="width: 200px"
-              />
-            </el-form-item>
-          </el-form>
-          <el-button type="primary" :loading="saving" @click="saveBasicSettings">
-            保存设置
-          </el-button>
-        </el-card>
+        <SettingsBasic />
+      </el-tab-pane>
+
+      <!-- 数据备份 -->
+      <el-tab-pane label="数据备份" name="backup">
+        <SettingsBackup />
       </el-tab-pane>
 
       <!-- 工作流设置（合并流程引导 + 快速操作） -->
@@ -230,6 +215,11 @@
         </el-card>
       </el-tab-pane>
 
+      <!-- 系统更新（仅桌面管理面板可见） -->
+      <el-tab-pane v-if="showUpdateTab" label="系统更新" name="update">
+        <SettingsUpdate />
+      </el-tab-pane>
+
       <!-- 系统信息 -->
       <el-tab-pane label="系统信息" name="info">
         <el-card class="setting-card" shadow="never">
@@ -258,8 +248,13 @@ import { useThemeStore } from '@/stores/theme'
 import { workflowApi, type WorkflowStep, type QuickAction } from '@/api/workflow'
 import { endpointApi, type EndpointAlias } from '@/api/endpoint'
 import { settingApi, type SystemInfo } from '@/api/setting'
+import SettingsBasic from './SettingsBasic.vue'
+import SettingsBackup from './SettingsBackup.vue'
+import SettingsUpdate from './SettingsUpdate.vue'
+import { isTauriEnv } from '@/api/update'
 
 const activeTab = ref('appearance')
+const showUpdateTab = isTauriEnv()
 
 // Theme
 const themeStore = useThemeStore()
@@ -268,40 +263,6 @@ const currentThemeId = computed(() => themeStore.currentThemeId)
 
 const selectTheme = async (themeId: string) => {
   await themeStore.setTheme(themeId)
-}
-
-// Basic Settings
-const saving = ref(false)
-const basicSettings = reactive({
-  systemName: '',
-  companyName: '',
-  backupInterval: 7
-})
-
-const loadBasicSettings = async () => {
-  try {
-    const settings = await settingApi.getList('system')
-    const map = Object.fromEntries(settings.map(s => [s.key, s.value]))
-    basicSettings.systemName = map['system.name'] || '结算系统'
-    basicSettings.companyName = map['system.companyName'] || ''
-    basicSettings.backupInterval = Number(map['system.backupInterval'] || '7')
-  } catch {}
-}
-
-const saveBasicSettings = async () => {
-  saving.value = true
-  try {
-    await settingApi.batchUpdate([
-      { key: 'system.name', value: basicSettings.systemName, remark: '系统名称' },
-      { key: 'system.companyName', value: basicSettings.companyName, remark: '公司名称' },
-      { key: 'system.backupInterval', value: String(basicSettings.backupInterval), remark: '备份间隔' }
-    ])
-    ElMessage.success('设置保存成功')
-  } catch (e: any) {
-    ElMessage.error(e.message || '保存失败')
-  } finally {
-    saving.value = false
-  }
 }
 
 // Workflow Guide
@@ -462,12 +423,12 @@ const formatUptime = (seconds: number) => {
 }
 
 onMounted(() => {
-  loadBasicSettings()
   loadEndpoints()
   loadWorkflow()
   loadQuickActions()
   loadSystemInfo()
 })
+
 </script>
 
 <style scoped>

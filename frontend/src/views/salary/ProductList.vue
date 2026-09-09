@@ -34,7 +34,10 @@
         <el-table-column prop="name" label="名称" min-width="150" />
         <el-table-column prop="category" label="分类" width="100" />
         <el-table-column prop="specification" label="规格" width="120" />
-        <el-table-column prop="unit" label="单位" width="80" />
+        <el-table-column prop="unit" label="基本单位" width="80" />
+        <el-table-column prop="defaultUnit" label="默认使用单位" width="120">
+          <template #default="{ row }">{{ row.defaultUnit || row.unit }}</template>
+        </el-table-column>
         <el-table-column label="售价" width="100">
           <template #default="{ row }">
             <span :style="{ color: row.price > 0 ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }" class="clickable-amount" @click="toggleItemReveal(row.id, 'price')">
@@ -83,36 +86,36 @@
       />
     </el-card>
 
-    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑产品' : '新增产品'" width="520px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑产品' : '新增产品'" width="620px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="90px">
-        <el-form-item label="名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入产品名称" />
-        </el-form-item>
-        <el-form-item label="编码" prop="code">
-          <el-input v-model="form.code" placeholder="请输入产品编码" />
-        </el-form-item>
-        <el-form-item label="分类" prop="category">
-          <el-input v-model="form.category" placeholder="请输入产品分类" />
-        </el-form-item>
-        <el-form-item label="规格">
-          <el-input v-model="form.specification" placeholder="如 Φ100×20" />
-        </el-form-item>
-        <el-form-item label="单位" prop="unit">
-          <el-input v-model="form.unit" placeholder="如 个、件、套" />
-        </el-form-item>
-        <el-form-item label="售价">
-          <el-input-number v-model="form.price" :min="0" :precision="2" style="width:100%" placeholder="不填则默认为0（赠品）" />
-        </el-form-item>
-        <el-form-item label="计件单价">
-          <el-input-number v-model="form.unitPrice" :min="0" :precision="2" style="width:100%" placeholder="计件工资单价" />
-        </el-form-item>
-        <el-form-item label="状态" v-if="isEdit">
-          <el-select v-model="form.status" style="width: 100%">
-            <el-option label="启用" value="active" />
-            <el-option label="停用" value="inactive" />
+        <el-form-item label="名称" prop="name"><el-input v-model="form.name" /></el-form-item>
+        <el-form-item label="编码" prop="code"><el-input v-model="form.code" /></el-form-item>
+        <el-form-item label="分类" prop="category"><el-input v-model="form.category" /></el-form-item>
+        <el-form-item label="规格"><el-input v-model="form.specification" /></el-form-item>
+        <el-form-item label="基本单位" prop="unit"><el-input v-model="form.unit" placeholder="如 个、件、套" /></el-form-item>
+        <el-form-item label="默认使用单位">
+          <el-select v-model="form.defaultUnit" placeholder="默认使用单位" clearable style="width:100%">
+            <el-option :label="`基本单位（${form.unit || '个'}）`" :value="form.unit" />
+            <el-option v-for="pkg in pkgSpecs" :key="pkg.unitName" :label="`${pkg.name}（${pkg.unitName}）`" :value="pkg.unitName" />
           </el-select>
         </el-form-item>
+        <el-form-item label="售价"><el-input-number v-model="form.price" :min="0" :precision="2" style="width:100%" /></el-form-item>
+        <el-form-item label="计件单价"><el-input-number v-model="form.unitPrice" :min="0" :precision="2" style="width:100%" /></el-form-item>
+        <el-form-item label="状态" v-if="isEdit">
+          <el-select v-model="form.status" style="width:100%"><el-option label="启用" value="active" /><el-option label="停用" value="inactive" /></el-select>
+        </el-form-item>
       </el-form>
+
+      <div v-if="isEdit" style="margin-top:12px">
+        <h4 style="margin-bottom:8px">包装规格 <el-button size="small" @click="addPkgRow">+ 添加</el-button></h4>
+        <el-table :data="pkgSpecs" border size="small" style="width:100%">
+          <el-table-column label="包装名" min-width="80"><template #default="{ row: r }"><el-input v-model="r.name" size="small" placeholder="标准箱" /></template></el-table-column>
+          <el-table-column label="单位" width="80"><template #default="{ row: r }"><el-input v-model="r.unitName" size="small" placeholder="箱" /></template></el-table-column>
+          <el-table-column label="换算比" width="140"><template #default="{ row: r }"><span>1{{ r.unitName || '箱' }} =</span><el-input-number v-model="r.ratio" :min="1" size="small" style="width:70px" />{{ form.unit || '个' }}</template></el-table-column>
+          <el-table-column label="默认" width="60" align="center"><template #default="{ row: _, $index: i }"><el-radio v-model="defaultPkgIndex" :value="i" size="small" /></template></el-table-column>
+          <el-table-column width="50" align="center"><template #default="{ $index }"><el-button link type="danger" size="small" @click="pkgSpecs.splice($index, 1)">✕</el-button></template></el-table-column>
+        </el-table>
+      </div>
       <template #footer>
         <el-button @click="dialogVisible = false">取消</el-button>
         <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>
@@ -128,10 +131,14 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { productApi, type Product } from '@/api/product'
 import { useAmountPrivacy } from '@/composables/useAmountPrivacy'
+import { pkgSpecApi } from '@/api/pkgSpec'
 import { confirmAndArchive, confirmAndRestore } from '@/composables/useArchive'
 
 const loading = ref(false)
 const submitting = ref(false)
+const pkgSpecs = ref<Array<{ name: string; unitName: string; ratio: number }>>([])
+const defaultPkgIndex = ref(0)
+function addPkgRow() { pkgSpecs.value.push({ name: '', unitName: '箱', ratio: 1 }) }
 const tableData = ref<Product[]>([])
 const total = ref(0)
 const dialogVisible = ref(false)
@@ -153,6 +160,7 @@ const form = reactive({
   category: '',
   specification: '',
   unit: '',
+  defaultUnit: '' as string | null,
   price: 0,
   unitPrice: 0,
   status: 'active'
@@ -179,17 +187,14 @@ const loadData = async () => {
   }
 }
 
-const openDialog = (row?: Product) => {
-  isEdit.value = !!row
-  editId.value = row?.id || 0
-  form.name = row?.name || ''
-  form.code = row?.code || ''
-  form.category = row?.category || ''
-  form.specification = row?.specification || ''
-  form.unit = row?.unit || ''
-  form.price = row?.price || 0
-  form.unitPrice = row?.unitPrice || 0
+const openDialog = async (row?: Product) => {
+  isEdit.value = !!row; editId.value = row?.id || 0
+  form.name = row?.name || ''; form.code = row?.code || ''; form.category = row?.category || ''
+  form.specification = row?.specification || ''; form.unit = row?.unit || ''
+  form.defaultUnit = row?.defaultUnit || null; form.price = row?.price || 0; form.unitPrice = row?.unitPrice || 0
   form.status = row?.status || 'active'
+  pkgSpecs.value = []; defaultPkgIndex.value = 0
+  if (row?.id) { try { const s = await pkgSpecApi.getList('product', row.id); pkgSpecs.value = s.map((x: any) => ({ name: x.name, unitName: x.unitName, ratio: x.ratio })); defaultPkgIndex.value = s.findIndex((x: any) => x.isDefault) } catch {} }
   dialogVisible.value = true
 }
 
@@ -199,6 +204,9 @@ const handleSubmit = async () => {
   try {
     if (isEdit.value) {
       await productApi.update(editId.value, { ...form })
+      if (pkgSpecs.value.length > 0) {
+        await pkgSpecApi.save('product', editId.value, pkgSpecs.value.map((s, i) => ({ ...s, isDefault: i === defaultPkgIndex.value })))
+      }
       ElMessage.success('更新成功')
     } else {
       await productApi.create({ ...form })

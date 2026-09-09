@@ -189,27 +189,47 @@ export const updatePurchaseOrder = async (req: Request, res: Response) => {
 export const deletePurchaseOrder = async (req: Request, res: Response) => {
   try {
     const id = Number(req.params.id)
-    const existing = await prisma.purchaseOrder.findUnique({ where: { id } })
+    const existing = await prisma.purchaseOrder.findUnique({
+      where: { id },
+      include: { items: true }
+    })
     if (!existing) {
       res.status(404).json({ code: 404, message: '采购单不存在' })
       return
     }
 
-    const lockedItem = await prisma.payableItem.findFirst({
-      where: {
-        purchaseOrderId: id,
-        payable: { status: { in: ['pending', 'approved'] } }
-      }
+    const payableLock = await prisma.payableItem.findFirst({
+      where: { purchaseOrderId: id, payable: { status: { in: ['pending', 'approved'] } } }
     })
-    if (lockedItem) {
-      res.status(400).json({ code: 400, message: '该采购单已被应付单锁定，请先反审并删除关联的应付单', data: null })
+    if (payableLock) {
+      res.status(400).json({ code: 400, message: '已生成应付单，请先反审并删除关联的应付单后再作废', data: null })
+      return
+    }
+    if (existing.items.some(i => i.receivedQuantity > 0)) {
+      res.status(400).json({ code: 400, message: '该采购单已有入库记录，不能作废', data: null })
       return
     }
 
-    await prisma.purchaseOrder.delete({ where: { id } })
-    res.json({ code: 0, message: '删除成功' })
+    await prisma.purchaseOrder.update({ where: { id }, data: { status: 'voided' } })
+    res.json({ code: 0, message: '已作废' })
   } catch (error: any) {
-    res.status(500).json({ code: 500, message: error.message || '删除失败' })
+    res.status(500).json({ code: 500, message: error.message || '作废失败' })
+  }
+}
+
+// 恢复作废的单据
+export const restorePurchaseOrder = async (req: Request, res: Response) => {
+  try {
+    const id = Number(req.params.id)
+    const existing = await prisma.purchaseOrder.findUnique({ where: { id } })
+    if (!existing || existing.status !== 'voided') {
+      res.status(404).json({ code: 404, message: '作废单据不存在' })
+      return
+    }
+    const order = await prisma.purchaseOrder.update({ where: { id }, data: { status: 'draft' } })
+    res.json({ code: 0, message: '已恢复为待确认', data: order })
+  } catch (error: any) {
+    res.status(500).json({ code: 500, message: error.message || '恢复失败' })
   }
 }
 
@@ -297,14 +317,30 @@ export const receivePurchaseOrder = async (req: Request, res: Response) => {
       }
     }
 
-    // 检查是否全部收完，更新状态
+    // 检查是否全部收完，更新状态 + 自动生成应付单
     const updatedOrder = await prisma.purchaseOrder.findUnique({
       where: { id },
       include: { items: true }
     })
     const allReceived = updatedOrder!.items.every(i => i.receivedQuantity >= i.quantity)
-    if (allReceived) {
+    if (allReceived && order.status !== 'completed') {
       await prisma.purchaseOrder.update({ where: { id }, data: { status: 'completed' } })
+
+      // 自动生成应付单（如尚未生成）
+      const existingPayable = await prisma.payableItem.findFirst({ where: { purchaseOrderId: id } })
+      if (!existingPayable && order.partnerId) {
+        const payableNo = `AP-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${String(id).padStart(4, '0')}`
+        await prisma.payable.create({
+          data: {
+            orderNo: payableNo,
+            partnerId: order.partnerId,
+            totalAmount: order.totalAmount,
+            status: 'pending',
+            remark: `自动生成 — 采购单 ${order.orderNo}`,
+            items: { create: { purchaseOrderId: id, amount: order.totalAmount } }
+          }
+        })
+      }
     }
 
     const result = await prisma.purchaseOrder.findUnique({

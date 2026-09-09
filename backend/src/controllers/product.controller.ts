@@ -12,6 +12,7 @@ export const ProductCreateSchema = z.object({
   code: z.string().min(1, '产品编码必填').max(50),
   category: z.string().min(1, '分类必填').max(50),
   unit: z.string().min(1, '单位必填').max(10),
+  defaultUnit: z.string().max(20).optional().nullable(),
   specification: z.string().max(100).optional().nullable(),
   price: z.number().min(0).default(0),
   unitPrice: z.number().min(0).default(0),

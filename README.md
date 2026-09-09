@@ -33,7 +33,7 @@ SettlementSystem/
 - Node.js 18+
 - Express
 - Prisma ORM
-- SQLite (当前) / MySQL (预留)
+- SQLite
 
 ## 快速开始
 
@@ -120,25 +120,9 @@ PORT=3000
 NODE_ENV="development"
 ```
 
-### 数据库切换
+### 数据库
 
-从 SQLite 切换到 MySQL，修改 `.env`：
-
-```bash
-# SQLite
-DATABASE_URL="file:./data/settlement.db"
-
-# MySQL
-DATABASE_URL="mysql://user:password@localhost:3306/settlement"
-```
-
-并修改 `prisma/schema.prisma`：
-```prisma
-datasource db {
-  provider = "mysql"  # 从 sqlite 改为 mysql
-  url      = env("DATABASE_URL")
-}
-```
+使用 SQLite，首次启动自动初始化，无需手动配置。
 
 ## 功能模块
 

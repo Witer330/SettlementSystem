@@ -7,6 +7,7 @@ export interface Product {
   category: string
   specification?: string | null
   unit: string
+  defaultUnit?: string | null
   price: number
   unitPrice: number
   stock: number

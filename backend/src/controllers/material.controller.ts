@@ -11,6 +11,7 @@ export const MaterialCreateSchema = z.object({
   code: z.string().min(1, '物料编码必填').max(50),
   category: z.string().min(1, '分类必填').max(50),
   unit: z.string().min(1, '单位必填').max(10),
+  defaultUnit: z.string().max(20).optional().nullable(),
   specification: z.string().max(100).optional().nullable(),
   barcode: z.string().max(100).optional().nullable(),
   safeStock: z.number().min(0).default(0)

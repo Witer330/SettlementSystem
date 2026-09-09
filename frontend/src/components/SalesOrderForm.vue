@@ -41,7 +41,7 @@
           <span v-if="draft.isDraft.value" style="color:var(--color-text-muted);font-size:12px;margin-right:auto;">{{ draft.isSaving.value ? '保存中...' : `草稿 · ${draft.lastSavedAt.value ? new Date(draft.lastSavedAt.value).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'}) : ''}`.trim() }}</span>
           <span v-else style="flex:1;" />
           <el-button @click="visible = false">取消</el-button>
-          <el-button :loading="draft.isSaving.value" @click="handleSaveDraft">保存草稿</el-button>
+          <el-button type="primary" :loading="submitting" @click="handleSubmit">保存</el-button>
           <el-button type="primary" :loading="submitting" @click="handleSubmit">确定</el-button>
         </div>
       </template>
@@ -49,9 +49,9 @@
 
     <!-- ═══ 工作台模式（三组件：表头/明细/表尾） ═══ -->
     <div v-else v-loading="inlineLoading" class="ws-form" @keydown="onWsKeydown">
-      <!-- 功能栏（表头上方） -->
-      <div v-if="orderId" class="ws-toolbar">
-        <DocActionBar order-type="sales-order" :status="orderStatus" :order-id="orderId" :is-locked="orderIsLocked" :readonly="readonly" @action="(key) => handleToolbarAction(key)" />
+      <!-- 功能栏 -->
+      <div class="ws-toolbar">
+        <DocActionBar order-type="sales-order" :status="orderId ? orderStatus : 'draft'" :order-id="orderId" :is-locked="orderIsLocked" :readonly="readonly" @action="(key) => handleToolbarAction(key)" />
       </div>
 
       <DocHeader
@@ -87,31 +87,31 @@
               </template>
               <!-- 复选框 -->
               <template v-else-if="field.type === 'checkbox'">
-                <el-checkbox v-model="form[field.key]" :disabled="readonly || orderIsLocked">{{ field.label }}</el-checkbox>
+                <el-checkbox v-model="form[field.key]" :disabled="readonly || orderIsLocked || (isConfirmed && !financialFields.has(field.key))">{{ field.label }}</el-checkbox>
               </template>
               <!-- 日期选择 -->
               <template v-else-if="field.type === 'date'">
                 <span class="dh-label">{{ field.label }}</span>
-                <el-date-picker v-model="form[field.key]" type="date" value-format="YYYY-MM-DD" placeholder="" size="small" :disabled="readonly || orderIsLocked" />
+                <el-date-picker v-model="form[field.key]" type="date" value-format="YYYY-MM-DD" placeholder="" size="small" :disabled="readonly || orderIsLocked || (isConfirmed && !financialFields.has(field.key))" />
               </template>
               <!-- 下拉选择 -->
               <template v-else-if="field.type === 'select'">
                 <span class="dh-label">{{ field.label }}</span>
-                <PartnerSelect v-if="field.key === 'customerId'" v-model="form.customerId" role="customer" placeholder="选择客户" size="small" :disabled="readonly || orderIsLocked" @change="onPartnerChangeFromSelect" />
-                <el-select v-else v-model="form[field.key]" placeholder="" size="small" :disabled="readonly || orderIsLocked" clearable>
+                <PartnerSelect v-if="field.key === 'customerId'" v-model="form.customerId" role="customer" placeholder="选择客户" size="small" :disabled="readonly || orderIsLocked || isConfirmed" @change="onPartnerChangeFromSelect" />
+                <el-select v-else v-model="form[field.key]" placeholder="" size="small" :disabled="readonly || orderIsLocked || (isConfirmed && !financialFields.has(field.key))" clearable>
                   <el-option v-for="opt in (field.options || [])" :key="opt" :label="opt" :value="opt" />
                 </el-select>
               </template>
               <!-- 数字输入 -->
               <template v-else-if="field.type === 'number'">
                 <span class="dh-label">{{ field.label }}</span>
-                <el-input-number v-model="form[field.key]" :min="0" :max="field.key === 'wholeDiscount' ? 100 : 9999999" :precision="field.key === 'wholeDiscount' ? 0 : 2" size="small" :disabled="readonly || orderIsLocked" controls-position="right" />
+                <el-input-number v-model="form[field.key]" :min="0" :max="field.key === 'wholeDiscount' ? 100 : 9999999" :precision="field.key === 'wholeDiscount' ? 0 : 2" size="small" :disabled="readonly || orderIsLocked || (isConfirmed && !financialFields.has(field.key))" controls-position="right" />
                 <span v-if="field.key === 'wholeDiscount'" style="font-size:12px;color:var(--color-text-muted);flex-shrink:0">%</span>
               </template>
               <!-- 文本输入 -->
               <template v-else>
                 <span class="dh-label">{{ field.label }}</span>
-                <el-input v-model="form[field.key]" placeholder="" size="small" :disabled="readonly || orderIsLocked" :style="field.fullRow ? 'flex:1' : ''" />
+                <el-input v-model="form[field.key]" placeholder="" size="small" :disabled="readonly || orderIsLocked || (isConfirmed && !financialFields.has(field.key))" :style="field.fullRow ? 'flex:1' : ''" />
               </template>
             </div>
           </div>
@@ -127,7 +127,7 @@
         </template>
 
         <template #actions>
-          <el-button v-if="!readonly" size="small" :icon="Setting" @click="configDrawerVisible = true" title="表头字段配置" />
+          <el-button v-if="!readonly && !isConfirmed" size="small" :icon="Setting" @click="configDrawerVisible = true" title="表头字段配置" />
         </template>
       </DocHeader>
 
@@ -139,15 +139,15 @@
         :show-received="orderId > 0 && orderStatus !== 'draft'"
         received-label="已发"
         received-field="shippedQuantity"
-        :readonly="readonly"
-        :locked="orderIsLocked"
+        :readonly="readonly || isConfirmed"
+        :locked="orderIsLocked || isConfirmed"
         @add-row="addItemRow"
         @remove-row="removeItem"
         @batch-remove="batchRemoveItems"
         @item-select="(v, r) => onProductChange(v, r)"
       >
         <template #modeBarExtra>
-          <el-button v-if="!readonly" size="small" @click="batchSelectProducts">批量导入</el-button>
+          <el-button v-if="!readonly && !isConfirmed" size="small" @click="batchSelectProducts">批量导入</el-button>
         </template>
         <template #priceTag="{ row: r }">
           <el-tag v-if="r.productId > 0 && r.price === 0" type="danger" size="small" effect="dark">赠</el-tag>
@@ -195,7 +195,7 @@
     </el-dialog>
 
     <!-- 表头字段配置抽屉 -->
-    <HeaderFieldConfig v-model="configDrawerVisible" :fields="headerFields" :per-row="perRow" @save="(fields, pr) => saveHeaderConfig(fields, pr)" @reset="resetHeaderFields" />
+    <HeaderFieldConfig v-model="configDrawerVisible" :fields="headerFields" :per-row="perRow" :partner-fields="partnerFields" @toggle-partner="(pf, add) => togglePf(pf, add)" @save="(fields, pr) => saveHeaderConfig(fields, pr)" @reset="resetHeaderFields" />
 
     <!-- 草稿保存确认弹窗 -->
     <el-dialog v-model="draftSaveVisible" title="保存草稿" width="380px" :append-to-body="true">
@@ -245,6 +245,9 @@ const orderNo = ref('')
 const orderId = ref(0)
 const orderStatus = ref('draft')
 const orderIsLocked = ref(false)
+const isConfirmed = computed(() => orderStatus.value === 'confirmed')
+// 已确认后仅允许编辑钱流字段
+const financialFields = new Set(['paymentMethod', 'wholeDiscount', 'contactInfo', 'orderDate', 'remark', 'customerRemark'])
 const orderCreatedAt = ref('')
 const orderUpdatedAt = ref('')
 const downstreamDocs = ref<Array<{ id: number; orderNo: string; docType: string; status: string; statusLabel: string }>>([])
@@ -264,7 +267,13 @@ const totalAmount = computed(() => form.items.reduce((s: number, i: any) => s + 
 const draft = useDraftAutoSave(salesOrderApi as any, form as any, 'customerId', 'productId')
 const { maskAmount } = useAmountPrivacy()
 const docReveal = useReveal()
-const { fields: headerFields, perRow, fieldGroups, loadConfig: loadHeaderConfig, saveConfig: saveHeaderConfig, resetToDefault: resetHeaderFields } = useHeaderFields()
+const {
+  fields: headerFields, perRow, fieldGroups,
+  partnerFields,
+  loadConfig: loadHeaderConfig, loadPartnerFields: loadPf,
+  togglePartnerField: togglePf,
+  saveConfig: saveHeaderConfig, resetToDefault: resetHeaderFields
+} = useHeaderFields()
 const configDrawerVisible = ref(false)
 const draftSaveVisible = ref(false)
 const draftReserveInventory = ref(true)
@@ -292,6 +301,16 @@ function onPartnerSelected(partner: Partner | null) {
   if (partner) {
     if (partner.address && !form.shippingAddress) form.shippingAddress = partner.address
     if (partner.phone && !form.contactInfo) form.contactInfo = partner.phone
+    const f = form as Record<string, any>
+    for (const cv of partner.customFieldValues || []) {
+      const rawKey = cv.field.key
+      for (const k of [rawKey, 'pf_' + rawKey]) {
+        const cur = f[k]
+        if (cur === undefined || cur === '' || cur === 0 || cur === false || cur === null) {
+          f[k] = cv.value
+        }
+      }
+    }
   }
 }
 function onPartnerChangeFromSelect(partner: Partner | null) {
@@ -299,6 +318,16 @@ function onPartnerChangeFromSelect(partner: Partner | null) {
   if (partner) {
     if (partner.address && !form.shippingAddress) form.shippingAddress = partner.address
     if (partner.phone && !form.contactInfo) form.contactInfo = partner.phone
+    const f = form as Record<string, any>
+    for (const cv of partner.customFieldValues || []) {
+      const rawKey = cv.field.key
+      for (const k of [rawKey, 'pf_' + rawKey]) {
+        const cur = f[k]
+        if (cur === undefined || cur === '' || cur === 0 || cur === false || cur === null) {
+          f[k] = cv.value
+        }
+      }
+    }
   }
   const hasData = form.items.some((i: any) => i.productId > 0)
   if (!hasData) return
@@ -315,13 +344,21 @@ async function handleToolbarAction(key: string) {
   if (key === 'new') { emit('cancel'); return }
   if (key === 'save-draft') { handleSaveDraft(); return }
   if (key === 'submit') { handleSubmit(); return }
-  if (key === 'config-header') { configDrawerVisible.value = true; return }
+  if (key === 'config-header') { loadPf(); configDrawerVisible.value = true; return }
+  // 状态操作
+  if ((key === 'confirm' || key === 'complete' || key === 'unconfirm' || key === 'uncomplete') && orderId.value) {
+    const statusMap: Record<string, string> = { confirm: 'confirmed', complete: 'completed', unconfirm: 'pending', uncomplete: 'confirmed' }
+    const labelMap: Record<string, string> = { confirm: '审核通过', complete: '完成', unconfirm: '反确认', uncomplete: '反完成' }
+    try { await ElMessageBox.confirm(`确定${labelMap[key]}该单据？`, '操作确认', { type: 'info' }) } catch { return }
+    try { await salesOrderApi.updateStatus(orderId.value, statusMap[key]); ElMessage.success(`已${labelMap[key]}`); loadOrderDetail() } catch (e: any) { ElMessage.error(e.message) }
+    return
+  }
   if (key === 'delete' && orderId.value) {
-    try { await ElMessageBox.confirm('确定删除该单据？删除后无法恢复。', '删除确认', { type: 'warning', confirmButtonText: '删除', cancelButtonText: '取消' }) }
+    try { await ElMessageBox.confirm('确定作废该单据？作废后可在作废单据中恢复。', '作废确认', { type: 'warning', confirmButtonText: '作废', cancelButtonText: '取消' }) }
     catch { return }
     try {
       await salesOrderApi.delete(orderId.value)
-      ElMessage.success('已删除')
+      ElMessage.success('已作废')
       draft.stopAutoSave()
       emit('cancel')
     } catch (e: any) { ElMessage.error(e.message || '删除失败') }
@@ -331,14 +368,14 @@ async function handleToolbarAction(key: string) {
 }
 
 function onWsKeydown(e: KeyboardEvent) {
-  if (e.ctrlKey && e.key === 's') { e.preventDefault(); handleSaveDraft() }
+  if (e.ctrlKey && e.key === 's') { e.preventDefault(); handleSubmit() }
   else if (e.ctrlKey && e.key === 'Enter') { e.preventDefault(); handleSubmit() }
   else if (e.key === 'Enter' && !['INPUT','TEXTAREA','SELECT'].includes((e.target as HTMLElement).tagName)) { addItemRow() }
 }
 
 async function loadRefData() {
   if (!props.inline) return
-  try { const p = await productApi.getList({ page: 1, pageSize: 1000 }); products.value = p.list } catch { /* 忽略 */ }
+  try { const p = await productApi.getList({ page: 1, pageSize: 200 }); products.value = p.list } catch { /* 忽略 */ }
 }
 async function loadOrderDetail() {
   if (!props.inline || !props.editId) return
@@ -347,7 +384,7 @@ async function loadOrderDetail() {
     const detail = await salesOrderApi.getDetail(props.editId)
     form.customerId = detail.customerId || 0; form.remark = detail.remark || ''
     form.reserveInventory = detail.status === 'draft' ? (detail.reserveInventory ?? true) : true
-    form.orderDate = detail.orderDate ? detail.orderDate.slice(0, 10) : ''
+    form.orderDate = detail.orderDate ? detail.orderDate.slice(0, 10) : new Date().toISOString().slice(0, 10)
     form.businessType = detail.businessType || ''
     form.deliveryMethod = detail.deliveryMethod || ''
     form.salesperson = detail.salesperson || ''
@@ -359,7 +396,7 @@ async function loadOrderDetail() {
     form.usePrepayment = detail.usePrepayment ?? false
     form.shippingAddress = detail.shippingAddress || ''
     form.customerRemark = detail.customerRemark || ''
-    form.creator = detail.creator || detail.createdBy || ''
+    form.creator = detail.creator || (detail as any).createdBy || ''
     form.items = detail.items?.map((i: any) => ({ productId: i.productId, quantity: i.quantity, price: i.price })) || [{ productId: 0, quantity: 1, price: 0 }]
     orderNo.value = detail.orderNo || ''; orderId.value = detail.id || 0; orderStatus.value = detail.status || 'draft'
     orderCreatedAt.value = detail.createdAt ? new Date(detail.createdAt).toLocaleDateString('zh-CN') : ''
@@ -383,7 +420,7 @@ function initDialogForm() {
   if (props.row?.status === 'draft' || !props.row) draft.initAutoSave(props.row || null); else draft.stopAutoSave()
 }
 watch(() => props.modelValue, (val) => { if (!props.inline && val) initDialogForm() })
-onMounted(() => { if (props.inline) { form.creator = useUserStore().userInfo?.name || ''; loadRefData(); loadHeaderConfig(); loadOrderDetail().then(() => { if (!props.editId) { if (form.items.length === 0) form.items.push({ productId: 0, quantity: 1, price: 0 }); draft.initAutoSave(null) } }) } })
+onMounted(() => { if (props.inline) { form.creator = useUserStore().userInfo?.name || ''; loadRefData(); loadHeaderConfig(); loadPf(); loadOrderDetail().then(() => { if (!props.editId) { if (form.items.length === 0) form.items.push({ productId: 0, quantity: 1, price: 0 }); draft.initAutoSave(null) } }) } })
 watch(() => ({ c: form.customerId, r: form.remark, len: form.items.length, bt: form.businessType, sp: form.salesperson, dp: form.deliveryPerson, sa: form.shippingAddress }), () => { if (props.inline) emit('dirty', form.customerId > 0 || form.remark.trim() !== '' || form.items.some((i: any) => i.productId > 0) || form.businessType !== '' || form.salesperson !== '' || form.deliveryPerson !== '' || form.shippingAddress !== '') }, { deep: true, immediate: false })
 function onClosed() { draft.stopAutoSave(); if (draft.draftId.value && !draft.hasMeaningfulContent()) draft.discardDraft() }
 function onProductChange(v: number, row: any) { row._fresh = false; const p = products.value.find((x: any) => x.id === v); if (p && row.price === 0) row.price = p.price || 0 }
@@ -427,11 +464,10 @@ async function handleSubmit() {
     let resultOrderNo = ''
     if (draft.isDraft.value) { const r = await draft.submitDraft(); resultOrderNo = r?.orderNo || ''; ElMessage.success('创建成功') }
     else if (props.isEdit) { await salesOrderApi.update(props.editId, { ...form } as any); ElMessage.success('更新成功') }
-    else { const r = await salesOrderApi.create({ customerId: form.customerId, items: form.items, remark: form.remark, customerRemark: form.customerRemark, reserveInventory: true, creator: form.creator, orderDate: form.orderDate, businessType: form.businessType, deliveryMethod: form.deliveryMethod, salesperson: form.salesperson, deliveryPerson: form.deliveryPerson, returnDate: form.returnDate, paymentMethod: form.paymentMethod, contactInfo: form.contactInfo, wholeDiscount: form.wholeDiscount, usePrepayment: form.usePrepayment, shippingAddress: form.shippingAddress }); resultOrderNo = r?.orderNo || ''; ElMessage.success('创建成功') }
+    else { const r = await salesOrderApi.create({ customerId: form.customerId, items: form.items, remark: form.remark, customerRemark: form.customerRemark, creator: form.creator, orderDate: form.orderDate, businessType: form.businessType, deliveryMethod: form.deliveryMethod, salesperson: form.salesperson, deliveryPerson: form.deliveryPerson, returnDate: form.returnDate, paymentMethod: form.paymentMethod, contactInfo: form.contactInfo, wholeDiscount: form.wholeDiscount, usePrepayment: form.usePrepayment, shippingAddress: form.shippingAddress } as any); resultOrderNo = r?.orderNo || ''; ElMessage.success('创建成功') }
     if (props.inline) emit('success', resultOrderNo || orderNo.value); else { visible.value = false; emit('success') }
   } catch (e: any) { ElMessage.error(e.message || '操作失败') } finally { submitting.value = false }
 }
-function handleCancel() { draft.stopAutoSave(); if (draft.draftId.value && !draft.hasMeaningfulContent()) draft.discardDraft(); if (props.inline) emit('cancel'); else visible.value = false }
 const batchSelectProducts = () => { batchSelected.value = []; batchVisible.value = true }
 const confirmBatchProducts = () => { if (batchSelected.value.length === 0) { ElMessage.warning('请选择产品'); return }; for (const pid of batchSelected.value) { const p = products.value.find((x: any) => x.id === pid); form.items.push({ productId: pid, quantity: 1, price: p?.price || 0 }) }; batchVisible.value = false }
 

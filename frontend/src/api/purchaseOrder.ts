@@ -16,11 +16,13 @@ export interface PurchaseOrder {
   supplierId?: number
   supplierName?: string
   supplier?: { name: string }
+  partner?: { name: string }
   totalAmount: number
   status: string
   remark?: string
   reserveInventory?: boolean
   items: PurchaseOrderItem[]
+  payableItems?: Array<{ id: number; payable?: { id: number; orderNo: string; status: string } }>
   createdAt: string
   updatedAt: string
 }
@@ -47,6 +49,9 @@ export const purchaseOrderApi = {
 
   delete: (id: number) =>
     api.delete(`/purchase-orders/${id}`),
+
+  restore: (id: number) =>
+    api.patch<PurchaseOrder>(`/purchase-orders/${id}/restore`),
 
   updateStatus: (id: number, status: string) =>
     api.patch(`/purchase-orders/${id}/status`, { status }),

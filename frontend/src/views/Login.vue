@@ -3,7 +3,8 @@
     <div class="login-container">
       <div class="login-box">
         <div class="login-header">
-          <h1 class="text-display">结算系统</h1>
+          <h1 class="text-display">{{ displayTitle }}</h1>
+          <p v-if="showSubtitle" class="text-h3-light mt-2">{{ displaySubtitle }}</p>
           <p class="text-h3-light mt-4">工资核算 · 进销存 · 一体化管理</p>
         </div>
 
@@ -59,14 +60,30 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { authApi, tokenManager } from '../api/auth'
+import { settingApi } from '../api/setting'
 
 const router = useRouter()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
+
+const systemName = ref('结算系统')
+const companyName = ref('')
+const displayTitle = computed(() => companyName.value || systemName.value)
+const showSubtitle = computed(() => !!companyName.value)
+const displaySubtitle = computed(() => systemName.value)
+onMounted(async () => {
+  const [name, company] = await Promise.all([
+    settingApi.getTyped<string>('system.name'),
+    settingApi.getTyped<string>('system.companyName')
+  ])
+  if (name) systemName.value = name
+  if (company) companyName.value = company
+  document.title = [company, name].filter(Boolean).join(' - ') || '结算系统'
+})
 
 const loginForm = reactive({
   username: '',
@@ -83,7 +100,7 @@ const rules: FormRules = {
 
 const handleLogin = async () => {
   try {
-    await await formRef.value?.validate()
+    await formRef.value?.validate()
     loading.value = true
 
     const response = await authApi.login({

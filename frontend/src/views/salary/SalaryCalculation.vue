@@ -105,6 +105,13 @@
               发放
             </el-button>
             <el-button
+              v-if="row.status === 'issued'"
+              link type="warning"
+              @click="unissueBill(row)"
+            >
+              撤销发放
+            </el-button>
+            <el-button
               v-if="row.status === 'pending'"
               link type="danger"
               @click="deleteBill(row)"
@@ -326,13 +333,13 @@ const billStatusLabel = (status: string) =>
 const issueBill = async (bill: SalaryBill) => {
   try {
     await ElMessageBox.confirm(
-      `确定要发放 "${bill.employee?.name}" 的工资单吗？发放后数据将固化，不可再反审或修改。`,
+      `确定要发放 "${bill.employee?.name}" 的工资单吗？发放后可撤销。`,
       '确认发放',
       { type: 'warning' }
     )
 
     await salaryApi.issueSalaryBill(bill.id)
-    ElMessage.success('发放成功，数据已固化')
+    ElMessage.success('发放成功')
     loadSalaryBills()
   } catch (error: any) {
     if (error !== 'cancel') {
@@ -341,10 +348,22 @@ const issueBill = async (bill: SalaryBill) => {
   }
 }
 
+const unissueBill = async (bill: SalaryBill) => {
+  try {
+    const { value: reason } = await ElMessageBox.prompt('请输入撤销原因', '撤销发放', { type: 'warning', inputPlaceholder: '撤销原因' })
+    if (!reason) return
+    await salaryApi.unissueSalaryBill(bill.id, reason)
+    ElMessage.success('已撤销发放，退回已审核状态')
+    loadSalaryBills()
+  } catch (error: any) {
+    if (error !== 'cancel') { ElMessage.error(error.message || '撤销失败') }
+  }
+}
+
 const issueCurrentBill = async (bill: SalaryBill) => {
   try {
     await ElMessageBox.confirm(
-      `确定要发放 "${bill.employee?.name}" 的工资单吗？发放后数据将固化，不可再反审或修改。`,
+      `确定要发放 "${bill.employee?.name}" 的工资单吗？发放后可撤销。`,
       '确认发放',
       { type: 'warning' }
     )

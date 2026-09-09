@@ -37,7 +37,7 @@ impl AppConfig {
             }
         }
         let config = Self::default();
-        config.save(install_dir);
+        let _ = config.save(install_dir);
         config
     }
 

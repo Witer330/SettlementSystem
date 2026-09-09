@@ -258,7 +258,7 @@ async function loadAvailableOrders(customerId: number) {
   selectLoading.value = true
   try {
     const res = await receivableApi.getAvailableSalesOrders(customerId)
-    availableOrders.value = Array.isArray(res) ? res : (res.list || [])
+    availableOrders.value = Array.isArray(res) ? res : []
   } finally { selectLoading.value = false }
 }
 

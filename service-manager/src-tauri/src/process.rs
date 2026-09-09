@@ -5,25 +5,53 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use sysinfo::System;
 use tokio::io::{AsyncBufReadExt, BufReader};
 
-/// 服务状态
+// ── 状态结构体 ──
+
 #[derive(Debug, Clone, Serialize)]
-pub struct ServerStatus {
+pub struct BackendStatus {
     pub running: bool,
     pub pid: Option<u32>,
-    pub backend_port: u16,
+    pub port: u16,
     pub unhealthy: bool,
     pub memory_mb: f64,
     pub cpu_percent: f32,
     pub uptime: u64,
 }
 
-/// 进程管理器
+#[derive(Debug, Clone, Serialize)]
+pub struct ProxyStatus {
+    pub running: bool,
+    pub pid: Option<u32>,
+    pub port: u16,
+    pub uptime: u64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct DbStatus {
+    pub configured: bool,
+    pub connected: bool,
+    pub path: String,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct AllServicesStatus {
+    pub backend: BackendStatus,
+    pub proxy: ProxyStatus,
+    pub database: DbStatus,
+}
+
+// ── 进程管理器 ──
+
 pub struct ProcessManager {
+    // 后端
     pid: Arc<AtomicU32>,
     backend_port: Arc<AtomicU16>,
     should_be_running: Arc<AtomicBool>,
     health_failures: Arc<AtomicU32>,
     started_at: Arc<AtomicU64>,
+    // 代理
+    proxy_pid: Arc<AtomicU32>,
+    proxy_started_at: Arc<AtomicU64>,
 }
 
 impl ProcessManager {
@@ -34,11 +62,14 @@ impl ProcessManager {
             should_be_running: Arc::new(AtomicBool::new(false)),
             health_failures: Arc::new(AtomicU32::new(0)),
             started_at: Arc::new(AtomicU64::new(0)),
+            proxy_pid: Arc::new(AtomicU32::new(0)),
+            proxy_started_at: Arc::new(AtomicU64::new(0)),
         }
     }
 
-    /// 启动 Node.js 服务（自动分配端口）
-    /// `detached` 为 true 时，子进程脱离父进程，托盘退出后服务继续运行
+    // ── 后端 ──
+
+    /// 启动 Node.js 后端服务（自动分配端口）
     pub async fn start(&self, node_path: &str, server_script: &str, work_dir: &str, detached: bool) -> Result<u16, String> {
         if self.pid.load(Ordering::Relaxed) != 0 {
             return Err("服务已在运行".to_string());
@@ -58,19 +89,16 @@ impl ProcessManager {
         cmd.arg(server_script)
            .current_dir(work_dir)
            .env("NODE_ENV", "production")
-           .env("PORT", "0") // OS 自动分配端口
+           .env("PORT", "0")
            .stdout(std::process::Stdio::piped())
            .stderr(std::process::Stdio::piped());
 
-        // 不弹黑窗 + 脱离父进程 JobObject，托盘退出后服务继续运行
-        // CREATE_NO_WINDOW (0x08000000) | CREATE_NEW_PROCESS_GROUP (0x200) | CREATE_BREAKAWAY_FROM_JOB (0x01000000)
         let flags = if detached { 0x09000200 } else { 0x08000000 };
         cmd.creation_flags(flags);
 
         let mut child = cmd.spawn().map_err(|e| format!("启动失败: {}", e))?;
         let child_pid = child.id().unwrap_or(0);
 
-        // 读取 stdout 获取实际端口
         let stdout = child.stdout.take().unwrap();
         let pid_clone = self.pid.clone();
         let port_clone = self.backend_port.clone();
@@ -121,17 +149,7 @@ impl ProcessManager {
         Ok(port)
     }
 
-    /// 接管已运行的后端进程（重启托盘时，检测到端口被占用，绑定到该进程）
-    pub fn attach(&self, pid: u32, port: u16) {
-        self.pid.store(pid, Ordering::Relaxed);
-        self.backend_port.store(port, Ordering::Relaxed);
-        self.should_be_running.store(true, Ordering::Relaxed);
-        self.health_failures.store(0, Ordering::Relaxed);
-        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
-        self.started_at.store(now, Ordering::Relaxed);
-    }
-
-    /// 停止服务
+    /// 停止后端服务
     pub async fn stop(&self) -> Result<(), String> {
         self.should_be_running.store(false, Ordering::Relaxed);
 
@@ -153,7 +171,6 @@ impl ProcessManager {
 
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
 
-        // 使用 taskkill 强制终止
         let _ = tokio::process::Command::new("taskkill")
             .args(["/F", "/PID", &pid.to_string()])
             .creation_flags(0x08000000)
@@ -166,7 +183,8 @@ impl ProcessManager {
         Ok(())
     }
 
-    /// 脱管：停止管理但不杀进程，服务继续运行
+    /// 脱管：停止管理但不杀进程
+    #[allow(dead_code)]
     pub fn detach(&self) {
         self.should_be_running.store(false, Ordering::Relaxed);
         self.pid.store(0, Ordering::Relaxed);
@@ -174,15 +192,8 @@ impl ProcessManager {
         self.started_at.store(0, Ordering::Relaxed);
     }
 
-    /// 重启服务
-    pub async fn restart(&self, node_path: &str, server_script: &str, work_dir: &str) -> Result<u16, String> {
-        self.stop().await?;
-        tokio::time::sleep(std::time::Duration::from_millis(1000)).await;
-        self.start(node_path, server_script, work_dir, true).await
-    }
-
-    /// 获取状态（含内存和 CPU）
-    pub fn status(&self) -> ServerStatus {
+    /// 获取后端状态
+    pub fn backend_status(&self) -> BackendStatus {
         let pid_val = self.pid.load(Ordering::Relaxed);
         let running = pid_val != 0;
         let unhealthy = self.health_failures.load(Ordering::Relaxed) >= 3;
@@ -205,10 +216,10 @@ impl ProcessManager {
             0
         };
 
-        ServerStatus {
+        BackendStatus {
             running,
             pid: if running { Some(pid_val) } else { None },
-            backend_port: self.backend_port.load(Ordering::Relaxed),
+            port: self.backend_port.load(Ordering::Relaxed),
             unhealthy,
             memory_mb,
             cpu_percent,
@@ -216,26 +227,10 @@ impl ProcessManager {
         }
     }
 
-    /// 通过 sysinfo 获取进程内存和 CPU
-    fn query_process_metrics(&self, pid: u32) -> (f64, f32) {
-        let mut sys = System::new();
-        let target = sysinfo::Pid::from_u32(pid);
-        sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[target]), true);
-        if let Some(proc) = sys.process(target) {
-            let mem_mb = proc.memory() as f64 / 1024.0 / 1024.0;
-            let cpu = proc.cpu_usage();
-            (round1(mem_mb), cpu)
-        } else {
-            (0.0, 0.0)
-        }
-    }
-
-    /// 获取后端端口
     pub fn get_backend_port(&self) -> u16 {
         self.backend_port.load(Ordering::Relaxed)
     }
 
-    /// 获取进程 PID
     pub fn get_pid(&self) -> u32 {
         self.pid.load(Ordering::Relaxed)
     }
@@ -251,9 +246,64 @@ impl ProcessManager {
     pub fn health_failure_count(&self) -> u32 {
         self.health_failures.load(Ordering::Relaxed)
     }
+
+    // ── 代理 ──
+
+    pub fn set_proxy(&self, pid: u32) {
+        self.proxy_pid.store(pid, Ordering::Relaxed);
+        let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+        self.proxy_started_at.store(now, Ordering::Relaxed);
+    }
+
+    pub fn clear_proxy(&self) {
+        self.proxy_pid.store(0, Ordering::Relaxed);
+        self.proxy_started_at.store(0, Ordering::Relaxed);
+    }
+
+    pub fn get_proxy_pid(&self) -> u32 {
+        self.proxy_pid.load(Ordering::Relaxed)
+    }
+
+    pub fn proxy_status(&self, proxy_port: u16) -> ProxyStatus {
+        let pid_val = self.proxy_pid.load(Ordering::Relaxed);
+        let running = pid_val != 0;
+
+        let uptime = if running {
+            let started = self.proxy_started_at.load(Ordering::Relaxed);
+            if started > 0 {
+                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs();
+                now.saturating_sub(started)
+            } else {
+                0
+            }
+        } else {
+            0
+        };
+
+        ProxyStatus {
+            running,
+            pid: if running { Some(pid_val) } else { None },
+            port: proxy_port,
+            uptime,
+        }
+    }
+
+    // ── 内部 ──
+
+    fn query_process_metrics(&self, pid: u32) -> (f64, f32) {
+        let mut sys = System::new();
+        let target = sysinfo::Pid::from_u32(pid);
+        sys.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[target]), true);
+        if let Some(proc) = sys.process(target) {
+            let mem_mb = proc.memory() as f64 / 1024.0 / 1024.0;
+            let cpu = proc.cpu_usage();
+            (round1(mem_mb), cpu)
+        } else {
+            (0.0, 0.0)
+        }
+    }
 }
 
-/// 保留一位小数
 fn round1(v: f64) -> f64 {
     (v * 10.0).round() / 10.0
 }
